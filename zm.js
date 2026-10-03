@@ -84,6 +84,7 @@
       save(d);
       var after = rankFor(p.xp);
       if (xp > 0) toast('+' + xp + ' XP · ' + p.name, after.name !== before ? 'Naujas rangas: ' + after.name + '!' : null);
+      if (after.name !== before) refreshChips();
       return { xp: xp, record: record, rank: after.name, rankUp: after.name !== before };
     },
   };
@@ -144,6 +145,14 @@
       if (p) c.querySelector('b').textContent = p.name;
       c.setAttribute('aria-label', p ? 'Žaidžia ' + p.name : 'Pasirink vardą meniu');
       l.insertAdjacentElement('afterend', c);
+    }
+  }
+  // redraw existing chips, e.g. after a rank-up mid-game
+  function refreshChips() {
+    var p = current(), chips = document.querySelectorAll('.zm-chip');
+    for (var i = 0; i < chips.length; i++) {
+      chips[i].innerHTML = chipHTML(p);
+      if (p) chips[i].querySelector('b').textContent = p.name;
     }
   }
   if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', decorate);

@@ -37,6 +37,8 @@ h1 {
   margin: 0; font-family: var(--word); font-weight: 900; font-size: clamp(2.8rem, 10vw, 4.4rem); line-height: 1; letter-spacing: 0.04em;
   color: var(--gold); text-shadow: 4px 4px 0 #8a5a12, 8px 8px 0 #000;
 }
+.group { display: grid; gap: 14px; }
+.group-title { margin: 0; font-family: var(--word); font-weight: 900; font-size: 1.7rem; color: var(--gem); text-shadow: 3px 3px 0 #000; }
 .games { list-style: none; margin: 0; padding: 0; display: grid; gap: 20px; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); }
 .card {
   display: grid; grid-template-rows: auto 1fr; background: var(--stone-lo); min-width: 0;
@@ -113,29 +115,98 @@ h1 {
 
   <section class="who" id="who" aria-live="polite"></section>
 
-  <ul class="games">
+  <section class="group">
+    <h2 class="group-title">Programavimas ir AI</h2>
+    <ul class="games">
     <li>
-      <a class="card" id="unicorn" href="unicorn/" data-game="unicorn">
-        <img src="img/unicorn.jpg" alt="Vienaragis gaudo žvaigždes naktiniame danguje" width="480" height="960">
+      <a class="card" href="robot-miner/" data-game="robot-miner">
+        <img src="img/robot-miner.jpg" alt="Robotas oloje ir deimantas, komandų mygtukai" width="640" height="480">
         <div class="body">
-          <h2>Unicorn Star Catch</h2>
-          <p>Gaudyk krentančias žvaigždes.</p>
+          <h2>Robot Miner</h2>
+          <span class="tag">KOMANDOS</span>
+          <p>Nuvesk robotą iki deimanto.</p>
           <p class="mine" data-best></p>
           <span class="go">Žaisti</span>
         </div>
       </a>
     </li>
     <li>
-      <a class="card" id="ore" href="ore-rush/" data-game="ore-rush">
-        <img src="img/ore-rush.jpg" alt="Kalnakasys vagonėlyje gaudo rūdos blokus oloje" width="480" height="960">
+      <a class="card" href="bitas-draws/" data-game="bitas-draws">
+        <img src="img/bitas-draws.jpg" alt="Robotas Bitas ant piešimo tinklelio" width="640" height="480">
         <div class="body">
-          <h2>Ore Rush</h2>
-          <p>Rink rūdą. Saugokis TNT.</p>
+          <h2>Robotas Bitas piešia</h2>
+          <span class="tag">CIKLAI</span>
+          <p>Liepk robotui nupiešti paveikslą.</p>
           <p class="mine" data-best></p>
           <span class="go">Žaisti</span>
         </div>
       </a>
     </li>
+    <li>
+      <a class="card" href="bug-hunt/" data-game="bug-hunt">
+        <img src="img/bug-hunt.jpg" alt="Robotas oloje ir parašyta programa su klaida" width="640" height="480">
+        <div class="body">
+          <h2>Klaidų medžioklė</h2>
+          <span class="tag">KLAIDŲ TAISYMAS</span>
+          <p>Programoje yra klaida. Rask ir pataisyk.</p>
+          <p class="mine" data-best></p>
+          <span class="go">Žaisti</span>
+        </div>
+      </a>
+    </li>
+    <li>
+      <a class="card" href="sorting-factory/" data-game="sorting-factory">
+        <img src="img/sorting-factory.jpg" alt="Konvejeris su spalvotais daiktais ir dėžės" width="640" height="480">
+        <div class="body">
+          <h2>Rūšiavimo fabrikas</h2>
+          <span class="tag">SĄLYGOS: JEI</span>
+          <p>Sukurk taisykles ir surūšiuok daiktus.</p>
+          <p class="mine" data-best></p>
+          <span class="go">Žaisti</span>
+        </div>
+      </a>
+    </li>
+    <li>
+      <a class="card" href="binary-picture/" data-game="binary-picture">
+        <img src="img/binary-picture.jpg" alt="Tinklelis su nuliais ir vienetais" width="640" height="480">
+        <div class="body">
+          <h2>Dvejetainis paveikslas</h2>
+          <span class="tag">NULIAI IR VIENETAI</span>
+          <p>Nuliai ir vienetai virsta paveikslu.</p>
+          <p class="mine" data-best></p>
+          <span class="go">Žaisti</span>
+        </div>
+      </a>
+    </li>
+    <li>
+      <a class="card" href="teach-ai/" data-game="teach-ai">
+        <img src="img/teach-ai.jpg" alt="Monstras ir mygtukai Piktas arba Draugiškas" width="640" height="480">
+        <div class="body">
+          <h2>Išmokyk AI</h2>
+          <span class="tag">KAIP MOKOSI AI</span>
+          <p>Parodyk pavyzdžių ir išmokyk robotą.</p>
+          <p class="mine" data-best></p>
+          <span class="go">Žaisti</span>
+        </div>
+      </a>
+    </li>
+    <li>
+      <a class="card" href="ai-detective/" data-game="ai-detective">
+        <img src="img/ai-detective.jpg" alt="Piešinys su paslėpta AI klaida" width="640" height="480">
+        <div class="body">
+          <h2>AI detektyvas</h2>
+          <span class="tag">AR TIKĖTI AI?</span>
+          <p>Rask AI klaidas ir išsigalvojimus.</p>
+          <p class="mine" data-best></p>
+          <span class="go">Žaisti</span>
+        </div>
+      </a>
+    </li>
+    </ul>
+  </section>
+  <section class="group">
+    <h2 class="group-title">Mokomės</h2>
+    <ul class="games">
     <li>
       <a class="card" id="siege" href="key-siege/" data-game="key-siege">
         <img src="img/key-siege.jpg" alt="Lankininkas ant pilies bokšto, zombis su žodžiu virš galvos" width="640" height="400">
@@ -143,18 +214,6 @@ h1 {
           <h2>Key Siege</h2>
           <span class="tag">MOKOMĖS RAŠYTI</span>
           <p>Parašyk žodį ir apgink pilį.</p>
-          <p class="mine" data-best></p>
-          <span class="go">Žaisti</span>
-        </div>
-      </a>
-    </li>
-    <li>
-      <a class="card" href="robot-miner/" data-game="robot-miner">
-        <img src="img/robot-miner.jpg" alt="Robotas oloje ir deimantas, komandų mygtukai" width="640" height="480">
-        <div class="body">
-          <h2>Robot Miner</h2>
-          <span class="tag">MOKOMĖS PROGRAMUOTI</span>
-          <p>Nuvesk robotą iki deimanto.</p>
           <p class="mine" data-best></p>
           <span class="go">Žaisti</span>
         </div>
@@ -184,7 +243,35 @@ h1 {
         </div>
       </a>
     </li>
-  </ul>
+    </ul>
+  </section>
+  <section class="group">
+    <h2 class="group-title">Poilsiui</h2>
+    <ul class="games">
+    <li>
+      <a class="card" id="unicorn" href="unicorn/" data-game="unicorn">
+        <img src="img/unicorn.jpg" alt="Vienaragis gaudo žvaigždes naktiniame danguje" width="480" height="960">
+        <div class="body">
+          <h2>Unicorn Star Catch</h2>
+          <p>Gaudyk krentančias žvaigždes.</p>
+          <p class="mine" data-best></p>
+          <span class="go">Žaisti</span>
+        </div>
+      </a>
+    </li>
+    <li>
+      <a class="card" id="ore" href="ore-rush/" data-game="ore-rush">
+        <img src="img/ore-rush.jpg" alt="Kalnakasys vagonėlyje gaudo rūdos blokus oloje" width="480" height="960">
+        <div class="body">
+          <h2>Ore Rush</h2>
+          <p>Rink rūdą. Saugokis TNT.</p>
+          <p class="mine" data-best></p>
+          <span class="go">Žaisti</span>
+        </div>
+      </a>
+    </li>
+    </ul>
+  </section>
 
   <section class="qr" aria-label="Nuoroda planšetėms">
     <img src="img/qr.svg" alt="QR kodas su nuoroda gytiskind.github.io/zaidimai" width="180" height="180">
@@ -206,6 +293,12 @@ h1 {
     'robot-miner': (n) => `Tavo žvaigždės: ${n} / 36`,
     'word-builder': (n) => `Tavo rekordas: ${n} taškų`,
     'element-craft': (n) => `Atrasta: ${n} / 42`,
+    'bitas-draws': (n) => `Tavo žvaigždės: ${n} / 30`,
+    'bug-hunt': (n) => `Tavo žvaigždės: ${n} / 30`,
+    'sorting-factory': (n) => `Tavo žvaigždės: ${n} / 30`,
+    'binary-picture': (n) => `Tavo žvaigždės: ${n} / 30`,
+    'teach-ai': (n) => `Tavo žvaigždės: ${n} / 24`,
+    'ai-detective': (n) => `Tavo rekordas: ${n} / 32`,
   };
   let delId = null;
   const esc = (t) => String(t).replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));

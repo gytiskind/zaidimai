@@ -1,0 +1,766 @@
+<!doctype html>
+<html lang="lt">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<style>body{margin:0}.zm-back{display:inline-flex;align-items:center;justify-self:center;align-self:center;font:900 0.95rem "Nunito","Arial Rounded MT Bold",system-ui,sans-serif;color:#f3f0f7;text-decoration:none;background:#3b3846;border:3px solid;border-color:#6e6a7c #1f1c27 #1f1c27 #6e6a7c;box-shadow:0 0 0 2px #000;padding:5px 12px;touch-action:manipulation;white-space:nowrap}.zm-back:focus-visible{outline:3px solid #4de8d6;outline-offset:3px}</style>
+<script src="../zm.js"></script>
+<title>Teach the AI</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Nunito:wght@700;800;900&family=Pixelify+Sans:wght@400;700&display=swap">
+<style>
+/* layout: top bar; one centered column with the rule card, the teaching stage (example + labels, or the AI test) and the AI's memory of examples */
+:root {
+  --night: #141b3a;
+  --dusk: #3a3570;
+  --stone: #3b3846;
+  --stone-hi: #6e6a7c;
+  --stone-lo: #1f1c27;
+  --gold: #ffcc33;
+  --gem: #4de8d6;
+  --red: #e0402e;
+  --grass: #5cbf3a;
+  --grass-hi: #8ee35f;
+  --grass-lo: #2f7a1c;
+  --ink: #f3f0f7;
+  --ink-dim: #b7b1c2;
+  --well: #0e0c14;
+  --pixel: "Pixelify Sans", "Courier New", ui-monospace, monospace;
+  --word: "Nunito", "Arial Rounded MT Bold", system-ui, sans-serif;
+  color-scheme: dark;
+}
+[hidden] { display: none !important; }
+html, body { height: 100%; }
+body {
+  background: var(--night);
+  background-image: linear-gradient(180deg, #141b3a 0%, #24204a 70%, #2e2a5c 100%);
+  color: var(--ink);
+  font-family: var(--word);
+  overflow: hidden;
+  touch-action: manipulation;
+  user-select: none;
+  -webkit-user-select: none;
+  -webkit-touch-callout: none;
+  -webkit-tap-highlight-color: transparent;
+}
+#app { position: fixed; inset: 0; display: grid; grid-template-rows: auto minmax(0, 1fr); }
+img.px { image-rendering: pixelated; display: block; }
+
+.btn {
+  font: inherit; font-weight: 800; color: var(--ink); cursor: pointer; touch-action: manipulation;
+  background: var(--stone); border: 3px solid; border-color: var(--stone-hi) var(--stone-lo) var(--stone-lo) var(--stone-hi);
+  box-shadow: 0 0 0 2px #000;
+}
+.btn:focus-visible { outline: 3px solid var(--gem); outline-offset: 3px; }
+.btn:active { border-color: var(--stone-lo) var(--stone-hi) var(--stone-hi) var(--stone-lo); }
+.btn:disabled { opacity: 0.45; cursor: default; }
+.small { font-weight: 800; font-size: 0.9rem; padding: 4px 10px; }
+.small[aria-pressed="true"] { background: var(--stone-lo); color: var(--ink-dim); text-decoration: line-through; }
+.play {
+  font-weight: 900; font-size: 1.35rem; letter-spacing: 0.04em; color: #fff;
+  background: var(--grass); border-color: var(--grass-hi) var(--grass-lo) var(--grass-lo) var(--grass-hi);
+  text-shadow: 2px 2px 0 var(--grass-lo);
+}
+.play:active { border-color: var(--grass-lo) var(--grass-hi) var(--grass-hi) var(--grass-lo); }
+.play.ready { animation: ready 1.1s ease-in-out infinite; }
+@keyframes ready { 50% { box-shadow: 0 0 0 2px #000, 0 0 0 7px rgba(142, 227, 95, 0.45); } }
+
+/* top bar */
+.top {
+  display: flex; align-items: center; gap: 10px;
+  padding: calc(env(safe-area-inset-top, 0px) + 8px) 12px 8px;
+  background: var(--stone-lo); border-bottom: 4px solid #000;
+}
+.top .title { flex: 1; min-width: 0; font-weight: 900; font-size: 1.2rem; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.top .title b { color: var(--gold); }
+
+/* main column */
+.main { overflow-y: auto; min-height: 0; padding: 12px 16px calc(env(safe-area-inset-bottom, 0px) + 16px); }
+.col { max-width: 740px; margin: 0 auto; display: grid; gap: 12px; }
+.rule {
+  display: flex; align-items: center; gap: 12px; padding: 10px 12px;
+  background: var(--stone-lo); border: 3px solid #000; box-shadow: inset 0 0 0 2px var(--stone);
+}
+.rule .tag { flex: none; background: var(--gold); color: #2a1d00; font-weight: 900; font-size: 0.8rem; letter-spacing: 0.08em; text-transform: uppercase; padding: 3px 8px; }
+.rule p { margin: 0; flex: 1; font-weight: 800; font-size: 1.12rem; line-height: 1.3; }
+.rule img { width: 36px; height: 36px; flex: none; }
+
+.stage {
+  display: grid; gap: 12px; justify-items: center; padding: 14px;
+  background: rgba(31, 28, 39, 0.82); border: 4px solid; border-color: var(--stone-hi) #000 #000 var(--stone-hi);
+  box-shadow: 0 0 0 2px #000;
+}
+.ask { margin: 0; font-weight: 900; font-size: 1.25rem; text-align: center; }
+.note { margin: 0; font-weight: 800; font-size: 1.05rem; color: var(--gem); text-align: center; max-width: 34ch; }
+.creature { width: min(170px, 40vw); height: auto; aspect-ratio: 1; background: var(--well); border: 3px solid #000; box-shadow: inset 0 0 0 2px var(--stone); }
+.creature.pop { animation: pop 0.25s steps(3); }
+@keyframes pop { from { transform: scale(0.8); } to { transform: scale(1); } }
+.labels { display: flex; gap: 12px; flex-wrap: wrap; justify-content: center; width: 100%; }
+.lab {
+  flex: 1 1 150px; max-width: 250px; min-height: 76px; display: flex; align-items: center; justify-content: center; gap: 10px;
+  font-weight: 900; font-size: 1.3rem;
+}
+.lab img { width: 44px; height: 44px; }
+.feats { display: flex; flex-wrap: wrap; gap: 8px; justify-content: center; }
+.feat { font-weight: 900; font-size: 1.05rem; padding: 10px 14px; min-height: 48px; }
+.feat[aria-pressed="true"] { background: var(--gem); color: #0d2a27; border-color: #b8fff6 #157a70 #157a70 #b8fff6; }
+.feat[aria-pressed="false"] { opacity: 0.6; text-decoration: line-through; }
+
+/* AI memory of examples */
+.mem-head { display: flex; justify-content: space-between; align-items: center; gap: 10px; font-weight: 900; }
+.mem-head .robot { display: flex; align-items: center; gap: 8px; }
+.mem-head .robot img { width: 30px; height: 30px; }
+.count { font-weight: 900; color: var(--ink); background: #000; padding: 3px 10px; font-variant-numeric: tabular-nums; }
+.memory {
+  display: flex; flex-wrap: wrap; gap: 10px; min-height: 78px; align-content: flex-start;
+  background: var(--well); border: 3px solid #000; box-shadow: inset 0 0 0 2px var(--stone); padding: 10px;
+}
+.memory .empty { font-weight: 800; color: var(--ink-dim); align-self: center; }
+.thumb {
+  position: relative; width: 60px; height: 60px; padding: 0; flex: none; cursor: pointer;
+  background: var(--stone); border: 3px solid; border-color: var(--stone-hi) #000 #000 var(--stone-hi);
+}
+.thumb img.c { width: 100%; height: 100%; }
+.thumb img.b { position: absolute; right: -8px; bottom: -8px; width: 28px; height: 28px; background: #000; border: 2px solid #000; }
+.thumb.flip { animation: flip 0.3s steps(3); }
+@keyframes flip { 50% { transform: rotate(-8deg) scale(1.1); } }
+.thumb:focus-visible { outline: 3px solid var(--gem); outline-offset: 3px; }
+.thumb.still { cursor: default; }
+.ctrl { display: flex; gap: 10px; }
+.ctrl .play { flex: 2; height: 62px; }
+.ctrl .btn:not(.play) { flex: 1; height: 62px; font-weight: 900; font-size: 1rem; }
+
+/* test */
+.verdict { display: flex; align-items: center; justify-content: center; gap: 10px; flex-wrap: wrap; font-weight: 900; font-size: 1.3rem; min-height: 56px; }
+.verdict img { width: 44px; height: 44px; }
+.verdict .think { color: var(--ink-dim); }
+.mark { width: 50px; height: 50px; display: grid; place-items: center; font-size: 2rem; font-weight: 900; color: #fff; border: 3px solid #000; }
+.mark.ok { background: var(--grass); }
+.mark.no { background: var(--red); }
+.near { display: flex; flex-wrap: wrap; gap: 12px; align-items: center; justify-content: center; font-weight: 800; color: var(--ink-dim); }
+.results { display: grid; grid-template-columns: repeat(10, minmax(0, 1fr)); gap: 4px; width: 100%; }
+.res { position: relative; aspect-ratio: 1; background: var(--well); border: 2px solid #000; }
+.res img { width: 100%; height: 100%; }
+.res.ok { box-shadow: inset 0 -7px 0 var(--grass); }
+.res.no { box-shadow: inset 0 -7px 0 var(--red); }
+.res.now { outline: 3px solid var(--gold); outline-offset: 1px; }
+
+/* overlays */
+.overlay {
+  position: fixed; inset: 0; z-index: 5; display: grid; place-items: center;
+  padding: calc(env(safe-area-inset-top, 0px) + 16px) 16px calc(env(safe-area-inset-bottom, 0px) + 16px);
+  background: radial-gradient(ellipse at 50% 45%, rgba(12, 10, 24, 0.4), rgba(12, 10, 24, 0.86) 75%);
+  overflow-y: auto;
+}
+.panel {
+  width: 100%; max-width: 460px; display: grid; gap: 14px; justify-items: center; text-align: center;
+  background: rgba(31, 28, 39, 0.96); padding: 18px 18px 20px;
+  border: 4px solid; border-color: var(--stone-hi) var(--stone-lo) var(--stone-lo) var(--stone-hi);
+  box-shadow: 0 0 0 3px #000, 8px 8px 0 3px rgba(0, 0, 0, 0.45);
+}
+h1, h2 { margin: 0; font-weight: 900; line-height: 0.95; letter-spacing: 0.03em; text-wrap: balance; }
+h1 { font-size: clamp(2.5rem, 11vw, 3.4rem); color: var(--gold); text-shadow: 4px 4px 0 #8a5a12, 8px 8px 0 #000; }
+h1 span { display: block; color: var(--gem); text-shadow: 4px 4px 0 #157a70, 8px 8px 0 #000; }
+h2 { font-size: clamp(1.8rem, 8vw, 2.3rem); color: var(--gem); text-shadow: 3px 3px 0 #157a70, 6px 6px 0 #000; }
+.hero { width: 96px; height: 96px; }
+.lead { margin: 0; font-weight: 700; font-size: 1.05rem; line-height: 1.4; max-width: 32ch; }
+.seg { display: flex; }
+.seg .btn { font-size: 0.95rem; padding: 4px 14px; }
+.seg .btn[aria-pressed="true"] { background: var(--gold); color: #2a1d00; border-color: #fff0a8 #b8861a #b8861a #fff0a8; }
+.levels { display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; width: 100%; }
+.lvl { aspect-ratio: 1; max-width: 100%; display: grid; place-items: center; align-content: center; gap: 4px; padding: 4px; font-family: var(--pixel); font-weight: 700; font-size: 1.7rem; }
+.lvl:disabled { opacity: 0.35; }
+.stars { display: flex; gap: 2px; justify-content: center; }
+.star { width: 14px; height: 14px; background: #000; clip-path: polygon(50% 0, 61% 35%, 98% 35%, 68% 57%, 79% 91%, 50% 70%, 21% 91%, 32% 57%, 2% 35%, 39% 35%); }
+.star.on { background: var(--gold); }
+.stars.big .star { width: 44px; height: 44px; }
+.stars.big { gap: 8px; }
+.stars.big .star.on { animation: starpop 0.35s steps(4) both; }
+.stars.big .star:nth-child(2) { animation-delay: 0.15s; }
+.stars.big .star:nth-child(3) { animation-delay: 0.3s; }
+@keyframes starpop { from { transform: scale(1.8); } to { transform: scale(1); } }
+.lesson { margin: 0; font-weight: 800; font-size: 1.08rem; line-height: 1.35; max-width: 32ch; color: var(--ink); background: var(--stone-lo); border: 2px solid #000; padding: 10px 12px; }
+.row-btns { display: flex; gap: 10px; flex-wrap: wrap; justify-content: center; }
+.row-btns .btn { font-weight: 900; font-size: 1.1rem; padding: 10px 20px; }
+@media (prefers-reduced-motion: reduce) {
+  .play.ready, .creature.pop, .thumb.flip, .stars.big .star.on { animation: none; }
+}
+</style>
+
+<div id="app">
+  <div class="top">
+    <a class="zm-back" href="../">← Meniu</a>
+    <button class="btn small" id="toLevels" type="button" data-t="levels">Lygiai</button>
+    <div class="title"><span data-t="level">Lygis</span> <b id="lvlNum">1</b></div>
+    <button class="btn small" id="mute" type="button" aria-pressed="false" data-t="sound">Garsas</button>
+  </div>
+  <div class="main">
+    <div class="col">
+      <div class="rule" id="rule"></div>
+      <div class="stage" id="stage"></div>
+      <div class="mem-head">
+        <div class="robot"><img class="px" id="robotIcon" alt=""><span data-t="memory">AI atmintis</span></div>
+        <span class="count" id="count">0</span>
+      </div>
+      <div class="memory" id="memory" aria-live="polite"></div>
+      <div class="ctrl" id="ctrl">
+        <button class="btn play" id="test" type="button" data-t="test">TESTUOTI AI</button>
+        <button class="btn" id="restart" type="button" data-t="restart">Iš naujo</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="overlay" id="levelsOv">
+  <div class="panel">
+    <div class="seg" role="group" aria-label="Language">
+      <button class="btn" type="button" data-lang="lt" aria-pressed="true">LT</button>
+      <button class="btn" type="button" data-lang="en" aria-pressed="false">EN</button>
+    </div>
+    <img class="px hero" id="heroIcon" alt="">
+    <h1 id="gameTitle">IŠMOKYK <span>AI</span></h1>
+    <p class="lead" data-t="lead"></p>
+    <div class="levels" id="levels"></div>
+    <a class="zm-back" href="../">← Meniu</a>
+  </div>
+</div>
+
+<div class="overlay" id="endOv" hidden>
+  <div class="panel">
+    <h2 id="endTitle"></h2>
+    <div class="stars big" id="endStars"><i class="star"></i><i class="star"></i><i class="star"></i></div>
+    <p class="lesson" id="endLesson"></p>
+    <div class="row-btns">
+      <button class="btn" id="more" type="button" data-t="more">Mokyti toliau</button>
+      <button class="btn play" id="next" type="button" data-t="next">Kitas lygis</button>
+    </div>
+    <button class="btn small" id="endLevels" type="button" data-t="levels">Lygiai</button>
+    <a class="zm-back" href="../">← Meniu</a>
+  </div>
+</div>
+
+<script>
+(() => {
+  // site profiles (zaidimai/zm.js); absent in the claude.ai version, so everything falls back
+  const ZM = window.ZM || null;
+  const NS = (k) => (ZM ? ZM.ns(k) : k);
+  const $ = (id) => document.getElementById(id);
+  const reduce = matchMedia('(prefers-reduced-motion: reduce)').matches;
+
+  /*CORE-START*/
+  const FEATS = ['color', 'horns', 'eyes', 'spots', 'size'];
+  function rng(seed) {
+    return () => {
+      seed = (seed + 0x6d2b79f5) | 0;
+      let t = Math.imul(seed ^ (seed >>> 15), 1 | seed);
+      t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t;
+      return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+    };
+  }
+  function shuffle(a, r) { for (let i = a.length - 1; i > 0; i--) { const j = (r() * (i + 1)) | 0; [a[i], a[j]] = [a[j], a[i]]; } return a; }
+  function combos(vary, base) {
+    let out = [Object.assign({}, base)];
+    for (const f of Object.keys(vary)) {
+      const nx = [];
+      for (const o of out) for (const v of vary[f]) nx.push(Object.assign({}, o, { [f]: v }));
+      out = nx;
+    }
+    return out;
+  }
+  // distance = how many of the allowed features differ
+  function dist(a, b, feats) { let d = 0; for (const f of feats) if (a[f] !== b[f]) d++; return d; }
+  // k-nearest neighbours: the k closest examples vote (ties at the k-th distance vote too), closer votes count more
+  function knn(train, x, feats, k = 3) {
+    const s = train.map((t, i) => ({ t, i, d: dist(t.c, x, feats) })).sort((p, q) => p.d - q.d || p.i - q.i);
+    if (!s.length) return { label: 0, near: [] };
+    const kk = Math.min(k, s.length), cut = s[kk - 1].d;
+    const w = [0, 0];
+    for (const e of s) if (e.d <= cut) w[e.t.label] += 1 / (1 + e.d);
+    const label = w[0] === w[1] ? s[0].t.label : w[1] > w[0] ? 1 : 0;
+    return { label, near: s.slice(0, 3) };
+  }
+  // a good teacher shows varied examples: each next one is the most different from those already shown
+  function diverse(list, seed) {
+    const r = rng(seed), pool = shuffle(list.slice(), r), out = [pool.shift()];
+    while (pool.length) {
+      let bi = 0, bd = -1;
+      pool.forEach((c, i) => { const md = Math.min(...out.map((o) => dist(o, c, FEATS))); if (md > bd) { bd = md; bi = i; } });
+      out.push(pool.splice(bi, 1)[0]);
+    }
+    return out;
+  }
+  const C3 = ['red', 'blue', 'green'], C4 = ['red', 'blue', 'green', 'yellow'];
+  const LEVELS = [
+    { pair: 'grumpy', rule: (c) => c.horns === 1, vary: { horns: [1, 0], color: ['red', 'blue'], eyes: [1, 2] }, base: { spots: 0, size: 1 }, min: 4, max: 8, seed: 11 },
+    { pair: 'ice', rule: (c) => c.color === 'blue', vary: { color: C4, horns: [1, 0], eyes: [1, 2, 3] }, base: { spots: 0, size: 1 }, min: 4, max: 12, seed: 12 },
+    { pair: 'sick', rule: (c) => c.spots === 1, vary: { spots: [1, 0], color: C4, eyes: [1, 2, 3], horns: [1, 0] }, base: { size: 1 }, min: 4, firstCap: 4, max: 14, seed: 1150, order: 'random' },
+    { pair: 'grumpy', rule: (c) => c.horns === 1, vary: { horns: [1, 0], color: C3, size: [1, 0], eyes: [1, 2] }, base: { spots: 0 }, min: 6, firstCap: 6, max: 14, seed: 14, special: 'bias' },
+    { pair: 'sick', rule: (c) => c.spots === 1, vary: { spots: [1, 0], color: C3, size: [1, 0] }, base: { horns: 0, eyes: 2 }, seed: 15, special: 'mislabel' },
+    { pair: 'grumpy', rule: (c) => c.horns === 1, vary: { horns: [1, 0], color: C4, eyes: [1, 2, 3], spots: [1, 0], size: [1, 0] }, base: {}, seed: 157, special: 'features' },
+    { pair: 'king', rule: (c) => c.horns === 1 && c.size === 1, vary: { horns: [1, 0], size: [1, 0], color: ['red', 'blue'], eyes: [1, 2] }, base: { spots: 0 }, min: 4, max: 14, seed: 17 },
+    { pair: 'night', rule: (c) => c.color === 'blue' || c.eyes === 3, vary: { color: C3, eyes: [1, 2, 3], horns: [1, 0] }, base: { spots: 0, size: 1 }, min: 4, max: 14, seed: 18 },
+  ];
+  // builds the example stream (or pre-filled memory) and the 10 test monsters for a level
+  function buildLevel(L) {
+    const all = combos(L.vary, L.base);
+    const r = rng(L.seed * 7 + 3);
+    const tests = [];
+    const tpool = shuffle(all.slice(), r);
+    for (let i = 0; tests.length < 10; i++) tests.push(tpool[i % tpool.length]);
+    const out = { tests, stream: [], prefill: null };
+    if (L.special === 'bias') {
+      // every grumpy example is red and big, every friendly one is blue or green and small
+      const mk = (list) => list.map(([h, color, size, eyes]) => Object.assign({}, L.base, { horns: h, color, size, eyes }));
+      out.stream = mk([
+        [1, 'red', 1, 1], [0, 'blue', 0, 1], [1, 'red', 1, 2], [0, 'green', 0, 2], [1, 'red', 1, 1], [0, 'blue', 0, 2],
+        [1, 'blue', 0, 1], [0, 'red', 1, 1], [1, 'green', 0, 2], [0, 'red', 1, 2], [1, 'blue', 1, 2], [0, 'red', 0, 1],
+        [1, 'red', 0, 2], [0, 'green', 1, 1],
+      ]);
+      // the test leans on monsters the one-sided examples never showed
+      out.tests = mk([
+        [1, 'blue', 0, 1], [0, 'red', 1, 2], [1, 'green', 0, 1], [0, 'red', 1, 1], [1, 'blue', 0, 2],
+        [1, 'red', 1, 2], [0, 'green', 0, 1], [0, 'red', 0, 2], [1, 'green', 1, 2], [0, 'blue', 1, 1],
+      ]);
+    } else if (L.special === 'mislabel') {
+      const ex = diverse(all, L.seed).slice(0, 8);
+      out.prefill = ex.map((c, i) => ({ c, label: (L.rule(c) ? 1 : 0) ^ (i === 2 || i === 5 ? 1 : 0), wrong: i === 2 || i === 5 }));
+    } else if (L.special === 'features') {
+      const ex = shuffle(all.slice(), rng(L.seed)).slice(0, 8);
+      out.prefill = ex.map((c) => ({ c, label: L.rule(c) ? 1 : 0 }));
+    } else {
+      out.stream = (L.order === 'random' ? shuffle(all.slice(), rng(L.seed)) : diverse(all, L.seed)).slice(0, L.max);
+    }
+    return out;
+  }
+  function accuracy(L, data, memory, feats) {
+    return data.tests.filter((x) => knn(memory, x, feats).label === (L.rule(x) ? 1 : 0)).length;
+  }
+/*CORE-END*/
+
+  /* ---------- text ---------- */
+  const TXT = {
+    lt: {
+      title: ['IŠMOKYK', 'AI'],
+      lead: 'Tu žinai taisyklę. Parodyk AI pavyzdžių ir patikrink, ar jis išmoko.',
+      levels: 'Lygiai', level: 'Lygis', sound: 'Garsas', rule: 'Taisyklė', memory: 'AI atmintis',
+      test: 'TESTUOTI AI', restart: 'Iš naujo', faster: 'Greičiau', more: 'Mokyti toliau', next: 'Kitas lygis',
+      ask: 'Koks šitas monstras?', empty: 'Dar tuščia. AI nieko nežino.',
+      enough: 'Daugiau pavyzdžių kol kas nėra. Testuok AI!',
+      checkMem: 'Peržiūrėk AI atmintį. Paliesk monstrą, jei etiketė neteisinga.',
+      pickFeats: 'Pasirink, į ką AI žiūri.',
+      featsOn: 'AI žiūri į:',
+      feat: { color: 'Spalva', horns: 'Ragai', eyes: 'Akys', spots: 'Dėmės', size: 'Dydis' },
+      think: 'AI galvoja...', says: 'AI sako:', near: 'Panašiausi:',
+      score: (n) => `AI atspėjo ${n} iš 10`,
+      pairs: { grumpy: ['Piktas', 'Draugiškas'], ice: ['Ledo', 'Ugnies'], sick: ['Serga', 'Sveikas'], king: ['Karalius', 'Paprastas'], night: ['Nakties', 'Dienos'] },
+      rules: [
+        'Monstrai su ragais yra pikti.',
+        'Mėlyni monstrai yra ledo, kiti ugnies.',
+        'Monstrai su dėmėmis serga.',
+        'Monstrai su ragais yra pikti.',
+        'Monstrai su dėmėmis serga.',
+        'Monstrai su ragais yra pikti.',
+        'Dideli monstrai su ragais yra karaliai.',
+        'Mėlyni monstrai ir monstrai su 3 akimis mėgsta naktį.',
+      ],
+      lessons: [
+        ['AI mokosi tik iš pavyzdžių, kuriuos jam parodai.', 'AI mokosi tik iš pavyzdžių, kuriuos jam parodai.'],
+        ['Duok įvairesnių pavyzdžių, ir AI klys rečiau.', 'Įvairūs pavyzdžiai padeda AI.'],
+        ['Per mažai pavyzdžių, ir AI spėlioja. Duok daugiau!', 'Daugiau pavyzdžių, mažiau klaidų.'],
+        ['Visi pikti pavyzdžiai buvo raudoni ir dideli. AI manė, kad tai ir yra piktumas!', 'Įvairūs pavyzdžiai ištaisė AI šališkumą.'],
+        ['Klaidingi pavyzdžiai moko AI klaidų. Rask juos ir pataisyk.', 'Teisingi duomenys, teisingi atsakymai.'],
+        ['AI žiūri į viską, net į tai, kas nesvarbu.', 'Kai AI žiūri tik į tai, kas svarbu, jis neklysta.'],
+        ['Taisyklei su dviem požymiais reikia daugiau pavyzdžių.', 'AI išmoko taisyklę su dviem požymiais!'],
+        ['Su dviem požymiais AI reikia daug pavyzdžių.', 'Tu išmokei AI sudėtingą taisyklę!'],
+      ],
+    },
+    en: {
+      title: ['TEACH', 'THE AI'],
+      lead: 'You know the rule. Show the AI examples, then test if it learned.',
+      levels: 'Levels', level: 'Level', sound: 'Sound', rule: 'Rule', memory: 'AI memory',
+      test: 'TEST THE AI', restart: 'Restart', faster: 'Faster', more: 'Teach more', next: 'Next level',
+      ask: 'What is this monster?', empty: 'Empty. The AI knows nothing yet.',
+      enough: 'No more examples for now. Test the AI!',
+      checkMem: 'Check the AI memory. Tap a monster if its label is wrong.',
+      pickFeats: 'Choose what the AI looks at.',
+      featsOn: 'The AI looks at:',
+      feat: { color: 'Color', horns: 'Horns', eyes: 'Eyes', spots: 'Spots', size: 'Size' },
+      think: 'The AI is thinking...', says: 'The AI says:', near: 'Most similar:',
+      score: (n) => `The AI got ${n} of 10 right`,
+      pairs: { grumpy: ['Grumpy', 'Friendly'], ice: ['Ice', 'Fire'], sick: ['Sick', 'Healthy'], king: ['King', 'Regular'], night: ['Night', 'Day'] },
+      rules: [
+        'Monsters with horns are grumpy.',
+        'Blue monsters are ice, the rest are fire.',
+        'Monsters with spots are sick.',
+        'Monsters with horns are grumpy.',
+        'Monsters with spots are sick.',
+        'Monsters with horns are grumpy.',
+        'Big monsters with horns are kings.',
+        'Blue monsters and monsters with 3 eyes love the night.',
+      ],
+      lessons: [
+        ['The AI learns only from the examples you show it.', 'The AI learns only from the examples you show it.'],
+        ['Give more varied examples and the AI makes fewer mistakes.', 'Varied examples help the AI.'],
+        ['Too few examples and the AI guesses. Give it more!', 'More examples, fewer mistakes.'],
+        ['Every grumpy example was red and big. The AI thought that is what grumpy means!', 'Varied examples fixed the AI bias.'],
+        ['Wrong examples teach the AI wrong answers. Find them and fix them.', 'Right data, right answers.'],
+        ['The AI looks at everything, even things that do not matter.', 'When the AI looks only at what matters, it gets it right.'],
+        ['A rule with two features needs more examples.', 'The AI learned a rule with two features!'],
+        ['With two features the AI needs many examples.', 'You taught the AI a tricky rule!'],
+      ],
+    },
+  };
+
+  /* ---------- storage ---------- */
+  let lang = 'lt', muted = false, progress = { stars: {} };
+  try {
+    const l = localStorage.getItem('ta-lang'); if (l === 'lt' || l === 'en') lang = l;
+    muted = localStorage.getItem('ta-muted') === '1';
+    const p = JSON.parse(localStorage.getItem(NS('ta-progress')) || 'null'); if (p && p.stars) progress = p;
+  } catch (e) {}
+  const save = (k, v) => { try { localStorage.setItem(k, v); } catch (e) {} };
+  const unlockedUpTo = () => { let n = 1; while (n < LEVELS.length && progress.stars[n]) n++; return n; };
+  const totalStars = () => Object.values(progress.stars).reduce((a, b) => a + b, 0);
+
+  /* ---------- sound ---------- */
+  let actx = null;
+  function ensureAudio() {
+    try {
+      if (!actx) actx = new (window.AudioContext || window.webkitAudioContext)();
+      if (actx.state === 'suspended') actx.resume();
+    } catch (e) { actx = null; }
+  }
+  function tone(freq, dur, type = 'square', vol = 0.05, delay = 0, endFreq) {
+    if (muted || !actx) return;
+    const t0 = actx.currentTime + delay;
+    const o = actx.createOscillator(), g = actx.createGain();
+    o.type = type; o.frequency.setValueAtTime(freq, t0);
+    if (endFreq) o.frequency.exponentialRampToValueAtTime(endFreq, t0 + dur);
+    g.gain.setValueAtTime(vol, t0); g.gain.exponentialRampToValueAtTime(0.0008, t0 + dur);
+    o.connect(g).connect(actx.destination); o.start(t0); o.stop(t0 + dur + 0.05);
+  }
+  const sfx = {
+    label: (a) => tone(a ? 660 : 520, 0.07, 'square', 0.045),
+    flip: () => tone(420, 0.08, 'triangle', 0.06, 0, 640),
+    think: () => [0, 1, 2].forEach((i) => tone(700 + i * 90, 0.04, 'square', 0.025, i * 0.07)),
+    ok: () => { tone(784, 0.08, 'square', 0.045); tone(1047, 0.12, 'square', 0.045, 0.07); },
+    no: () => tone(200, 0.18, 'square', 0.05, 0, 110),
+    done: (good) => (good ? [523, 659, 784, 1047, 1319] : [392, 330, 262]).forEach((f, i) => tone(f, 0.13, 'square', 0.05, i * 0.09)),
+  };
+
+  /* ---------- pixel art ---------- */
+  const OUTLINE = '#1b1b22';
+  const BODY = {
+    red: { main: '#e0503a', shade: '#a8301f', spot: '#5e1208', light: '#ff8a70' },
+    blue: { main: '#3f7fd8', shade: '#2a5aa8', spot: '#10244a', light: '#8fbaff' },
+    green: { main: '#5cbf3a', shade: '#3e8a24', spot: '#173d0c', light: '#9ae86f' },
+    yellow: { main: '#f2c230', shade: '#c4921a', spot: '#6a4508', light: '#ffe68a' },
+  };
+  function gridToURL(cells, n, scale) {
+    // cells: n*n colors or null; adds a dark outline around the shape
+    const out = cells.slice();
+    for (let y = 0; y < n; y++) for (let x = 0; x < n; x++) {
+      const i = y * n + x;
+      if (cells[i]) continue;
+      const nb = (x > 0 && cells[i - 1]) || (x < n - 1 && cells[i + 1]) || (y > 0 && cells[i - n]) || (y < n - 1 && cells[i + n]);
+      if (nb) out[i] = OUTLINE;
+    }
+    const c = document.createElement('canvas');
+    c.width = c.height = n * scale;
+    const g = c.getContext('2d');
+    for (let i = 0; i < out.length; i++) if (out[i]) { g.fillStyle = out[i]; g.fillRect((i % n) * scale, ((i / n) | 0) * scale, scale, scale); }
+    return c.toDataURL();
+  }
+  const cache = new Map();
+  function creatureURL(c) {
+    const key = `${c.color}|${c.horns}|${c.eyes}|${c.spots}|${c.size}`;
+    if (cache.has(key)) return cache.get(key);
+    const N = 22, cells = new Array(N * N).fill(null);
+    const set = (x, y, col) => { if (x >= 0 && y >= 0 && x < N && y < N) cells[y * N + x] = col; };
+    const rect = (x, y, w, h, col) => { for (let j = 0; j < h; j++) for (let i = 0; i < w; i++) set(x + i, y + j, col); };
+    const big = c.size === 1, P = BODY[c.color];
+    const bw = big ? 16 : 11, bh = big ? 12 : 9;
+    const bx = Math.floor((N - bw) / 2), by = 18 - bh;
+    // body with rounded corners, light top, shaded belly
+    for (let y = by; y < by + bh; y++) for (let x = bx; x < bx + bw; x++) {
+      const corner = (x === bx || x === bx + bw - 1) && (y === by || y === by + bh - 1);
+      if (!corner) set(x, y, y === by + bh - 1 ? P.shade : P.main);
+    }
+    rect(bx + 1, by, bw - 2, 1, P.light);
+    // feet
+    rect(bx + 1, by + bh, 3, 2, P.shade); rect(bx + bw - 4, by + bh, 3, 2, P.shade);
+    // horns
+    if (c.horns) {
+      const H = '#f3ead2', T = '#c9bd9c';
+      [[bx + 1, 1], [bx + bw - 2, -1]].forEach(([hx, dir]) => {
+        set(hx, by - 1, H); set(hx + dir, by - 1, H); set(hx, by - 2, H); set(hx, by - 3, T); set(hx - dir, by - 4, T);
+      });
+    }
+    // eyes
+    const ew = big ? 3 : 2, ey = by + 2;
+    const centers = c.eyes === 1 ? [bx + Math.floor(bw / 2)]
+      : c.eyes === 2 ? (big ? [bx + 5, bx + 10] : [bx + 3, bx + bw - 4])
+      : big ? [bx + 3, bx + 8, bx + 13] : [bx + 2, bx + 5, bx + 8];
+    centers.forEach((cx) => {
+      const x0 = cx - Math.floor(ew / 2);
+      rect(x0, ey, ew, ew, '#ffffff');
+      set(x0 + ew - 1, ey + ew - 1, OUTLINE);
+    });
+    // mouth
+    const mx = bx + Math.floor(bw / 2) - 1, my = by + bh - 3;
+    rect(mx, my, 3, 1, '#2a1620');
+    // spots
+    if (c.spots) {
+      rect(bx + 1, by + bh - 4, 2, 2, P.spot);
+      rect(bx + bw - 3, by + bh - 4, 2, 2, P.spot);
+      if (big) rect(bx + Math.floor(bw / 2) + 3, by + 6, 2, 2, P.spot);
+    }
+    const url = gridToURL(cells, N, 6);
+    cache.set(key, url);
+    return url;
+  }
+  function maskURL(rows, colors, scale) {
+    const n = Math.max(rows.length, rows[0].length);
+    const cells = new Array(n * n).fill(null);
+    rows.forEach((row, y) => [...row].forEach((ch, x) => { if (colors[ch]) cells[y * n + x] = colors[ch]; }));
+    return gridToURL(cells, n, scale || 6);
+  }
+  const FACE_A = { f: '#ff6b4a', b: '#1b1b22', e: '#1b1b22', m: '#1b1b22' };
+  const ICONS = {
+    grumpy: maskURL(['...ffff...', '.ffffffff.', '.fbffffbf.', 'fffbffbfff', 'ffeffffeff', 'ffffffffff', 'fffmmmmfff', 'ffmffffmff', '.ffffffff.', '...ffff...'], FACE_A),
+    friendly: maskURL(['...ffff...', '.ffffffff.', '.ffffffff.', 'ffeffffeff', 'ffeffffeff', 'ffffffffff', 'ffmffffmff', 'fffmmmmfff', '.ffffffff.', '...ffff...'], { f: '#ffd23c', e: '#1b1b22', m: '#1b1b22' }),
+    ice: maskURL(['....s.....', '.s..s..s..', '..s.s.s...', '...sss....', 'sssssssss.', '...sss....', '..s.s.s...', '.s..s..s..', '....s.....', '..........'], { s: '#9fe0ff' }),
+    fire: maskURL(['....r.....', '...rr.....', '...rrr..r.', '..rryrr.r.', '..ryyyrrr.', '.rryyyyrr.', '.ryywyyyr.', '.ryywwyyr.', '..ryyyyr..', '...rrrr...'], { r: '#e0402e', y: '#ffb02e', w: '#fff3b0' }),
+    sick: maskURL(['...ffff...', '.ffffffff.', '.ffffffff.', 'ffeffffeff', 'ffffffffff', 'ffffffffff', 'ffmfmmfmff', 'fmfmffmfmf', '.ffffffff.', '...ffff...'], { f: '#9ae86f', e: '#1b1b22', m: '#1b1b22' }),
+    healthy: maskURL(['.rr...rr..', 'rrrr.rrrr.', 'rwrrrrrrr.', 'rrrrrrrrr.', 'rrrrrrrrr.', '.rrrrrrr..', '..rrrrr...', '...rrr....', '....r.....', '..........'], { r: '#ff4f6a', w: '#ffd0d8' }),
+    king: maskURL(['..........', 'y...y...y.', 'yy.yyy.yy.', 'yyyyyyyyy.', 'yryyyyyry.', 'yyyyyyyyy.', 'ddddddddd.', '..........', '..........', '..........'], { y: '#ffcc33', r: '#e0402e', d: '#c4921a' }),
+    regular: maskURL(['...ffff...', '.ffffffff.', '.ffffffff.', 'ffeffffeff', 'ffffffffff', 'ffffffffff', 'fffmmmmfff', 'ffffffffff', '.ffffffff.', '...ffff...'], { f: '#d8d2e4', e: '#1b1b22', m: '#1b1b22' }),
+    night: maskURL(['...mmm....', '..mm......', '.mm....s..', '.mm.......', '.mm.......', '.mmm...s..', '..mmmm..m.', '...mmmmmm.', '..........', '..........'], { m: '#f4ead2', s: '#ffffff' }),
+    day: maskURL(['....y.....', '.y..y..y..', '..yyyyy...', '..yyyyy...', 'yyyyyyyyy.', '..yyyyy...', '..yyyyy...', '.y..y..y..', '....y.....', '..........'], { y: '#ffcc33' }),
+  };
+  const PAIR_ICONS = { grumpy: ['grumpy', 'friendly'], ice: ['ice', 'fire'], sick: ['sick', 'healthy'], king: ['king', 'regular'], night: ['night', 'day'] };
+  const ROBOT = maskURL(['....a.....', '....a.....', '.gggggggg.', '.gwwggwwg.', '.gwkggwkg.', '.gggggggg.', '.ggkkkkgg.', '.gggggggg.', '..g....g..', '..........'], { g: '#9aa3b5', w: '#ffffff', k: '#1b1b22', a: '#ffcc33' });
+  // label 1 = the rule is true (first of the pair), label 0 = the other one
+  const iconFor = (L, label) => ICONS[PAIR_ICONS[L.pair][label ? 0 : 1]];
+  const nameFor = (L, label) => TXT[lang].pairs[L.pair][label ? 0 : 1];
+
+  /* ---------- state ---------- */
+  let lvlIdx = 0, L = null, D = null;
+  let memory = [], streamPos = 0, cap = 0, allowed = new Set(FEATS);
+  let phase = 'train', results = [], testIdx = 0, fast = false, timer = null, current = null;
+
+  function loadLevel(i) {
+    clearTimeout(timer);
+    lvlIdx = i; L = LEVELS[i]; D = buildLevel(L);
+    memory = D.prefill ? D.prefill.map((e) => ({ c: e.c, label: e.label })) : [];
+    streamPos = 0;
+    cap = L.firstCap || L.max || 0;
+    allowed = new Set(FEATS);
+    phase = 'train'; results = []; current = null;
+    $('lvlNum').textContent = i + 1;
+    $('endOv').hidden = true; $('levelsOv').hidden = true;
+    renderAll();
+  }
+
+  /* ---------- rendering ---------- */
+  const esc = (s) => String(s).replace(/[&<>"]/g, (ch) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[ch]));
+  function renderRule() {
+    $('rule').innerHTML = `<span class="tag">${TXT[lang].rule}</span><p>${esc(TXT[lang].rules[lvlIdx])}</p><img class="px" src="${iconFor(L, 1)}" alt="">`;
+  }
+  function thumbHTML(e, i, still) {
+    const tag = still ? 'div' : 'button';
+    const attrs = still ? '' : ` type="button" data-mem="${i}" aria-label="${esc(nameFor(L, e.label))}"`;
+    return `<${tag} class="thumb${still ? ' still' : ''}"${attrs}><img class="px c" src="${creatureURL(e.c)}" alt=""><img class="px b" src="${iconFor(L, e.label)}" alt=""></${tag}>`;
+  }
+  function renderMemory() {
+    const m = $('memory');
+    m.innerHTML = memory.length ? memory.map((e, i) => thumbHTML(e, i, phase === 'test')).join('') : `<span class="empty">${TXT[lang].empty}</span>`;
+    $('count').textContent = memory.length;
+    const t = $('test');
+    t.disabled = phase === 'test' || memory.length < (L.min || 1);
+    const canMore = !D.prefill && streamPos < D.stream.length && memory.length < cap;
+    t.classList.toggle('ready', !t.disabled && (!!D.prefill || !canMore));
+    $('restart').disabled = phase === 'test';
+  }
+  function renderTrain() {
+    const st = $('stage');
+    const T = TXT[lang];
+    if (D.prefill) {
+      let h = `<p class="note">${L.special === 'features' ? T.pickFeats : T.checkMem}</p>`;
+      if (L.special === 'features') {
+        h += `<p class="ask">${T.featsOn}</p><div class="feats">` +
+          FEATS.map((f) => `<button class="btn feat" type="button" data-feat="${f}" aria-pressed="${allowed.has(f)}">${T.feat[f]}</button>`).join('') + '</div>';
+      }
+      st.innerHTML = h;
+      return;
+    }
+    const canMore = streamPos < D.stream.length && memory.length < cap;
+    if (!canMore) {
+      st.innerHTML = `<img class="px creature" src="${ROBOT}" alt=""><p class="note">${T.enough}</p>`;
+      return;
+    }
+    const c = D.stream[streamPos];
+    st.innerHTML = `<p class="ask">${T.ask}</p>
+      <img class="px creature pop" src="${creatureURL(c)}" alt="">
+      <div class="labels">
+        <button class="btn lab" type="button" data-label="1"><img class="px" src="${iconFor(L, 1)}" alt="">${esc(nameFor(L, 1))}</button>
+        <button class="btn lab" type="button" data-label="0"><img class="px" src="${iconFor(L, 0)}" alt="">${esc(nameFor(L, 0))}</button>
+      </div>`;
+  }
+  function renderTest() {
+    const T = TXT[lang];
+    const cells = D.tests.map((x, i) => {
+      const r = results[i];
+      return `<div class="res${r ? (r.ok ? ' ok' : ' no') : ''}${i === testIdx && !r ? ' now' : ''}">${r || i === testIdx ? `<img class="px" src="${creatureURL(x)}" alt="">` : ''}</div>`;
+    }).join('');
+    let card = '';
+    if (current) {
+      const verdict = current.shown
+        ? `<span>${T.says}</span><img class="px" src="${iconFor(L, current.r.label)}" alt="">${esc(nameFor(L, current.r.label))}<span class="mark ${current.ok ? 'ok' : 'no'}">${current.ok ? '✓' : '✗'}</span>`
+        : `<img class="px" src="${ROBOT}" alt=""><span class="think">${T.think}</span>`;
+      const near = current.shown ? `<div class="near"><span>${T.near}</span>${current.r.near.map((e) => thumbHTML(e.t, 0, true)).join('')}</div>` : '';
+      card = `<img class="px creature" src="${creatureURL(current.x)}" alt=""><div class="verdict">${verdict}</div>${near}`;
+    }
+    $('stage').innerHTML = `${card}<div class="results">${cells}</div><button class="btn small" id="faster" type="button">${T.faster}</button>`;
+  }
+  function renderAll() {
+    renderRule();
+    if (phase === 'test') renderTest(); else renderTrain();
+    renderMemory();
+  }
+
+  /* ---------- teaching ---------- */
+  $('stage').addEventListener('click', (e) => {
+    const b = e.target.closest('button');
+    if (!b) return;
+    ensureAudio();
+    if (b.dataset.label != null && phase === 'train') {
+      const label = +b.dataset.label;
+      memory.push({ c: D.stream[streamPos], label });
+      streamPos++;
+      sfx.label(label);
+      renderAll();
+    } else if (b.dataset.feat) {
+      const f = b.dataset.feat;
+      if (allowed.has(f)) { if (allowed.size > 1) allowed.delete(f); } else allowed.add(f);
+      sfx.flip();
+      renderAll();
+    } else if (b.id === 'faster') {
+      fast = true;
+    }
+  });
+  $('memory').addEventListener('click', (e) => {
+    const b = e.target.closest('[data-mem]');
+    if (!b || phase !== 'train') return;
+    ensureAudio();
+    const i = +b.dataset.mem;
+    memory[i].label = memory[i].label ? 0 : 1;
+    sfx.flip();
+    renderMemory();
+    const nb = $('memory').querySelector(`[data-mem="${i}"]`);
+    if (nb && !reduce) nb.classList.add('flip');
+  });
+
+  /* ---------- testing ---------- */
+  function startTest() {
+    if (memory.length < (L.min || 1)) return;
+    ensureAudio();
+    phase = 'test'; results = []; testIdx = 0; fast = false; current = null;
+    renderAll();
+    runNext();
+  }
+  function runNext() {
+    if (testIdx >= D.tests.length) { finish(); return; }
+    const x = D.tests[testIdx];
+    const r = knn(memory, x, [...allowed]);
+    current = { x, r, ok: r.label === (L.rule(x) ? 1 : 0), shown: false };
+    renderTest();
+    sfx.think();
+    timer = setTimeout(() => {
+      current.shown = true;
+      results[testIdx] = { ok: current.ok };
+      renderTest();
+      current.ok ? sfx.ok() : sfx.no();
+      timer = setTimeout(() => { testIdx++; runNext(); }, fast ? 140 : 1100);
+    }, fast ? 90 : 650);
+  }
+  function finish() {
+    const right = results.filter((r) => r.ok).length;
+    const stars = right >= 9 ? 3 : right >= 7 ? 2 : 1;
+    const key = lvlIdx + 1;
+    const prevStars = progress.stars[key] || 0;
+    progress.stars[key] = Math.max(prevStars, stars);
+    save(NS('ta-progress'), JSON.stringify(progress));
+    // XP: 10 for a first clear, 20 per newly earned star; record = total stars over all levels
+    if (ZM) ZM.report('teach-ai', { score: totalStars(), xp: (prevStars ? 0 : 10) + 20 * Math.max(0, stars - prevStars) });
+    phase = 'train'; current = null;
+    $('endTitle').textContent = TXT[lang].score(right);
+    document.querySelectorAll('#endStars .star').forEach((s, i) => { s.classList.remove('on'); void s.offsetWidth; s.classList.toggle('on', i < stars); });
+    $('endLesson').textContent = TXT[lang].lessons[lvlIdx][right >= 9 ? 1 : 0];
+    const canMore = D.prefill || streamPos < D.stream.length;
+    $('more').hidden = !canMore;
+    $('next').hidden = lvlIdx >= LEVELS.length - 1;
+    $('more').classList.toggle('play', right < 9 && canMore);
+    $('next').classList.toggle('play', !(right < 9 && canMore));
+    $('endOv').hidden = false;
+    sfx.done(right >= 9);
+    renderAll();
+    setTimeout(() => { const f = right < 9 && canMore ? $('more') : $('next'); if (!f.hidden) f.focus({ preventScroll: true }); }, 50);
+  }
+  $('test').addEventListener('click', startTest);
+  $('restart').addEventListener('click', () => { if (phase !== 'test') loadLevel(lvlIdx); });
+  $('more').addEventListener('click', () => {
+    $('endOv').hidden = true;
+    cap = L.max || cap;
+    renderAll();
+  });
+  $('next').addEventListener('click', () => loadLevel(Math.min(lvlIdx + 1, LEVELS.length - 1)));
+
+  /* ---------- levels screen, language, sound ---------- */
+  function renderLevels() {
+    const up = unlockedUpTo();
+    $('levels').innerHTML = LEVELS.map((_, i) => {
+      const n = i + 1, st = progress.stars[n] || 0;
+      return `<button class="btn lvl" type="button" data-lvl="${i}"${n > up ? ' disabled' : ''}>${n}<span class="stars">${[0, 1, 2].map((k) => `<i class="star${k < st ? ' on' : ''}"></i>`).join('')}</span></button>`;
+    }).join('');
+  }
+  function openLevels() {
+    clearTimeout(timer);
+    if (phase === 'test') { phase = 'train'; current = null; }
+    renderLevels();
+    $('endOv').hidden = true;
+    $('levelsOv').hidden = false;
+  }
+  $('levels').addEventListener('click', (e) => {
+    const b = e.target.closest('[data-lvl]');
+    if (!b || b.disabled) return;
+    ensureAudio();
+    loadLevel(+b.dataset.lvl);
+  });
+  $('toLevels').addEventListener('click', openLevels);
+  $('endLevels').addEventListener('click', openLevels);
+
+  function applyLang() {
+    document.documentElement.lang = lang;
+    document.querySelectorAll('[data-t]').forEach((el) => { const v = TXT[lang][el.dataset.t]; if (typeof v === 'string') el.textContent = v; });
+    document.querySelectorAll('[data-lang]').forEach((b) => b.setAttribute('aria-pressed', String(b.dataset.lang === lang)));
+    const t = TXT[lang].title;
+    $('gameTitle').innerHTML = `${esc(t[0])} <span>${esc(t[1])}</span>`;
+    if (L) renderAll();
+  }
+  document.querySelectorAll('[data-lang]').forEach((b) => b.addEventListener('click', () => { lang = b.dataset.lang; save('ta-lang', lang); applyLang(); }));
+  function setMuted(v) { muted = v; $('mute').setAttribute('aria-pressed', String(muted)); save('ta-muted', muted ? '1' : '0'); }
+  $('mute').addEventListener('click', () => { setMuted(!muted); if (!muted) ensureAudio(); });
+
+  $('robotIcon').src = ROBOT;
+  $('heroIcon').src = ROBOT;
+  setMuted(muted);
+  applyLang();
+  lvlIdx = Math.min(unlockedUpTo(), LEVELS.length) - 1;
+  loadLevel(lvlIdx);
+  openLevels();
+})();
+</script>
+
+</html>
