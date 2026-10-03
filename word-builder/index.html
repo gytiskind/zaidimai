@@ -4,6 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <style>body{margin:0}.zm-back{display:inline-flex;align-items:center;justify-self:center;align-self:center;font:900 0.95rem "Nunito","Arial Rounded MT Bold",system-ui,sans-serif;color:#f3f0f7;text-decoration:none;background:#3b3846;border:3px solid;border-color:#6e6a7c #1f1c27 #1f1c27 #6e6a7c;box-shadow:0 0 0 2px #000;padding:5px 12px;touch-action:manipulation;white-space:nowrap}.zm-back:focus-visible{outline:3px solid #4de8d6;outline-offset:3px}</style>
+<script src="../zm.js"></script>
 <title>Word Builder</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -249,6 +250,9 @@ h2 { font-weight: 900; font-size: clamp(1.9rem, 8vw, 2.5rem); color: var(--gold)
 
 <script>
 (() => {
+  // site profiles (zaidimai/zm.js); absent in the claude.ai version, so everything falls back
+  const ZM = window.ZM || null;
+  const NS = (k) => (ZM ? ZM.ns(k) : k);
   const TAU = Math.PI * 2;
   const $ = (id) => document.getElementById(id);
   const reduce = matchMedia('(prefers-reduced-motion: reduce)').matches;
@@ -564,8 +568,8 @@ h2 { font-weight: 900; font-size: clamp(1.9rem, 8vw, 2.5rem); color: var(--gold)
 
   /* ---------- progress ---------- */
   let progress = { done: [], learned: [] };
-  try { const p = JSON.parse(localStorage.getItem('wb-progress') || 'null'); if (p && Array.isArray(p.done) && Array.isArray(p.learned)) progress = p; } catch (e) {}
-  function saveProgress() { try { localStorage.setItem('wb-progress', JSON.stringify(progress)); } catch (e) {} }
+  try { const p = JSON.parse(localStorage.getItem(NS('wb-progress')) || 'null'); if (p && Array.isArray(p.done) && Array.isArray(p.learned)) progress = p; } catch (e) {}
+  function saveProgress() { try { localStorage.setItem(NS('wb-progress'), JSON.stringify(progress)); } catch (e) {} }
 
   /* ---------- game ---------- */
   const ROUND = 8;
@@ -728,6 +732,7 @@ h2 { font-weight: 900; font-size: clamp(1.9rem, 8vw, 2.5rem); color: var(--gold)
     $('endTime').textContent = Math.floor(total / 60) + ':' + String(total % 60).padStart(2, '0');
     $('endBest').textContent = Math.max(prev, G.score);
     $('endRecord').hidden = !isRecord;
+    if (ZM) ZM.report('word-builder', { score: G.score, xp: Math.round(G.score / 10) });
     $('endHints').textContent = G.hints;
     $('endMistakes').textContent = G.mistakes;
     $('nextLvl').hidden = G.level >= 3;

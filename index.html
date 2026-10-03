@@ -4,6 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>Žaidimai</title>
+<script src="zm.js"></script>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Nunito:wght@700;900&family=Pixelify+Sans:wght@700&display=swap">
@@ -45,7 +46,7 @@ h1 {
 }
 .card img { display: block; width: 100%; max-width: 100%; height: auto; aspect-ratio: 4 / 3; object-fit: cover; border-bottom: 4px solid #000; image-rendering: auto; }
 .card .body { padding: 14px 16px 18px; display: grid; gap: 8px; align-content: start; }
-.card h2 { margin: 0; font-family: var(--pixel); font-size: 1.7rem; line-height: 1.05; }
+.card h2 { margin: 0; font-family: var(--word); font-weight: 900; font-size: 1.6rem; line-height: 1.05; }
 .card p { margin: 0; font-weight: 700; font-size: 1.1rem; color: var(--ink-dim); }
 .tag { justify-self: start; font-weight: 900; font-size: 0.85rem; letter-spacing: 0.04em; color: #0d2a27; background: var(--gem); padding: 2px 10px; }
 .go {
@@ -68,6 +69,41 @@ h1 {
 .qr h2 { margin: 0; font-family: var(--word); font-weight: 900; font-size: 1.5rem; color: var(--gem); }
 .qr p { margin: 0; font-weight: 700; color: var(--ink-dim); font-size: 1.05rem; overflow-wrap: anywhere; }
 .qr code { font-family: var(--word); font-weight: 900; color: var(--ink); font-size: 1.1rem; }
+.who {
+  background: var(--stone-lo); border: 4px solid; border-color: var(--stone-hi) #000 #000 var(--stone-hi);
+  box-shadow: 0 0 0 3px #000; padding: 16px; display: grid; gap: 14px;
+}
+.who h2 { margin: 0; font-weight: 900; font-size: 1.6rem; }
+.me { display: flex; flex-wrap: wrap; align-items: center; gap: 14px; }
+.ava { width: 56px; height: 56px; display: grid; place-items: center; font-weight: 900; font-size: 1.9rem; color: #fff; flex: none;
+       box-shadow: inset -6px -6px 0 rgba(0,0,0,.3), 0 0 0 3px #000; text-shadow: 2px 2px 0 rgba(0,0,0,.4); }
+.me-info { flex: 1 1 200px; min-width: 0; display: grid; gap: 4px; }
+.me-name { font-weight: 900; font-size: 1.6rem; line-height: 1.1; overflow-wrap: anywhere; }
+.me-rank { font-weight: 900; font-size: 1.05rem; }
+.xpbar { height: 14px; background: #000; border: 2px solid #000; }
+.xpbar i { display: block; height: 100%; background: var(--gold); box-shadow: inset 0 -4px 0 rgba(0,0,0,.25); }
+.xpnote { font-weight: 700; font-size: 0.95rem; color: var(--ink-dim); }
+.ladder { display: flex; flex-wrap: wrap; gap: 6px; }
+.ladder span { font-weight: 900; font-size: 0.85rem; padding: 3px 9px; border: 2px solid #000; background: var(--stone); color: var(--ink-dim); }
+.ladder span.on { color: #1b1408; }
+.ladder span.reached { color: var(--ink); }
+.class-total { font-weight: 800; color: var(--ink-dim); font-size: 1rem; }
+.class-total b { color: var(--gem); font-variant-numeric: tabular-nums; }
+.names { display: flex; flex-wrap: wrap; gap: 10px; }
+.name-btn, .wbtn {
+  font: 900 1.15rem var(--word); color: var(--ink); cursor: pointer; touch-action: manipulation;
+  background: var(--stone); border: 3px solid; border-color: var(--stone-hi) #000 #000 var(--stone-hi); box-shadow: 0 0 0 2px #000;
+  padding: 8px 14px; display: inline-flex; align-items: center; gap: 8px; min-height: 48px;
+}
+.name-btn .dot { width: 22px; height: 22px; display: grid; place-items: center; font-size: 0.85rem; color: #fff; }
+.wbtn.go2 { background: var(--grass); border-color: var(--grass-hi) var(--grass-lo) var(--grass-lo) var(--grass-hi); color: #fff; text-shadow: 2px 2px 0 var(--grass-lo); }
+.wbtn.small { font-size: 0.9rem; min-height: 38px; padding: 4px 12px; }
+.wbtn.danger { background: #8a2216; }
+.name-btn:focus-visible, .wbtn:focus-visible, .name-input:focus-visible { outline: 3px solid var(--gem); outline-offset: 3px; }
+.add { display: flex; flex-wrap: wrap; gap: 10px; align-items: center; }
+.name-input { font: 800 1.2rem var(--word); padding: 10px 12px; min-height: 48px; width: min(100%, 260px); background: #0f0d16; color: var(--ink); border: 3px solid var(--stone-hi); }
+.row-del { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; font-weight: 800; }
+.mine { margin: 0; font-weight: 900 !important; font-size: 1rem !important; color: var(--gold) !important; }
 @media (prefers-reduced-motion: reduce) { .card:active { transform: none; } }
 </style>
 </head>
@@ -75,67 +111,75 @@ h1 {
 <main>
   <h1>ŽAIDIMAI</h1>
 
+  <section class="who" id="who" aria-live="polite"></section>
+
   <ul class="games">
     <li>
-      <a class="card" id="unicorn" href="unicorn/">
+      <a class="card" id="unicorn" href="unicorn/" data-game="unicorn">
         <img src="img/unicorn.jpg" alt="Vienaragis gaudo žvaigždes naktiniame danguje" width="480" height="960">
         <div class="body">
           <h2>Unicorn Star Catch</h2>
           <p>Gaudyk krentančias žvaigždes.</p>
+          <p class="mine" data-best></p>
           <span class="go">Žaisti</span>
         </div>
       </a>
     </li>
     <li>
-      <a class="card" id="ore" href="ore-rush/">
+      <a class="card" id="ore" href="ore-rush/" data-game="ore-rush">
         <img src="img/ore-rush.jpg" alt="Kalnakasys vagonėlyje gaudo rūdos blokus oloje" width="480" height="960">
         <div class="body">
           <h2>Ore Rush</h2>
           <p>Rink rūdą. Saugokis TNT.</p>
+          <p class="mine" data-best></p>
           <span class="go">Žaisti</span>
         </div>
       </a>
     </li>
     <li>
-      <a class="card" id="siege" href="key-siege/">
+      <a class="card" id="siege" href="key-siege/" data-game="key-siege">
         <img src="img/key-siege.jpg" alt="Lankininkas ant pilies bokšto, zombis su žodžiu virš galvos" width="640" height="400">
         <div class="body">
           <h2>Key Siege</h2>
           <span class="tag">MOKOMĖS RAŠYTI</span>
           <p>Parašyk žodį ir apgink pilį.</p>
+          <p class="mine" data-best></p>
           <span class="go">Žaisti</span>
         </div>
       </a>
     </li>
     <li>
-      <a class="card" href="robot-miner/">
+      <a class="card" href="robot-miner/" data-game="robot-miner">
         <img src="img/robot-miner.jpg" alt="Robotas oloje ir deimantas, komandų mygtukai" width="640" height="480">
         <div class="body">
           <h2>Robot Miner</h2>
           <span class="tag">MOKOMĖS PROGRAMUOTI</span>
           <p>Nuvesk robotą iki deimanto.</p>
+          <p class="mine" data-best></p>
           <span class="go">Žaisti</span>
         </div>
       </a>
     </li>
     <li>
-      <a class="card" href="word-builder/">
+      <a class="card" href="word-builder/" data-game="word-builder">
         <img src="img/word-builder.jpg" alt="Paveikslėlis ir raidžių blokai angliškam žodžiui" width="640" height="480">
         <div class="body">
           <h2>Word Builder</h2>
           <span class="tag">MOKOMĖS ANGLŲ</span>
           <p>Sudėk žodį ir pastatyk namą.</p>
+          <p class="mine" data-best></p>
           <span class="go">Žaisti</span>
         </div>
       </a>
     </li>
     <li>
-      <a class="card" href="element-craft/">
+      <a class="card" href="element-craft/" data-game="element-craft">
         <img src="img/element-craft.jpg" alt="Vanduo, ugnis, žemė ir oras kaip blokai" width="640" height="480">
         <div class="body">
           <h2>Element Craft</h2>
           <span class="tag">MOKOMĖS MOKSLO</span>
           <p>Sujunk elementus ir atrask naujus.</p>
+          <p class="mine" data-best></p>
           <span class="go">Žaisti</span>
         </div>
       </a>
@@ -151,5 +195,89 @@ h1 {
     </div>
   </section>
 </main>
+<script>
+(() => {
+  const who = document.getElementById('who');
+  const GEN = { 'Geležis': 'Geležies', 'Auksas': 'Aukso', 'Deimantas': 'Deimanto', 'Legenda': 'Legendos' };
+  const BEST = {
+    'unicorn': (n) => `Tavo rekordas: ${n} žvaigždžių`,
+    'ore-rush': (n) => `Tavo rekordas: ${n} taškų`,
+    'key-siege': (n) => `Tavo rekordas: ${n} brangakmenių`,
+    'robot-miner': (n) => `Tavo žvaigždės: ${n} / 36`,
+    'word-builder': (n) => `Tavo rekordas: ${n} taškų`,
+    'element-craft': (n) => `Atrasta: ${n} / 42`,
+  };
+  let delId = null;
+  const esc = (t) => String(t).replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
+  const fmt = (n) => n.toLocaleString('lt-LT');
+
+  function render(picking) {
+    const d = ZM.data(), p = ZM.player();
+    const classLine = d.players.length ? `<div class="class-total">Visi žaidėjai kartu: <b>${fmt(ZM.classXp())} XP</b></div>` : '';
+    if (p && !picking) {
+      const xp = p.xp || 0, r = ZM.rankFor(xp);
+      const pct = r.next ? Math.round(((xp - r.min) / (r.next.min - r.min)) * 100) : 100;
+      const note = r.next ? `Dar ${fmt(r.next.min - xp)} XP iki ${GEN[r.next.name]}` : 'Aukščiausias rangas!';
+      const reached = ZM.RANKS.map((k) => `<span class="${k.name === r.name ? 'on' : xp >= k.min ? 'reached' : ''}" style="${k.name === r.name ? 'background:' + k.color : ''}">${k.name}</span>`).join('');
+      who.innerHTML = `
+        <div class="me">
+          <div class="ava" style="background:${p.color}">${esc((p.name[0] || '?').toUpperCase())}</div>
+          <div class="me-info">
+            <div class="me-name">${esc(p.name)}</div>
+            <div class="me-rank" style="color:${r.color}">${r.name} &middot; ${fmt(xp)} XP</div>
+          </div>
+          <button class="wbtn small" type="button" data-act="pick">Keisti žaidėją</button>
+        </div>
+        <div class="xpbar" role="img" aria-label="${pct}%"><i style="width:${pct}%"></i></div>
+        <div class="xpnote">${note}</div>
+        <div class="ladder" aria-label="Rangai">${reached}</div>
+        ${classLine}`;
+    } else {
+      const names = d.players.map((x) => delId === x.id
+        ? `<div class="row-del">Ištrinti žaidėją ${esc(x.name)}? <button class="wbtn small danger" type="button" data-act="del-yes" data-id="${x.id}">Taip, ištrinti</button><button class="wbtn small" type="button" data-act="del-no">Ne</button></div>`
+        : `<button class="name-btn" type="button" data-act="choose" data-id="${x.id}"><span class="dot" style="background:${x.color}">${esc((x.name[0] || '?').toUpperCase())}</span>${esc(x.name)}</button>`).join('');
+      who.innerHTML = `
+        <h2>Kas žaidžia?</h2>
+        ${d.players.length ? `<div class="names">${names}</div>` : ''}
+        <form class="add" id="addForm" autocomplete="off">
+          <label class="sr" for="zmName" style="position:absolute;left:-9999px">Tavo vardas</label>
+          <input class="name-input" id="zmName" name="zmName" maxlength="14" placeholder="Tavo vardas" enterkeyhint="done" autocapitalize="words" spellcheck="false">
+          <button class="wbtn go2" type="submit">Pridėti</button>
+        </form>
+        ${d.players.length ? `<div class="add"><button class="wbtn small" type="button" data-act="manage">${delId === '' ? 'Baigti' : 'Ištrinti žaidėją'}</button>${p ? '<button class="wbtn small" type="button" data-act="back">Atgal</button>' : ''}</div>` : ''}
+        ${classLine}`;
+      if (delId === '') who.querySelectorAll('[data-act="choose"]').forEach((b) => { b.dataset.act = 'ask-del'; b.insertAdjacentHTML('beforeend', ' &times;'); });
+    }
+    document.querySelectorAll('[data-game]').forEach((a) => {
+      const el = a.querySelector('[data-best]');
+      const g = p && p.games[a.dataset.game];
+      el.textContent = g && g.best ? BEST[a.dataset.game](g.best) : '';
+      el.hidden = !el.textContent;
+    });
+  }
+
+  who.addEventListener('click', (e) => {
+    const b = e.target.closest('[data-act]');
+    if (!b) return;
+    const act = b.dataset.act;
+    if (act === 'pick') { delId = null; render(true); return; }
+    if (act === 'choose') { ZM.choose(b.dataset.id); delId = null; render(false); return; }
+    if (act === 'manage') { delId = delId === '' ? null : ''; render(true); return; }
+    if (act === 'ask-del') { delId = b.dataset.id; render(true); return; }
+    if (act === 'del-no') { delId = ''; render(true); return; }
+    if (act === 'del-yes') { ZM.remove(b.dataset.id); delId = ''; render(true); return; }
+    if (act === 'back') { delId = null; render(false); }
+  });
+  who.addEventListener('submit', (e) => {
+    e.preventDefault();
+    const v = document.getElementById('zmName').value;
+    if (ZM.addPlayer(v)) { delId = null; render(false); }
+    else document.getElementById('zmName').focus();
+  });
+  // coming back from a game with the browser back button shows fresh scores
+  window.addEventListener('pageshow', () => render(false));
+  render(false);
+})();
+</script>
 </body>
 </html>

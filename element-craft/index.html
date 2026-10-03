@@ -4,6 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <style>body{margin:0}.zm-back{display:inline-flex;align-items:center;justify-self:center;align-self:center;font:900 0.95rem "Nunito","Arial Rounded MT Bold",system-ui,sans-serif;color:#f3f0f7;text-decoration:none;background:#3b3846;border:3px solid;border-color:#6e6a7c #1f1c27 #1f1c27 #6e6a7c;box-shadow:0 0 0 2px #000;padding:5px 12px;touch-action:manipulation;white-space:nowrap}.zm-back:focus-visible{outline:3px solid #4de8d6;outline-offset:3px}</style>
+<script src="../zm.js"></script>
 <title>Element Craft</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -219,6 +220,9 @@ h1 span { display: block; color: var(--gold); text-shadow: 4px 4px 0 #8a5a12, 8p
 
 <script>
 (() => {
+  // site profiles (zaidimai/zm.js); absent in the claude.ai version, so everything falls back
+  const ZM = window.ZM || null;
+  const NS = (k) => (ZM ? ZM.ns(k) : k);
   const $ = (id) => document.getElementById(id);
   const reduce = matchMedia('(prefers-reduced-motion: reduce)').matches;
 
@@ -400,10 +404,10 @@ h1 span { display: block; color: var(--gold); text-shadow: 4px 4px 0 #8a5a12, 8p
     set(k, v) { try { localStorage.setItem(k, JSON.stringify(v)); } catch (e) {} },
   };
   let lang = store.get('ec-lang', 'lt') === 'en' ? 'en' : 'lt';
-  let found = new Set(store.get('ec-found', STARTERS).filter((id) => BY_ID[id]));
+  let found = new Set(store.get(NS('ec-found'), STARTERS).filter((id) => BY_ID[id]));
   STARTERS.forEach((id) => found.add(id));
-  let hints = store.get('ec-hints', 3);
-  let hintEarn = store.get('ec-hint-earn', 0);
+  let hints = store.get(NS('ec-hints'), 3);
+  let hintEarn = store.get(NS('ec-hint-earn'), 0);
   let hintRegenAt = 0;
   let slotA = null, slotB = null, busy = false, lastResult = null, hinted = [];
   let factState = { kind: 'pick' };
@@ -538,11 +542,12 @@ h1 span { display: block; color: var(--gold); text-shadow: 4px 4px 0 #8a5a12, 8p
     factState = { kind: 'result', id: r, isNew };
     if (isNew) {
       found.add(r);
-      store.set('ec-found', [...found]);
+      store.set(NS('ec-found'), [...found]);
+      if (ZM) ZM.report('element-craft', { score: found.size, xp: 10, countPlay: false });
       clearHint();
       hintEarn++;
-      if (hintEarn >= 4) { hintEarn = 0; hints = Math.min(5, hints + 1); store.set('ec-hints', hints); }
-      store.set('ec-hint-earn', hintEarn);
+      if (hintEarn >= 4) { hintEarn = 0; hints = Math.min(5, hints + 1); store.set(NS('ec-hints'), hints); }
+      store.set(NS('ec-hint-earn'), hintEarn);
       paintTile(r);
       if (!reduce) { tiles[r].classList.remove('fresh'); void tiles[r].offsetWidth; tiles[r].classList.add('fresh'); }
       tiles[r].scrollIntoView({ block: 'nearest', behavior: reduce ? 'auto' : 'smooth' });
@@ -569,7 +574,7 @@ h1 span { display: block; color: var(--gold); text-shadow: 4px 4px 0 #8a5a12, 8p
     clearHint();
     if (!pair) { factState = { kind: 'nohint' }; paintFact(); return; }
     hints--;
-    store.set('ec-hints', hints);
+    store.set(NS('ec-hints'), hints);
     if (hints === 0) hintRegenAt = Date.now() + 45000;
     hinted = [...new Set(pair)];
     hinted.forEach((id) => tiles[id].classList.add('hinted'));
@@ -581,7 +586,7 @@ h1 span { display: block; color: var(--gold); text-shadow: 4px 4px 0 #8a5a12, 8p
   setInterval(() => {
     if (hints === 0) {
       if (!hintRegenAt) hintRegenAt = Date.now() + 45000;
-      if (Date.now() >= hintRegenAt) { hints = 1; hintRegenAt = 0; store.set('ec-hints', hints); }
+      if (Date.now() >= hintRegenAt) { hints = 1; hintRegenAt = 0; store.set(NS('ec-hints'), hints); }
       paintHint();
     }
   }, 1000);
@@ -610,7 +615,7 @@ h1 span { display: block; color: var(--gold); text-shadow: 4px 4px 0 #8a5a12, 8p
   $('resetYes').addEventListener('click', () => {
     found = new Set(STARTERS);
     hints = 3; hintEarn = 0; hintRegenAt = 0;
-    store.set('ec-found', [...found]); store.set('ec-hints', hints); store.set('ec-hint-earn', 0);
+    store.set(NS('ec-found'), [...found]); store.set(NS('ec-hints'), hints); store.set(NS('ec-hint-earn'), 0);
     slotA = slotB = lastResult = null; clearHint(); factState = { kind: 'pick' };
     $('confirm').hidden = true;
     paintAll();
