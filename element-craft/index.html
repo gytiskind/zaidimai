@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-<style>body{margin:0}</style>
+<style>body{margin:0}.zm-back{display:inline-flex;align-items:center;justify-self:center;align-self:center;font:900 0.95rem "Nunito","Arial Rounded MT Bold",system-ui,sans-serif;color:#f3f0f7;text-decoration:none;background:#3b3846;border:3px solid;border-color:#6e6a7c #1f1c27 #1f1c27 #6e6a7c;box-shadow:0 0 0 2px #000;padding:5px 12px;touch-action:manipulation;white-space:nowrap}.zm-back:focus-visible{outline:3px solid #4de8d6;outline-offset:3px}</style>
 <title>Element Craft</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -168,7 +168,8 @@ h1 span { display: block; color: var(--gold); text-shadow: 4px 4px 0 #8a5a12, 8p
     <div class="brand">ELEMENT <span>CRAFT</span></div>
     <div class="count" id="count" aria-live="polite"></div>
     <div class="tools">
-      <button class="btn small hint" id="hintBtn" type="button"></button>
+      <a class="zm-back" href="../">← Meniu</a>
+    <button class="btn small hint" id="hintBtn" type="button"></button>
       <div class="seg" role="group" aria-label="Language">
         <button class="btn" type="button" data-lang="lt" aria-pressed="true">LT</button>
         <button class="btn" type="button" data-lang="en" aria-pressed="false">EN</button>
@@ -202,6 +203,7 @@ h1 span { display: block; color: var(--gold); text-shadow: 4px 4px 0 #8a5a12, 8p
     <div class="starters" id="starters" aria-hidden="true"></div>
     <p class="lead" data-t="lead"></p>
     <button class="btn play" id="play" type="button" data-t="play"></button>
+    <a class="zm-back" href="../">← Meniu</a>
   </div>
 </div>
 

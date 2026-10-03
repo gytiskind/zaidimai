@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-<style>body{margin:0}</style>
+<style>body{margin:0}.zm-back{display:inline-flex;align-items:center;justify-self:center;align-self:center;font:900 0.95rem "Nunito","Arial Rounded MT Bold",system-ui,sans-serif;color:#f3f0f7;text-decoration:none;background:#3b3846;border:3px solid;border-color:#6e6a7c #1f1c27 #1f1c27 #6e6a7c;box-shadow:0 0 0 2px #000;padding:5px 12px;touch-action:manipulation;white-space:nowrap}.zm-back:focus-visible{outline:3px solid #4de8d6;outline-offset:3px}</style>
 <title>Word Builder</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -129,6 +129,18 @@ body {
 #fx { position: fixed; inset: 0; width: 100%; height: 100%; z-index: 5; pointer-events: none; }
 
 /* overlays */
+.score-row { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; width: 100%; }
+.score-row div { background: var(--stone-lo); border: 2px solid #000; padding: 8px 6px; display: grid; gap: 2px; }
+.score-row b { font-family: var(--word); font-weight: 900; font-size: 2rem; line-height: 1; color: var(--gold); font-variant-numeric: tabular-nums; }
+.score-row span { font-size: 0.8rem; color: var(--ink-dim); letter-spacing: 0.06em; text-transform: uppercase; }
+.rec { font-family: var(--word); font-weight: 900; background: var(--gem); color: #0d2a27; padding: 3px 12px; box-shadow: 3px 3px 0 #000; }
+.pts-pop {
+  position: fixed; z-index: 5; pointer-events: none; transform: translate(-50%, -100%);
+  font-family: var(--word); font-weight: 900; font-size: 2.2rem; color: var(--gold); text-shadow: 3px 3px 0 #000;
+  animation: ptsUp 1.3s ease-out forwards;
+}
+@keyframes ptsUp { 0% { opacity: 0; margin-top: 10px; } 15% { opacity: 1; } 100% { opacity: 0; margin-top: -50px; } }
+@media (prefers-reduced-motion: reduce) { .pts-pop { animation-duration: 0.01s; animation-delay: 1s; } }
 .overlay {
   position: fixed; inset: 0; z-index: 7; display: grid; place-items: center;
   padding: calc(env(safe-area-inset-top, 0px) + 16px) 16px calc(env(safe-area-inset-bottom, 0px) + 16px);
@@ -211,6 +223,7 @@ h2 { font-weight: 900; font-size: clamp(1.9rem, 8vw, 2.5rem); color: var(--gold)
     </div>
     <button class="btn play" id="play" type="button">ŽAISTI</button>
     <p class="best">Išmokta žodžių: <b id="learnedCount">0</b> iš <b id="totalCount">32</b></p>
+    <a class="zm-back" href="../">← Meniu</a>
   </div>
 </div>
 
@@ -219,12 +232,18 @@ h2 { font-weight: 900; font-size: clamp(1.9rem, 8vw, 2.5rem); color: var(--gold)
     <h2>NAMAS PASTATYTAS!</h2>
     <img id="endHouse" alt="Tavo pastatytas namas">
     <ul class="learned" id="endWords"></ul>
-    <p class="best">Užuominos: <b id="endHints">0</b> &middot; Klaidos: <b id="endMistakes">0</b></p>
+    <div class="score-row">
+      <div><b id="endScore">0</b><span>taškai</span></div>
+      <div><b id="endTime">0:00</b><span>laikas</span></div>
+    </div>
+    <div class="rec" id="endRecord" hidden>NAUJAS REKORDAS!</div>
+    <p class="best">Rekordas: <b id="endBest">0</b> &middot; Užuominos: <b id="endHints">0</b> &middot; Klaidos: <b id="endMistakes">0</b></p>
     <div class="end-btns">
       <button class="btn play" id="nextLvl" type="button">KITAS LYGIS</button>
       <button class="btn" id="again" type="button">DAR KARTĄ</button>
     </div>
     <button class="btn small" id="menu" type="button">Lygiai</button>
+    <a class="zm-back" href="../">← Meniu</a>
   </div>
 </div>
 
@@ -550,7 +569,8 @@ h2 { font-weight: 900; font-size: clamp(1.9rem, 8vw, 2.5rem); color: var(--gold)
 
   /* ---------- game ---------- */
   const ROUND = 8;
-  const G = { mode: 'start', level: 1, words: [], idx: 0, answer: '', tiles: [], slots: [], built: 0, hints: 0, mistakes: 0, busy: false };
+  const G = { mode: 'start', level: 1, words: [], idx: 0, answer: '', tiles: [], slots: [], built: 0, hints: 0, mistakes: 0, busy: false,
+              score: 0, roundStart: 0, wordStart: 0, wordHints: 0, wordMistakes: 0 };
   const slotsEl = $('slots'), trayEl = $('tray'), pipsEl = $('pips');
 
   const shuffle = (a) => { for (let i = a.length - 1; i > 0; i--) { const j = (Math.random() * (i + 1)) | 0; [a[i], a[j]] = [a[j], a[i]]; } return a; };
@@ -561,6 +581,7 @@ h2 { font-weight: 900; font-size: clamp(1.9rem, 8vw, 2.5rem); color: var(--gold)
     const pool = shuffle(WORDS.filter((w) => w.lvl === level).slice());
     G.words = pool.slice(0, ROUND);
     G.idx = 0; G.built = 0; G.hints = 0; G.mistakes = 0; G.mode = 'play';
+    G.score = 0; G.roundStart = performance.now();
     $('levelLabel').textContent = level + ' LYGIS';
     $('start').hidden = true; $('end').hidden = true;
     sizeBuild(); renderBuild(0);
@@ -574,10 +595,9 @@ h2 { font-weight: 900; font-size: clamp(1.9rem, 8vw, 2.5rem); color: var(--gold)
     pic.src = w.icon; pic.alt = w.lt;
     pic.classList.remove('pop'); void pic.offsetWidth; pic.classList.add('pop');
     $('ltWord').textContent = w.lt;
+    // only the word's own letters: unscrambling is the challenge, no decoys
     const letters = [...w.en];
-    const decoys = G.level === 1 ? 0 : G.level === 2 ? 1 : 2;
-    const pool = [...'abcdefghiklmnoprstuvwy'].filter((c) => !letters.includes(c));
-    for (let i = 0; i < decoys; i++) letters.push(pool.splice((Math.random() * pool.length) | 0, 1)[0]);
+    G.wordStart = performance.now(); G.wordHints = 0; G.wordMistakes = 0;
     let order;
     do { order = shuffle(letters.slice()); } while (order.slice(0, w.en.length).join('') === w.en);
     slotsEl.innerHTML = ''; trayEl.innerHTML = '';
@@ -645,7 +665,7 @@ h2 { font-weight: 900; font-size: clamp(1.9rem, 8vw, 2.5rem); color: var(--gold)
     if (word === G.answer) success(); else fail();
   }
   function fail() {
-    G.mistakes++;
+    G.mistakes++; G.wordMistakes++;
     slotsEl.classList.add('bad');
     slotsEl.classList.remove('shake'); void slotsEl.offsetWidth; slotsEl.classList.add('shake');
     sfx.bad();
@@ -658,6 +678,14 @@ h2 { font-weight: 900; font-size: clamp(1.9rem, 8vw, 2.5rem); color: var(--gold)
     setTimeout(() => speak(G.answer), 350);
     const r = slotsEl.getBoundingClientRect();
     burst(r.left + r.width / 2, r.top + r.height / 2, 40);
+    const secs = (performance.now() - G.wordStart) / 1000;
+    const pts = Math.max(0, 100 + (secs < 10 ? 50 : secs < 20 ? 25 : 0) - 25 * G.wordHints - 10 * G.wordMistakes);
+    G.score += pts;
+    const pop = document.createElement('div');
+    pop.className = 'pts-pop'; pop.textContent = '+' + pts;
+    pop.style.left = (r.left + r.width / 2) + 'px'; pop.style.top = (r.top - 6) + 'px';
+    document.body.appendChild(pop);
+    setTimeout(() => pop.remove(), 1500);
     G.built++;
     addPiece(G.built);
     if (!progress.learned.includes(G.answer)) { progress.learned.push(G.answer); saveProgress(); }
@@ -678,7 +706,7 @@ h2 { font-weight: 900; font-size: clamp(1.9rem, 8vw, 2.5rem); color: var(--gold)
     if (!t) t = G.tiles.find((x) => x.ch === need && x.slot >= 0 && G.answer[x.slot] !== need && !G.slots[x.slot].locked);
     if (!t) return;
     if (t.slot >= 0) unplace(t, true);
-    G.hints++;
+    G.hints++; G.wordHints++;
     sfx.hint();
     place(t, i, true);
   }
@@ -691,6 +719,15 @@ h2 { font-weight: 900; font-size: clamp(1.9rem, 8vw, 2.5rem); color: var(--gold)
     sfx.round();
     $('endHouse').src = buildCv.toDataURL();
     $('endWords').innerHTML = G.words.map((w) => `<li><img src="${w.icon}" alt=""><div><b>${w.en}</b><span>${w.lt}</span></div></li>`).join('');
+    const total = Math.round((performance.now() - G.roundStart) / 1000);
+    progress.best = progress.best || {};
+    const prev = progress.best[G.level] || 0;
+    const isRecord = G.score > prev;
+    if (isRecord) { progress.best[G.level] = G.score; saveProgress(); }
+    $('endScore').textContent = G.score;
+    $('endTime').textContent = Math.floor(total / 60) + ':' + String(total % 60).padStart(2, '0');
+    $('endBest').textContent = Math.max(prev, G.score);
+    $('endRecord').hidden = !isRecord;
     $('endHints').textContent = G.hints;
     $('endMistakes').textContent = G.mistakes;
     $('nextLvl').hidden = G.level >= 3;

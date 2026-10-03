@@ -10,8 +10,11 @@ wrap() {
   {
     printf '<!doctype html>\n<html lang="%s">\n<head>\n<meta charset="utf-8">\n' "$lang"
     printf '<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">\n'
-    printf '<style>body{margin:0}</style>\n'
-    cat "$src"
+    printf '<style>body{margin:0}'
+    printf '.zm-back{display:inline-flex;align-items:center;justify-self:center;align-self:center;font:900 0.95rem "Nunito","Arial Rounded MT Bold",system-ui,sans-serif;color:#f3f0f7;text-decoration:none;background:#3b3846;border:3px solid;border-color:#6e6a7c #1f1c27 #1f1c27 #6e6a7c;box-shadow:0 0 0 2px #000;padding:5px 12px;touch-action:manipulation;white-space:nowrap}'
+    printf '.zm-back:focus-visible{outline:3px solid #4de8d6;outline-offset:3px}</style>\n'
+    # the <!--ZM-BACK--> marker becomes a link back to the menu (it stays invisible in the claude.ai versions)
+    sed 's|<!--ZM-BACK-->|<a class="zm-back" href="../">← Meniu</a>|g' "$src"
     printf '\n</html>\n'
   } > "$dst"
 }
