@@ -471,12 +471,18 @@ h2 { font-family: var(--word); font-weight: 900; font-size: clamp(2rem, 9vw, 2.6
   function buildAtlas() {
     const items = [];
     const add = (key, draw) => items.push({ key, draw });
-    add('floor', (c) => c.drawImage(TEX.floor, 0, 0, T, T));
+    // bevel on every floor tile: light top/left, dark bottom/right, so each step is a visible square
+    const bevel = (c) => {
+      const b = Math.max(2, Math.round(T * 0.05));
+      c.fillStyle = 'rgba(255,255,255,0.16)'; c.fillRect(0, 0, T, b); c.fillRect(0, 0, b, T);
+      c.fillStyle = 'rgba(0,0,0,0.42)'; c.fillRect(0, T - b, T, b); c.fillRect(T - b, 0, b, T);
+    };
+    add('floor', (c) => { c.drawImage(TEX.floor, 0, 0, T, T); bevel(c); });
     add('wall', (c) => {
       c.drawImage(TEX.wall, 0, 0, T, T);
       c.fillStyle = 'rgba(255,255,255,0.06)'; c.fillRect(0, 0, T, T * 0.08);
     });
-    add('stone', (c) => { c.drawImage(TEX.floor, 0, 0, T, T); c.drawImage(TEX.stone, T * 0.06, T * 0.06, T * 0.88, T * 0.88); });
+    add('stone', (c) => { c.drawImage(TEX.floor, 0, 0, T, T); bevel(c); c.drawImage(TEX.stone, T * 0.06, T * 0.06, T * 0.88, T * 0.88); });
     add('lava0', (c) => c.drawImage(TEX.lava[0], 0, 0, T, T));
     add('lava1', (c) => c.drawImage(TEX.lava[1], 0, 0, T, T));
     add('diamond', (c) => {
@@ -656,7 +662,12 @@ h2 { font-family: var(--word); font-weight: 900; font-size: clamp(2rem, 9vw, 2.6
     if (!run.active || run.halt) beginRun('step');
     if (run.i < run.steps.length) execStep();
   });
-  $('reset').addEventListener('click', () => { resetRobot(); });
+  // Iš naujo: clear the whole program and put the robot back. Taisyti keeps the program.
+  $('reset').addEventListener('click', () => {
+    prog = []; slot = null;
+    resetRobot();
+    renderProg(); updateCount(); updateHint();
+  });
   $('fix').addEventListener('click', () => { resetRobot(); });
 
   function markNow(s) {
