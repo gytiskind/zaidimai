@@ -33,7 +33,7 @@ body {
 }
 main { max-width: 1040px; margin: 0 auto; display: grid; gap: 28px; }
 h1 {
-  margin: 0; font-family: var(--pixel); font-size: clamp(2.8rem, 10vw, 4.4rem); line-height: 1; letter-spacing: 0.04em;
+  margin: 0; font-family: var(--word); font-weight: 900; font-size: clamp(2.8rem, 10vw, 4.4rem); line-height: 1; letter-spacing: 0.04em;
   color: var(--gold); text-shadow: 4px 4px 0 #8a5a12, 8px 8px 0 #000;
 }
 .games { list-style: none; margin: 0; padding: 0; display: grid; gap: 20px; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); }
@@ -43,7 +43,7 @@ h1 {
   box-shadow: 0 0 0 3px #000, 7px 7px 0 3px rgba(0, 0, 0, 0.45);
   color: inherit; text-decoration: none;
 }
-.card img { display: block; width: 100%; max-width: 100%; aspect-ratio: 4 / 3; object-fit: cover; border-bottom: 4px solid #000; image-rendering: auto; }
+.card img { display: block; width: 100%; max-width: 100%; height: auto; aspect-ratio: 4 / 3; object-fit: cover; border-bottom: 4px solid #000; image-rendering: auto; }
 .card .body { padding: 14px 16px 18px; display: grid; gap: 8px; align-content: start; }
 .card h2 { margin: 0; font-family: var(--pixel); font-size: 1.7rem; line-height: 1.05; }
 .card p { margin: 0; font-weight: 700; font-size: 1.1rem; color: var(--ink-dim); }
@@ -65,7 +65,7 @@ h1 {
 }
 .qr img { width: 180px; max-width: 100%; height: auto; display: block; background: #fff; }
 .qr div { display: grid; gap: 6px; min-width: 0; }
-.qr h2 { margin: 0; font-family: var(--pixel); font-size: 1.5rem; color: var(--gem); }
+.qr h2 { margin: 0; font-family: var(--word); font-weight: 900; font-size: 1.5rem; color: var(--gem); }
 .qr p { margin: 0; font-weight: 700; color: var(--ink-dim); font-size: 1.05rem; overflow-wrap: anywhere; }
 .qr code { font-family: var(--word); font-weight: 900; color: var(--ink); font-size: 1.1rem; }
 @media (prefers-reduced-motion: reduce) { .card:active { transform: none; } }
