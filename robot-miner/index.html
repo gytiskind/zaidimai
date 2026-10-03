@@ -4,6 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <style>body{margin:0}.zm-back{display:inline-flex;align-items:center;justify-self:center;align-self:center;font:900 0.95rem "Nunito","Arial Rounded MT Bold",system-ui,sans-serif;color:#f3f0f7;text-decoration:none;background:#3b3846;border:3px solid;border-color:#6e6a7c #1f1c27 #1f1c27 #6e6a7c;box-shadow:0 0 0 2px #000;padding:5px 12px;touch-action:manipulation;white-space:nowrap}.zm-back:focus-visible{outline:3px solid #4de8d6;outline-offset:3px}</style>
+<script src="../zm.js"></script>
 <title>Robot Miner</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -264,6 +265,9 @@ h2 { font-family: var(--word); font-weight: 900; font-size: clamp(2rem, 9vw, 2.6
 
 <script>
 (() => {
+  // site profiles (zaidimai/zm.js); absent in the claude.ai version, so everything falls back
+  const ZM = window.ZM || null;
+  const NS = (k) => (ZM ? ZM.ns(k) : k);
   const $ = (id) => document.getElementById(id);
   const reduce = matchMedia('(prefers-reduced-motion: reduce)').matches;
 
@@ -346,7 +350,7 @@ h2 { font-family: var(--word); font-weight: 900; font-size: clamp(2rem, 9vw, 2.6
   try {
     const l = localStorage.getItem('rm-lang'); if (l === 'lt' || l === 'en') lang = l;
     muted = localStorage.getItem('rm-muted') === '1';
-    const p = JSON.parse(localStorage.getItem('rm-progress') || 'null'); if (p && p.stars) progress = p;
+    const p = JSON.parse(localStorage.getItem(NS('rm-progress')) || 'null'); if (p && p.stars) progress = p;
   } catch (e) {}
   const save = (k, v) => { try { localStorage.setItem(k, v); } catch (e) {} };
   const unlockedUpTo = () => {
@@ -765,8 +769,14 @@ h2 { font-family: var(--word); font-weight: 900; font-size: clamp(2rem, 9vw, 2.6
     const n = countBlocks();
     const stars = n <= L.par ? 3 : n <= L.par + 2 ? 2 : 1;
     const key = lvlIdx + 1;
-    progress.stars[key] = Math.max(progress.stars[key] || 0, stars);
-    save('rm-progress', JSON.stringify(progress));
+    const prevStars = progress.stars[key] || 0;
+    progress.stars[key] = Math.max(prevStars, stars);
+    save(NS('rm-progress'), JSON.stringify(progress));
+    // XP: 10 for a first clear, 20 per newly earned star; record = total stars over all levels
+    if (ZM) {
+      const total = Object.values(progress.stars).reduce((a, b) => a + b, 0);
+      ZM.report('robot-miner', { score: total, xp: (prevStars ? 0 : 10) + 20 * Math.max(0, stars - prevStars) });
+    }
     document.querySelectorAll('#winStars .star').forEach((s, i) => {
       s.classList.remove('on'); void s.offsetWidth;
       s.classList.toggle('on', i < stars);
