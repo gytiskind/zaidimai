@@ -1,0 +1,624 @@
+<!doctype html>
+<html lang="lt">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<style>body{margin:0}</style>
+<title>Element Craft</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Nunito:wght@700;800;900&family=Pixelify+Sans:wght@400;700&display=swap">
+<style>
+/* layout: top bar, then the crafting bench (slot + slot = result, fact line), then a scrolling gallery of every element; overlays are beveled stone panels */
+:root {
+  --night: #141b3a;
+  --dusk: #3a3570;
+  --stone: #3b3846;
+  --stone-hi: #6e6a7c;
+  --stone-lo: #1f1c27;
+  --gold: #ffcc33;
+  --gem: #4de8d6;
+  --zombie: #7fb35f;
+  --red: #e0402e;
+  --grass: #5cbf3a;
+  --grass-hi: #8ee35f;
+  --grass-lo: #2f7a1c;
+  --ink: #f3f0f7;
+  --ink-dim: #b7b1c2;
+  --scrim: rgba(12, 10, 24, 0.62);
+  --pixel: "Pixelify Sans", "Courier New", ui-monospace, monospace;
+  --word: "Nunito", "Arial Rounded MT Bold", system-ui, sans-serif;
+  color-scheme: dark;
+}
+[hidden] { display: none !important; }
+* { box-sizing: border-box; }
+html, body { height: 100%; }
+body {
+  background: var(--night);
+  background-image: linear-gradient(180deg, #141b3a 0%, #262555 70%, #3a3570 100%);
+  color: var(--ink);
+  font-family: var(--word);
+  overflow: hidden;
+  touch-action: manipulation;
+  user-select: none;
+  -webkit-user-select: none;
+  -webkit-touch-callout: none;
+  -webkit-tap-highlight-color: transparent;
+}
+#app {
+  position: fixed; inset: 0; display: grid; grid-template-rows: auto auto 1fr;
+  padding: calc(env(safe-area-inset-top, 0px) + 10px) 16px 0;
+  gap: 12px; max-width: 1100px; margin: 0 auto;
+}
+
+.btn {
+  font: inherit; font-weight: 800; color: var(--ink); cursor: pointer; touch-action: manipulation;
+  background: var(--stone); border: 3px solid; border-color: var(--stone-hi) var(--stone-lo) var(--stone-lo) var(--stone-hi);
+  box-shadow: 0 0 0 2px #000;
+}
+.btn:focus-visible { outline: 3px solid var(--gem); outline-offset: 4px; }
+.btn:disabled { opacity: 0.55; cursor: default; }
+.small { font-size: 0.9rem; padding: 6px 10px; }
+.small[aria-pressed="true"] { background: var(--stone-lo); color: var(--ink-dim); }
+.play {
+  font-family: var(--word); font-weight: 900;
+  font-size: 1.7rem; padding: 12px 40px; letter-spacing: 0.06em; color: #fff;
+  background: var(--grass); border-color: var(--grass-hi) var(--grass-lo) var(--grass-lo) var(--grass-hi);
+  text-shadow: 2px 2px 0 var(--grass-lo);
+}
+.play:active { border-color: var(--grass-lo) var(--grass-hi) var(--grass-hi) var(--grass-lo); transform: translateY(2px); }
+.danger { background: var(--red); border-color: #ff8a7a #6d1209 #6d1209 #ff8a7a; color: #fff; }
+.seg { display: flex; }
+.seg .btn { font-size: 0.9rem; padding: 6px 12px; }
+.seg .btn[aria-pressed="true"] { background: var(--gold); color: #2a1d00; border-color: #fff0a8 #b8861a #b8861a #fff0a8; }
+
+/* top bar */
+.top { display: flex; flex-wrap: wrap; align-items: center; gap: 10px 12px; }
+.brand { font-family: var(--word); font-weight: 900; font-size: 1.5rem; letter-spacing: 0.04em; color: var(--gem); text-shadow: 3px 3px 0 #000; margin-right: auto; line-height: 1; }
+.brand span { color: var(--gold); }
+.count { font-weight: 900; font-size: 1.15rem; color: var(--ink); font-variant-numeric: tabular-nums; }
+.count b { color: var(--gold); }
+.hint { background: #2d4a6e; border-color: #5d8cc4 #14263d #14263d #5d8cc4; }
+.tools { display: flex; flex-wrap: wrap; gap: 8px; }
+
+/* bench */
+.bench {
+  background: rgba(31, 28, 39, 0.92); padding: 14px 14px 12px;
+  border: 4px solid; border-color: var(--stone-hi) var(--stone-lo) var(--stone-lo) var(--stone-hi);
+  box-shadow: 0 0 0 3px #000, 6px 6px 0 3px rgba(0, 0, 0, 0.4);
+  display: grid; gap: 10px; justify-items: center;
+}
+.slots { display: flex; align-items: center; justify-content: center; gap: 10px; }
+.op { font-family: var(--pixel); font-weight: 700; font-size: 2.2rem; color: var(--ink-dim); text-shadow: 2px 2px 0 #000; }
+.slot {
+  width: clamp(76px, 18vw, 112px); aspect-ratio: 1; max-width: 100%;
+  display: grid; place-items: center; padding: 6px;
+  background: #15131c; border: 3px dashed var(--stone-hi); cursor: pointer; font: inherit; color: var(--ink);
+}
+.slot.full { border-style: solid; border-color: var(--stone-hi) #000 #000 var(--stone-hi); background: var(--stone); }
+.slot img { width: 70%; image-rendering: pixelated; display: block; }
+.slot span { font-weight: 900; font-size: 0.85rem; line-height: 1.1; text-align: center; overflow-wrap: anywhere; }
+.slot.result { border-color: var(--gold); }
+.slot.result.full { background: #3b3218; border-style: solid; border-color: #fff0a8 #b8861a #b8861a #fff0a8; }
+.slots.shake { animation: shake 0.4s steps(6); }
+@keyframes shake { 0%, 100% { transform: translateX(0); } 20%, 60% { transform: translateX(-8px); } 40%, 80% { transform: translateX(8px); } }
+.pop { animation: pop 0.45s ease-out; }
+@keyframes pop { 0% { transform: scale(0.3); } 60% { transform: scale(1.18); } 100% { transform: scale(1); } }
+.fact { margin: 0; min-height: 2.8em; max-width: 46ch; text-align: center; font-weight: 800; font-size: 1.1rem; line-height: 1.35; color: var(--ink); }
+.fact .new { display: inline-block; font-weight: 900; font-size: 0.85rem; color: #2a1d00; background: var(--gold); padding: 1px 8px; margin-right: 6px; vertical-align: 2px; }
+.fact.dim { color: var(--ink-dim); }
+
+/* gallery */
+.inv {
+  overflow-y: auto; min-height: 0; touch-action: pan-y; -webkit-overflow-scrolling: touch;
+  display: grid; grid-template-columns: repeat(auto-fill, minmax(92px, 1fr)); gap: 10px; align-content: start;
+  padding: 4px 4px calc(env(safe-area-inset-bottom, 0px) + 20px);
+}
+.tile {
+  display: grid; justify-items: center; align-content: start; gap: 4px; padding: 8px 4px 8px; min-width: 0;
+  background: var(--stone); border: 3px solid; border-color: var(--stone-hi) var(--stone-lo) var(--stone-lo) var(--stone-hi);
+  box-shadow: 0 0 0 2px #000; cursor: pointer; font: inherit; color: var(--ink);
+}
+.tile img { width: 56px; height: 56px; image-rendering: pixelated; display: block; }
+.tile span { font-weight: 900; font-size: 0.88rem; line-height: 1.1; text-align: center; overflow-wrap: anywhere; }
+.tile:active { transform: translateY(2px); }
+.tile:focus-visible { outline: 3px solid var(--gem); outline-offset: 2px; }
+.tile.locked { background: var(--stone-lo); border-color: #2c2936 #0e0d12 #0e0d12 #2c2936; cursor: default; }
+.tile.locked .q { width: 56px; height: 56px; display: grid; place-items: center; font-family: var(--pixel); font-size: 2rem; color: #4a4655; }
+.tile.locked span { color: #4a4655; }
+.tile.picked { background: #4d4560; border-color: var(--gold) #8a5a12 #8a5a12 var(--gold); }
+.tile.hinted { border-color: var(--gold) #b8861a #b8861a var(--gold); animation: glow 0.9s steps(2) infinite; }
+@keyframes glow { 50% { box-shadow: 0 0 0 2px #000, 0 0 0 6px var(--gold); } }
+.tile.fresh { animation: pop 0.45s ease-out; }
+
+/* overlays */
+.overlay {
+  position: fixed; inset: 0; z-index: 5; display: grid; place-items: center;
+  padding: calc(env(safe-area-inset-top, 0px) + 16px) 16px calc(env(safe-area-inset-bottom, 0px) + 16px);
+  background: radial-gradient(ellipse at 50% 45%, rgba(12, 10, 24, 0.35), var(--scrim) 75%);
+  overflow-y: auto;
+}
+.panel {
+  width: 100%; max-width: 380px; display: grid; gap: 14px; justify-items: center; text-align: center;
+  background: rgba(31, 28, 39, 0.96); padding: 18px 18px 20px;
+  border: 4px solid; border-color: var(--stone-hi) var(--stone-lo) var(--stone-lo) var(--stone-hi);
+  box-shadow: 0 0 0 3px #000, 8px 8px 0 3px rgba(0, 0, 0, 0.45);
+}
+h1 { margin: 0; font-family: var(--pixel); font-weight: 700; line-height: 0.9; letter-spacing: 0.04em; font-size: clamp(2.8rem, 14vw, 4rem); color: var(--gem); text-shadow: 4px 4px 0 #157a70, 8px 8px 0 #000; }
+h1 span { display: block; color: var(--gold); text-shadow: 4px 4px 0 #8a5a12, 8px 8px 0 #000; }
+.lead { margin: 0; font-weight: 800; font-size: 1.1rem; line-height: 1.4; max-width: 30ch; }
+.starters { display: flex; gap: 10px; }
+.starters img { width: 48px; height: 48px; image-rendering: pixelated; }
+.confirm-q { margin: 0; font-weight: 900; font-size: 1.3rem; }
+.row2 { display: flex; gap: 12px; flex-wrap: wrap; justify-content: center; }
+.row2 .btn { font-size: 1.1rem; padding: 10px 20px; }
+@media (prefers-reduced-motion: reduce) {
+  .pop, .tile.fresh, .slots.shake { animation: none; }
+  .tile.hinted { animation: none; box-shadow: 0 0 0 2px #000, 0 0 0 6px var(--gold); }
+}
+@media (max-width: 520px) {
+  .brand { font-size: 1.2rem; }
+  .op { font-size: 1.6rem; }
+  .slots { gap: 6px; }
+}
+</style>
+
+<div id="app">
+  <header class="top">
+    <div class="brand">ELEMENT <span>CRAFT</span></div>
+    <div class="count" id="count" aria-live="polite"></div>
+    <div class="tools">
+      <button class="btn small hint" id="hintBtn" type="button"></button>
+      <div class="seg" role="group" aria-label="Language">
+        <button class="btn" type="button" data-lang="lt" aria-pressed="true">LT</button>
+        <button class="btn" type="button" data-lang="en" aria-pressed="false">EN</button>
+      </div>
+      <button class="btn small" id="mute" type="button" aria-pressed="false" data-t="sound"></button>
+      <button class="btn small" id="resetBtn" type="button" data-t="reset"></button>
+    </div>
+  </header>
+
+  <section class="bench" aria-label="Crafting bench">
+    <div class="slots" id="slots">
+      <button class="slot" id="slotA" type="button" aria-label="Slot 1"></button>
+      <div class="op" aria-hidden="true">+</div>
+      <button class="slot" id="slotB" type="button" aria-label="Slot 2"></button>
+      <div class="op" aria-hidden="true">=</div>
+      <div class="slot result" id="slotR" aria-live="polite"></div>
+    </div>
+    <p class="fact dim" id="fact"></p>
+  </section>
+
+  <div class="inv" id="inv"></div>
+</div>
+
+<div class="overlay" id="start">
+  <div class="panel">
+    <div class="seg" role="group" aria-label="Language">
+      <button class="btn" type="button" data-lang="lt" aria-pressed="true">LT</button>
+      <button class="btn" type="button" data-lang="en" aria-pressed="false">EN</button>
+    </div>
+    <h1>ELEMENT <span>CRAFT</span></h1>
+    <div class="starters" id="starters" aria-hidden="true"></div>
+    <p class="lead" data-t="lead"></p>
+    <button class="btn play" id="play" type="button" data-t="play"></button>
+  </div>
+</div>
+
+<div class="overlay" id="confirm" hidden>
+  <div class="panel">
+    <p class="confirm-q" data-t="resetQ"></p>
+    <div class="row2">
+      <button class="btn danger" id="resetYes" type="button" data-t="resetYes"></button>
+      <button class="btn" id="resetNo" type="button" data-t="resetNo"></button>
+    </div>
+  </div>
+</div>
+
+<script>
+(() => {
+  const $ = (id) => document.getElementById(id);
+  const reduce = matchMedia('(prefers-reduced-motion: reduce)').matches;
+
+  /* ---------- text ---------- */
+  const TXT = {
+    lt: {
+      lead: 'Sujunk du elementus ir atrask naują. Pradėk nuo šių keturių.',
+      play: 'ŽAISTI', cont: 'TĘSTI', found: 'Atrasta', hint: 'Užuomina', sound: 'Garsas', reset: 'Iš naujo',
+      resetQ: 'Ištrinti visus atradimus?', resetYes: 'Taip, ištrinti', resetNo: 'Ne',
+      pick: 'Paliesk du elementus.', nothing: 'Nieko neįvyko. Bandyk kitą porą.', known: 'Jau žinai.',
+      isNew: 'NAUJA!', tryThis: 'Pabandyk:', noHint: 'Nebėra ką rasti iš tavo elementų.', all: 'Atradai viską! Tu tikras mokslininkas.',
+      wait: 's',
+    },
+    en: {
+      lead: 'Combine two elements to discover a new one. Start with these four.',
+      play: 'PLAY', cont: 'CONTINUE', found: 'Found', hint: 'Hint', sound: 'Sound', reset: 'Restart',
+      resetQ: 'Delete all discoveries?', resetYes: 'Yes, delete', resetNo: 'No',
+      pick: 'Tap two elements.', nothing: 'Nothing happened. Try another pair.', known: 'You know this one.',
+      isNew: 'NEW!', tryThis: 'Try:', noHint: 'Nothing new to find from your elements.', all: 'You found everything! A real scientist.',
+      wait: 's',
+    },
+  };
+
+  /* ---------- elements ---------- */
+  // shape: pixel pattern below; pal: colors for letters a..e
+  const ELEMENTS = [
+    { id: 'water', lt: 'Vanduo', en: 'Water', shape: 'drop', pal: ['#3d8bfd', '#bfe0ff'],
+      f: { lt: 'Vanduo gali būti skystis, ledas arba garai.', en: 'Water can be a liquid, solid ice or a gas.' } },
+    { id: 'fire', lt: 'Ugnis', en: 'Fire', shape: 'flame', pal: ['#e0402e', '#ff9a1e', '#ffe680'],
+      f: { lt: 'Ugniai reikia kuro, šilumos ir deguonies.', en: 'Fire needs fuel, heat and oxygen.' } },
+    { id: 'earth', lt: 'Žemė', en: 'Earth', shape: 'grass', pal: ['#5cbf3a', '#8ee35f', '#7a5534', '#5f4127'],
+      f: { lt: 'Saujoje dirvožemio gyvena milijonai mažyčių gyvių.', en: 'A handful of soil holds millions of tiny living things.' } },
+    { id: 'air', lt: 'Oras', en: 'Air', shape: 'swirl', pal: ['#d9f2ff'],
+      f: { lt: 'Oras daugiausia sudarytas iš azoto ir deguonies.', en: 'Air is mostly nitrogen and oxygen.' } },
+    { id: 'steam', lt: 'Garai', en: 'Steam', shape: 'steam', pal: ['#e8eef5', '#7a7f8c', '#4a4f5c'],
+      f: { lt: 'Vanduo, įkaitintas iki 100 °C, virsta garais.', en: 'Water heated to 100 °C turns into steam.' } },
+    { id: 'lava', lt: 'Lava', en: 'Lava', shape: 'wave', pal: ['#ffe680', '#ff7a1e', '#c4300e'],
+      f: { lt: 'Lava yra išsilydžiusi uola, karštesnė nei 700 °C.', en: 'Lava is melted rock, hotter than 700 °C.' } },
+    { id: 'mud', lt: 'Purvas', en: 'Mud', shape: 'blob', pal: ['#6c4a2c', '#86603b', '#4a3220'],
+      f: { lt: 'Purvas yra žemė, sumaišyta su vandeniu.', en: 'Mud is soil mixed with water.' } },
+    { id: 'dust', lt: 'Dulkės', en: 'Dust', shape: 'dots', pal: ['#c9a878', '#9c7f58'],
+      f: { lt: 'Vėjas gali nunešti dulkes per visą vandenyną.', en: 'Wind can carry dust across a whole ocean.' } },
+    { id: 'energy', lt: 'Energija', en: 'Energy', shape: 'bolt', pal: ['#ffcc33', '#fff3b0'],
+      f: { lt: 'Degdama ugnis išskiria šilumą ir šviesą.', en: 'Burning gives off energy as heat and light.' } },
+    { id: 'wind', lt: 'Vėjas', en: 'Wind', shape: 'gust', pal: ['#8fc4e8', '#5cbf3a', '#2f7a1c'],
+      f: { lt: 'Vėjas yra judantis oras.', en: 'Wind is moving air.' } },
+    { id: 'sea', lt: 'Jūra', en: 'Sea', shape: 'wave', pal: ['#bfe0ff', '#2f6fd6', '#1d4a99'],
+      f: { lt: 'Vanduo dengia apie 71 % Žemės paviršiaus.', en: 'Water covers about 71% of Earth\'s surface.' } },
+    { id: 'cloud', lt: 'Debesis', en: 'Cloud', shape: 'cloud', pal: ['#ffffff', '#c9d3e6'],
+      f: { lt: 'Debesys yra milijardai mažyčių vandens lašelių.', en: 'Clouds are billions of tiny water droplets.' } },
+    { id: 'rain', lt: 'Lietus', en: 'Rain', shape: 'rain', pal: ['#9aa6bd', '#3d8bfd'],
+      f: { lt: 'Kai lašeliai debesyje pasunkėja, jie krenta lietumi.', en: 'When cloud droplets grow heavy, they fall as rain.' } },
+    { id: 'stone', lt: 'Akmuo', en: 'Stone', shape: 'block', pal: ['#80808a', '#5f5f69'],
+      f: { lt: 'Atvėsusi lava sukietėja ir virsta uola.', en: 'Cooled lava hardens into rock.' } },
+    { id: 'obsidian', lt: 'Obsidianas', en: 'Obsidian', shape: 'gem', pal: ['#120c1c', '#3b2a5a', '#8a6fc0'],
+      f: { lt: 'Labai greitai atvėsusi lava virsta vulkaniniu stiklu.', en: 'Lava that cools very fast becomes volcanic glass.' } },
+    { id: 'sand', lt: 'Smėlis', en: 'Sand', shape: 'block', pal: ['#e8d29a', '#c9ad6e'],
+      f: { lt: 'Vanduo per daugelį metų sutrina akmenis į smėlį.', en: 'Over many years, water grinds rocks into sand.' } },
+    { id: 'glass', lt: 'Stiklas', en: 'Glass', shape: 'sheet', pal: ['#9fd8e8', '#d8f4fb', '#ffffff'],
+      f: { lt: 'Stiklas gaminamas lydant smėlį labai karštoje krosnyje.', en: 'Glass is made by melting sand in a very hot furnace.' } },
+    { id: 'salt', lt: 'Druska', en: 'Salt', shape: 'dots', pal: ['#ffffff', '#c9d3e6'],
+      f: { lt: 'Išgaravus jūros vandeniui, lieka druska.', en: 'When seawater evaporates, salt is left behind.' } },
+    { id: 'mountain', lt: 'Kalnas', en: 'Mountain', shape: 'mountain', pal: ['#ffffff', '#7a7f8c', '#55596a'],
+      f: { lt: 'Kalnai iškyla, kai susistumia Žemės plokštės.', en: 'Mountains rise when Earth\'s plates push together.' } },
+    { id: 'cold', lt: 'Šaltis', en: 'Cold', shape: 'thermo', pal: ['#c9d3e6', '#3d8bfd'],
+      f: { lt: 'Aukštai kalnuose oras šaltesnis nei slėnyje.', en: 'High in the mountains, air is colder than below.' } },
+    { id: 'ice', lt: 'Ledas', en: 'Ice', shape: 'block', pal: ['#bfe8ff', '#8fc9ef'],
+      f: { lt: 'Vanduo užšąla 0 °C temperatūroje.', en: 'Water freezes at 0 °C.' } },
+    { id: 'snow', lt: 'Sniegas', en: 'Snow', shape: 'flake', pal: ['#ffffff'],
+      f: { lt: 'Kiekviena snaigė yra šešiakampis ledo kristalas.', en: 'Every snowflake is an ice crystal with six sides.' } },
+    { id: 'lightning', lt: 'Žaibas', en: 'Lightning', shape: 'bolt', pal: ['#fff3b0', '#ffffff'],
+      f: { lt: 'Žaibas yra milžiniška elektros kibirkštis iš debesų.', en: 'Lightning is a giant electric spark from clouds.' } },
+    { id: 'sun', lt: 'Saulė', en: 'Sun', shape: 'sun', pal: ['#ffcc33', '#ff9a1e'],
+      f: { lt: 'Saulė yra milžiniškas karštų dujų rutulys.', en: 'The Sun is a giant ball of hot gas.' } },
+    { id: 'plant', lt: 'Augalas', en: 'Plant', shape: 'leaf', pal: ['#5cbf3a', '#2f7a1c', '#7a5534'],
+      f: { lt: 'Augalams augti reikia vandens ir šviesos.', en: 'Plants need water and light to grow.' } },
+    { id: 'tree', lt: 'Medis', en: 'Tree', shape: 'tree', pal: ['#3f9a2e', '#2f7a1c', '#7a4f2e'],
+      f: { lt: 'Medis yra didelis augalas su kietu kamienu.', en: 'A tree is a big plant with a hard trunk.' } },
+    { id: 'wood', lt: 'Mediena', en: 'Wood', shape: 'log', pal: ['#7a4f2e', '#c49a62', '#a67c48'],
+      f: { lt: 'Mediena yra kietoji medžio kamieno dalis.', en: 'Wood is the hard inside of a tree trunk.' } },
+    { id: 'ash', lt: 'Pelenai', en: 'Ash', shape: 'dots', pal: ['#9a9aa4', '#5f5f69'],
+      f: { lt: 'Sudegusi mediena virsta pelenais.', en: 'Burnt wood turns into ash.' } },
+    { id: 'coal', lt: 'Anglis', en: 'Coal', shape: 'block', pal: ['#26262c', '#4b4b55'],
+      f: { lt: 'Anglis susidarė iš senovinių augalų, palaidotų po žeme.', en: 'Coal formed from ancient plants buried underground.' } },
+    { id: 'pressure', lt: 'Slėgis', en: 'Pressure', shape: 'press', pal: ['#ff7a5c', '#80808a', '#5f5f69'],
+      f: { lt: 'Giliai po žeme viską spaudžia didžiulis slėgis.', en: 'Deep underground, huge pressure squeezes everything.' } },
+    { id: 'diamond', lt: 'Deimantas', en: 'Diamond', shape: 'gem', pal: ['#1d9c8f', '#4de8d6', '#d0fff7'],
+      f: { lt: 'Deimantas yra anglis, giliai po žeme suspausta milžinišku slėgiu.', en: 'Diamond is carbon squeezed by huge pressure deep underground.' } },
+    { id: 'metal', lt: 'Metalas', en: 'Metal', shape: 'ingot', pal: ['#5f636e', '#c3c8d2', '#8a8f9c'],
+      f: { lt: 'Metalas išgaunamas karštoje ugnyje lydant rūdą.', en: 'Metal is made by melting ore rock in hot fire.' } },
+    { id: 'rust', lt: 'Rūdys', en: 'Rust', shape: 'ingot', pal: ['#6d3a1e', '#c4682e', '#9c4f22'],
+      f: { lt: 'Geležis rūdija, kai ją liečia vanduo ir oras.', en: 'Iron rusts when water and air touch it.' } },
+    { id: 'clay', lt: 'Molis', en: 'Clay', shape: 'blob', pal: ['#c4784a', '#de9a68', '#9c5a33'],
+      f: { lt: 'Molis sudarytas iš labai smulkių uolienų dalelių.', en: 'Clay is made of super tiny bits of rock.' } },
+    { id: 'brick', lt: 'Plyta', en: 'Brick', shape: 'brick', pal: ['#b8432e', '#e0dccf'],
+      f: { lt: 'Plytos gaminamos degant molį karštoje krosnyje.', en: 'Bricks are clay baked in a hot kiln.' } },
+    { id: 'volcano', lt: 'Ugnikalnis', en: 'Volcano', shape: 'volcano', pal: ['#ff7a1e', '#55596a', '#9aa0aa'],
+      f: { lt: 'Ugnikalnis yra kalnas, iš kurio išsiveržia lava.', en: 'A volcano is a mountain where lava erupts.' } },
+    { id: 'rainbow', lt: 'Vaivorykštė', en: 'Rainbow', shape: 'arc', pal: ['#e0402e', '#ffcc33', '#5cbf3a', '#3d8bfd'],
+      f: { lt: 'Saulės šviesa, praeidama pro lietaus lašus, sukuria vaivorykštę.', en: 'Sunlight passing through raindrops makes a rainbow.' } },
+    { id: 'swamp', lt: 'Pelkė', en: 'Swamp', shape: 'wave', pal: ['#5cbf3a', '#4a5a2a', '#2f3a1c'],
+      f: { lt: 'Pelkė yra šlapia žemė, pilna augalų.', en: 'A swamp is wet land full of plants.' } },
+    { id: 'fog', lt: 'Rūkas', en: 'Fog', shape: 'fog', pal: ['#d8dce4', '#5cbf3a'],
+      f: { lt: 'Rūkas yra debesis prie pat žemės.', en: 'Fog is a cloud touching the ground.' } },
+    { id: 'glacier', lt: 'Ledynas', en: 'Glacier', shape: 'mountain', pal: ['#ffffff', '#8fc9ef', '#5d9fd0'],
+      f: { lt: 'Ledynas yra milžiniška ledo upė, lėtai šliaužianti žemyn.', en: 'A glacier is a huge river of ice that slowly slides.' } },
+    { id: 'oxygen', lt: 'Deguonis', en: 'Oxygen', shape: 'bubble', pal: ['#8fc9ef', '#d9f2ff', '#ffffff'],
+      f: { lt: 'Augalai, gaudami saulės šviesą, gamina deguonį.', en: 'Plants make oxygen using sunlight.' } },
+    { id: 'paper', lt: 'Popierius', en: 'Paper', shape: 'sheet', pal: ['#c9c3b0', '#f4f0e4', '#9a9584'],
+      f: { lt: 'Popierius gaminamas iš medienos plaušų.', en: 'Paper is made from wood fibers.' } },
+  ];
+  const STARTERS = ['water', 'fire', 'earth', 'air'];
+  const RECIPES_LIST = [
+    ['water', 'fire', 'steam'], ['earth', 'fire', 'lava'], ['water', 'earth', 'mud'], ['air', 'earth', 'dust'],
+    ['fire', 'air', 'energy'], ['air', 'air', 'wind'], ['water', 'water', 'sea'], ['steam', 'air', 'cloud'],
+    ['cloud', 'water', 'rain'], ['lava', 'air', 'stone'], ['lava', 'water', 'obsidian'], ['stone', 'water', 'sand'],
+    ['stone', 'wind', 'sand'], ['sand', 'fire', 'glass'], ['sea', 'fire', 'salt'], ['sea', 'sun', 'salt'],
+    ['stone', 'earth', 'mountain'], ['air', 'mountain', 'cold'], ['water', 'cold', 'ice'], ['cloud', 'cold', 'snow'],
+    ['rain', 'cold', 'snow'], ['cloud', 'energy', 'lightning'], ['fire', 'energy', 'sun'], ['earth', 'rain', 'plant'],
+    ['plant', 'plant', 'tree'], ['tree', 'stone', 'wood'], ['wood', 'fire', 'ash'], ['wood', 'earth', 'coal'],
+    ['earth', 'earth', 'pressure'], ['coal', 'pressure', 'diamond'], ['stone', 'fire', 'metal'], ['metal', 'water', 'rust'],
+    ['metal', 'air', 'rust'], ['mud', 'stone', 'clay'], ['clay', 'fire', 'brick'], ['lava', 'mountain', 'volcano'],
+    ['rain', 'sun', 'rainbow'], ['mud', 'plant', 'swamp'], ['cloud', 'earth', 'fog'], ['ice', 'mountain', 'glacier'],
+    ['plant', 'sun', 'oxygen'], ['wood', 'water', 'paper'], ['water', 'energy', 'steam'],
+  ];
+  const SHAPES = {
+    drop:     ['...aa...', '...aa...', '..aaaa..', '.aaaaaa.', '.abaaaa.', '.abaaaa.', '..aaaa..', '...aa...'],
+    flame:    ['...a....', '..aa..a.', '..aaa.a.', '.aabaaa.', '.abbbaa.', '.abcbba.', '..bccb..', '...bb...'],
+    grass:    ['aaaaaaaa', 'abaaabaa', 'acaacaac', 'cccdcccc', 'cdcccccd', 'ccccdccc', 'dccccccd', 'cccdcccc'],
+    gust:     ['aa......', '..aaaa..', '......aa', 'aaa.....', '...aaaa.', '.......a', '..b.b.b.', 'cbcbcbcb'],
+    swirl:    ['........', 'aaaaa...', '.....a..', 'aaaa.a..', '....a...', 'aaaaaaa.', '.......a', 'aaaaaa..'],
+    steam:    ['.a..a...', 'a..a..a.', '.a..a..a', 'a..a..a.', '.a..a...', '........', 'bbbbbbbb', 'cccccccc'],
+    wave:     ['........', '........', '.a...a..', 'aba.aba.', 'bbbbbbbb', 'bcbbbcbb', 'bbbbbbbb', 'cbbbcbbb'],
+    blob:     ['........', '..aaaa..', '.abaaaa.', 'aaaaacaa', 'aacaaaaa', 'aaaaabaa', '.aaaaaa.', '..cccc..'],
+    dots:     ['a..b..a.', '..a...b.', 'b...a...', '.a..b..a', '...a...b', 'a.b...a.', '..a.b...', 'b....a.a'],
+    bolt:     ['....aa..', '...aa...', '..aab...', '.aaaaa..', '...ba...', '..aa....', '.aa.....', '.a......'],
+    cloud:    ['........', '...aa...', '..aaaa..', '.aaaaaa.', 'aaaaaaaa', 'abbbbbba', '.bbbbbb.', '........'],
+    rain:     ['..aaaa..', '.aaaaaa.', 'aaaaaaaa', '........', '.b..b...', '...b..b.', '.b..b...', '...b..b.'],
+    block:    ['aaaaaaaa', 'abaaaaba', 'aaaabaaa', 'aaaaaaaa', 'abaaaaaa', 'aaaaabaa', 'aabaaaaa', 'aaaaaaba'],
+    gem:      ['........', '..aaaa..', '.abbbba.', 'abbccbba', '.abbbba.', '..abba..', '...aa...', '........'],
+    sheet:    ['aaaaaa..', 'abbbbaa.', 'abccbbaa', 'abbbbbba', 'abccccba', 'abbbbbba', 'abccccba', 'aaaaaaaa'],
+    mountain: ['........', '...a....', '..aba...', '..bbb...', '.bbbbbc.', '.bbbbccc', 'bbbbcccc', 'bbbbbbbb'],
+    thermo:   ['...aa...', '...ab...', '...ab...', '...ab...', '...ab...', '..abba..', '..abba..', '...aa...'],
+    flake:    ['...a....', '.a.a.a..', '..aaa...', 'aaaaaaa.', '..aaa...', '.a.a.a..', '...a....', '........'],
+    sun:      ['...a....', '.a.a.a..', '..bbb...', 'aabbbaa.', '..bbb...', '.a.a.a..', '...a....', '........'],
+    leaf:     ['........', '..a..a..', '.aaa.aa.', '.aaaaaa.', '..abba..', '...b....', '...b....', 'cccccccc'],
+    tree:     ['..aaaa..', '.aaaaaa.', 'aaabaaaa', 'aaaaaaba', '.aaaaaa.', '...cc...', '...cc...', '..cccc..'],
+    log:      ['........', '..aaaa..', '.abbbba.', 'abcccbba', 'abcbcbba', 'abcccbba', '.abbbba.', '..aaaa..'],
+    press:    ['..aaa...', '...a....', 'bbbbbbbb', 'bcbcbcbc', 'bbbbbbbb', '...a....', '..aaa...', '........'],
+    ingot:    ['........', '........', '..aaaaaa', '.abbbbba', 'abbbbbba', 'accccccc', '........', '........'],
+    brick:    ['aaabaaab', 'aaabaaab', 'bbbbbbbb', 'abaaabaa', 'abaaabaa', 'bbbbbbbb', 'aaabaaab', 'aaabaaab'],
+    volcano:  ['..a.a...', '...a....', '..bab...', '..bab...', '.bbabb..', '.bbbabc.', 'bbbbbbcc', 'bbbbbbbb'],
+    arc:      ['..aaaa..', '.abbbba.', 'abccccba', 'abcddcba', 'abcd.cba', 'abc..cba', '........', '........'],
+    fog:      ['aaaa....', '........', '..aaaaaa', '........', 'aaaaaa..', '........', '...aaaaa', 'bbbbbbbb'],
+    bubble:   ['..aaa...', '.abbba..', 'abbcbba.', 'abbbbba.', 'abbbbba.', '.abbba..', '..aaa...', '........'],
+  };
+
+  const BY_ID = Object.fromEntries(ELEMENTS.map((e) => [e.id, e]));
+  const key = (a, b) => [a, b].sort().join('+');
+  const RECIPES = {};
+  for (const [a, b, r] of RECIPES_LIST) RECIPES[key(a, b)] = r;
+
+  /* ---------- icons: drawn once into data URLs ---------- */
+  const ICON = {};
+  for (const el of ELEMENTS) {
+    const c = document.createElement('canvas');
+    c.width = c.height = 64;
+    const g = c.getContext('2d');
+    SHAPES[el.shape].forEach((row, y) => [...row].forEach((ch, x) => {
+      const i = 'abcde'.indexOf(ch);
+      if (i >= 0) { g.fillStyle = el.pal[i]; g.fillRect(x * 8, y * 8, 8, 8); }
+    }));
+    ICON[el.id] = c.toDataURL();
+  }
+
+  /* ---------- state ---------- */
+  const store = {
+    get(k, d) { try { const v = localStorage.getItem(k); return v === null ? d : JSON.parse(v); } catch (e) { return d; } },
+    set(k, v) { try { localStorage.setItem(k, JSON.stringify(v)); } catch (e) {} },
+  };
+  let lang = store.get('ec-lang', 'lt') === 'en' ? 'en' : 'lt';
+  let found = new Set(store.get('ec-found', STARTERS).filter((id) => BY_ID[id]));
+  STARTERS.forEach((id) => found.add(id));
+  let hints = store.get('ec-hints', 3);
+  let hintEarn = store.get('ec-hint-earn', 0);
+  let hintRegenAt = 0;
+  let slotA = null, slotB = null, busy = false, lastResult = null, hinted = [];
+  let factState = { kind: 'pick' };
+  const T = () => TXT[lang];
+  const nameOf = (id) => BY_ID[id][lang];
+
+  /* ---------- sound ---------- */
+  let actx = null, muted = store.get('ec-muted', false);
+  function ensureAudio() {
+    try {
+      if (!actx) actx = new (window.AudioContext || window.webkitAudioContext)();
+      if (actx.state === 'suspended') actx.resume();
+    } catch (e) { actx = null; }
+  }
+  function tone(freq, dur, type = 'square', vol = 0.05, delay = 0) {
+    if (muted || !actx) return;
+    const t0 = actx.currentTime + delay;
+    const o = actx.createOscillator(), g = actx.createGain();
+    o.type = type; o.frequency.setValueAtTime(freq, t0);
+    g.gain.setValueAtTime(vol, t0); g.gain.exponentialRampToValueAtTime(0.0008, t0 + dur);
+    o.connect(g).connect(actx.destination); o.start(t0); o.stop(t0 + dur + 0.05);
+  }
+  const sfx = {
+    pick: () => tone(660, 0.05, 'square', 0.035),
+    nothing: () => { tone(160, 0.12, 'square', 0.05); tone(120, 0.16, 'square', 0.05, 0.1); },
+    known: () => { tone(523, 0.08); tone(659, 0.1, 'square', 0.05, 0.07); },
+    discover: () => [523, 659, 784, 1047, 1319].forEach((f, i) => tone(f, 0.12, 'square', 0.05, i * 0.07)),
+    hint: () => [880, 1175].forEach((f, i) => tone(f, 0.1, 'triangle', 0.08, i * 0.09)),
+  };
+
+  /* ---------- rendering ---------- */
+  const inv = $('inv');
+  const tiles = {};
+  for (const el of ELEMENTS) {
+    const b = document.createElement('button');
+    b.type = 'button'; b.className = 'tile'; b.dataset.id = el.id;
+    inv.appendChild(b);
+    tiles[el.id] = b;
+  }
+  function paintTile(id) {
+    const b = tiles[id];
+    if (found.has(id)) {
+      b.classList.remove('locked');
+      b.disabled = false;
+      b.innerHTML = `<img src="${ICON[id]}" alt=""><span>${nameOf(id)}</span>`;
+      b.setAttribute('aria-label', nameOf(id));
+    } else {
+      b.classList.add('locked');
+      b.disabled = true;
+      b.innerHTML = '<div class="q" aria-hidden="true">?</div><span>???</span>';
+      b.setAttribute('aria-label', '?');
+    }
+  }
+  function paintSlot(el, id) {
+    if (id) {
+      el.classList.add('full');
+      el.innerHTML = `<img src="${ICON[id]}" alt=""><span>${nameOf(id)}</span>`;
+    } else {
+      el.classList.remove('full');
+      el.innerHTML = '';
+    }
+  }
+  function paintSlots() {
+    paintSlot($('slotA'), slotA);
+    paintSlot($('slotB'), slotB);
+    paintSlot($('slotR'), lastResult);
+    for (const id in tiles) tiles[id].classList.toggle('picked', id === slotA || id === slotB);
+  }
+  function paintFact() {
+    const f = $('fact');
+    const s = factState;
+    f.classList.toggle('dim', s.kind === 'pick' || s.kind === 'nothing' || s.kind === 'nohint');
+    if (s.kind === 'pick') f.textContent = found.size === ELEMENTS.length ? T().all : T().pick;
+    else if (s.kind === 'nothing') f.textContent = T().nothing;
+    else if (s.kind === 'nohint') f.textContent = T().noHint;
+    else if (s.kind === 'hint') f.textContent = `${T().tryThis} ${nameOf(s.a)} + ${nameOf(s.b)}`;
+    else if (s.kind === 'result') {
+      f.innerHTML = '';
+      if (s.isNew) { const n = document.createElement('span'); n.className = 'new'; n.textContent = T().isNew; f.appendChild(n); }
+      f.appendChild(document.createTextNode(BY_ID[s.id].f[lang]));
+    }
+  }
+  function paintCount() {
+    $('count').innerHTML = `${T().found} <b>${found.size}</b> / ${ELEMENTS.length}`;
+  }
+  function paintHint() {
+    const btn = $('hintBtn');
+    if (hints > 0) { btn.textContent = `${T().hint} (${hints})`; btn.disabled = false; }
+    else {
+      const left = Math.max(0, Math.ceil((hintRegenAt - Date.now()) / 1000));
+      btn.textContent = `${T().hint} ${left}${T().wait}`;
+      btn.disabled = true;
+    }
+  }
+  function paintAll() {
+    document.documentElement.lang = lang;
+    document.querySelectorAll('[data-t]').forEach((el) => { el.textContent = T()[el.dataset.t]; });
+    document.querySelectorAll('[data-lang]').forEach((b) => b.setAttribute('aria-pressed', String(b.dataset.lang === lang)));
+    $('play').textContent = found.size > STARTERS.length ? T().cont : T().play;
+    for (const id in tiles) paintTile(id);
+    hinted.forEach((id) => tiles[id] && tiles[id].classList.add('hinted'));
+    paintSlots(); paintFact(); paintCount(); paintHint();
+  }
+
+  /* ---------- game logic ---------- */
+  function clearHint() {
+    hinted.forEach((id) => tiles[id] && tiles[id].classList.remove('hinted'));
+    hinted = [];
+  }
+  function pick(id) {
+    if (busy || !found.has(id)) return;
+    ensureAudio();
+    sfx.pick();
+    if (!slotA) { slotA = id; lastResult = null; factState = { kind: 'pick' }; }
+    else if (!slotB) slotB = id;
+    paintSlots(); paintFact();
+    if (slotA && slotB) { busy = true; setTimeout(combine, 220); }
+  }
+  function combine() {
+    const r = RECIPES[key(slotA, slotB)];
+    if (!r) {
+      const s = $('slots');
+      s.classList.remove('shake'); void s.offsetWidth; s.classList.add('shake');
+      sfx.nothing();
+      factState = { kind: 'nothing' };
+      paintFact();
+      setTimeout(() => { slotA = slotB = null; busy = false; paintSlots(); }, 650);
+      return;
+    }
+    const isNew = !found.has(r);
+    lastResult = r;
+    factState = { kind: 'result', id: r, isNew };
+    if (isNew) {
+      found.add(r);
+      store.set('ec-found', [...found]);
+      clearHint();
+      hintEarn++;
+      if (hintEarn >= 4) { hintEarn = 0; hints = Math.min(5, hints + 1); store.set('ec-hints', hints); }
+      store.set('ec-hint-earn', hintEarn);
+      paintTile(r);
+      if (!reduce) { tiles[r].classList.remove('fresh'); void tiles[r].offsetWidth; tiles[r].classList.add('fresh'); }
+      tiles[r].scrollIntoView({ block: 'nearest', behavior: reduce ? 'auto' : 'smooth' });
+      sfx.discover();
+    } else sfx.known();
+    paintSlots(); paintFact(); paintCount(); paintHint();
+    const rs = $('slotR');
+    if (!reduce) { rs.classList.remove('pop'); void rs.offsetWidth; rs.classList.add('pop'); }
+    setTimeout(() => { slotA = slotB = null; busy = false; paintSlots(); }, 700);
+  }
+  function findHintPair() {
+    const have = [...found];
+    const options = [];
+    for (let i = 0; i < have.length; i++) for (let j = i; j < have.length; j++) {
+      const r = RECIPES[key(have[i], have[j])];
+      if (r && !found.has(r)) options.push([have[i], have[j]]);
+    }
+    return options.length ? options[(Math.random() * options.length) | 0] : null;
+  }
+  function useHint() {
+    if (hints <= 0) return;
+    ensureAudio();
+    const pair = findHintPair();
+    clearHint();
+    if (!pair) { factState = { kind: 'nohint' }; paintFact(); return; }
+    hints--;
+    store.set('ec-hints', hints);
+    if (hints === 0) hintRegenAt = Date.now() + 45000;
+    hinted = [...new Set(pair)];
+    hinted.forEach((id) => tiles[id].classList.add('hinted'));
+    tiles[pair[0]].scrollIntoView({ block: 'nearest', behavior: reduce ? 'auto' : 'smooth' });
+    factState = { kind: 'hint', a: pair[0], b: pair[1] };
+    sfx.hint();
+    paintFact(); paintHint();
+  }
+  setInterval(() => {
+    if (hints === 0) {
+      if (!hintRegenAt) hintRegenAt = Date.now() + 45000;
+      if (Date.now() >= hintRegenAt) { hints = 1; hintRegenAt = 0; store.set('ec-hints', hints); }
+      paintHint();
+    }
+  }, 1000);
+
+  /* ---------- events ---------- */
+  inv.addEventListener('click', (e) => {
+    const b = e.target.closest('.tile');
+    if (b) pick(b.dataset.id);
+  });
+  $('slotA').addEventListener('click', () => { if (!busy && slotA) { slotA = slotB; slotB = null; paintSlots(); } });
+  $('slotB').addEventListener('click', () => { if (!busy && slotB) { slotB = null; paintSlots(); } });
+  $('hintBtn').addEventListener('click', useHint);
+  document.querySelectorAll('[data-lang]').forEach((b) => b.addEventListener('click', () => {
+    lang = b.dataset.lang; store.set('ec-lang', lang); paintAll();
+  }));
+  $('mute').addEventListener('click', () => {
+    muted = !muted; store.set('ec-muted', muted);
+    $('mute').setAttribute('aria-pressed', String(muted));
+    $('mute').style.textDecoration = muted ? 'line-through' : '';
+    if (!muted) ensureAudio();
+  });
+  if (muted) { $('mute').setAttribute('aria-pressed', 'true'); $('mute').style.textDecoration = 'line-through'; }
+  $('play').addEventListener('click', () => { ensureAudio(); $('start').hidden = true; });
+  $('resetBtn').addEventListener('click', () => { $('confirm').hidden = false; $('resetNo').focus({ preventScroll: true }); });
+  $('resetNo').addEventListener('click', () => { $('confirm').hidden = true; });
+  $('resetYes').addEventListener('click', () => {
+    found = new Set(STARTERS);
+    hints = 3; hintEarn = 0; hintRegenAt = 0;
+    store.set('ec-found', [...found]); store.set('ec-hints', hints); store.set('ec-hint-earn', 0);
+    slotA = slotB = lastResult = null; clearHint(); factState = { kind: 'pick' };
+    $('confirm').hidden = true;
+    paintAll();
+    inv.scrollTop = 0;
+  });
+
+  $('starters').innerHTML = STARTERS.map((id) => `<img src="${ICON[id]}" alt="">`).join('');
+  paintAll();
+  try { $('play').focus({ preventScroll: true }); } catch (e) {}
+})();
+</script>
+
+</html>

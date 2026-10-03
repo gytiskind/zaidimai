@@ -1,0 +1,814 @@
+<!doctype html>
+<html lang="lt">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<style>body{margin:0}</style>
+<title>Word Builder</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Nunito:wght@700;800;900&family=Pixelify+Sans:wght@400;700&display=swap">
+<style>
+/* layout: HUD on top; picture, answer slots and letter tray stacked in the middle; the house being built sits beside them on wide screens, below on narrow ones */
+:root {
+  --night: #141b3a;
+  --dusk: #3a3570;
+  --stone: #3b3846;
+  --stone-hi: #6e6a7c;
+  --stone-lo: #1f1c27;
+  --gold: #ffcc33;
+  --gem: #4de8d6;
+  --zombie: #7fb35f;
+  --red: #e0402e;
+  --grass: #5cbf3a;
+  --grass-hi: #8ee35f;
+  --grass-lo: #2f7a1c;
+  --ink: #f3f0f7;
+  --ink-dim: #b7b1c2;
+  --scrim: rgba(12, 10, 24, 0.62);
+  --pixel: "Pixelify Sans", "Courier New", ui-monospace, monospace;
+  --word: "Nunito", "Arial Rounded MT Bold", system-ui, sans-serif;
+  --t: clamp(46px, min(10vw, 8.5vh), 78px);
+  color-scheme: dark;
+}
+[hidden] { display: none !important; }
+html, body { height: 100%; }
+body {
+  background: var(--night);
+  background-image: linear-gradient(180deg, #141b3a 0%, #2a2958 65%, #3a3570 100%);
+  color: var(--ink);
+  font-family: var(--word);
+  overflow: hidden;
+  touch-action: manipulation;
+  user-select: none;
+  -webkit-user-select: none;
+  -webkit-touch-callout: none;
+  -webkit-tap-highlight-color: transparent;
+}
+#app { position: fixed; inset: 0; display: grid; grid-template-rows: auto 1fr; }
+
+/* HUD */
+.hud {
+  display: flex; align-items: center; justify-content: space-between; gap: 12px;
+  padding: calc(env(safe-area-inset-top, 0px) + 10px) 16px 6px;
+}
+.pips { display: flex; gap: 5px; }
+.pips i { width: 18px; height: 18px; background: var(--stone-lo); border: 2px solid #000; box-shadow: inset 2px 2px 0 rgba(255, 255, 255, 0.06); }
+.pips i.done { background: var(--grass); box-shadow: inset 3px 3px 0 var(--grass-hi), inset -3px -3px 0 var(--grass-lo); }
+.pips i.now { background: var(--gold); }
+.level { font-weight: 900; font-size: 1.05rem; letter-spacing: 0.06em; color: var(--ink-dim); text-shadow: 2px 2px 0 #000; }
+
+.btn {
+  font: inherit; font-weight: 800; color: var(--ink); cursor: pointer; touch-action: manipulation;
+  background: var(--stone); border: 3px solid; border-color: var(--stone-hi) var(--stone-lo) var(--stone-lo) var(--stone-hi);
+  box-shadow: 0 0 0 2px #000;
+}
+.btn:focus-visible { outline: 3px solid var(--gem); outline-offset: 4px; }
+.btn:active { transform: translateY(2px); }
+.small { font-size: 0.85rem; padding: 4px 10px; }
+.small[aria-pressed="true"] { background: var(--stone-lo); color: var(--ink-dim); text-decoration: line-through; }
+.play {
+  font-family: var(--word); font-weight: 900; font-size: 1.6rem; padding: 12px 38px; letter-spacing: 0.06em;
+  background: var(--grass); border-color: var(--grass-hi) var(--grass-lo) var(--grass-lo) var(--grass-hi);
+  text-shadow: 2px 2px 0 var(--grass-lo); color: #fff;
+}
+.play:active { border-color: var(--grass-lo) var(--grass-hi) var(--grass-hi) var(--grass-lo); }
+
+/* board */
+.board {
+  overflow-y: auto; min-height: 0;
+  display: grid; gap: 18px; justify-items: center; align-content: start;
+  padding: 6px 16px calc(env(safe-area-inset-bottom, 0px) + 18px);
+}
+@media (min-width: 980px) {
+  .board { grid-template-columns: minmax(0, 1fr) 360px; align-content: center; align-items: center; }
+}
+.play-area { width: 100%; max-width: 760px; display: grid; gap: 16px; justify-items: center; min-width: 0; }
+.pic {
+  display: grid; justify-items: center; gap: 6px; padding: 14px 22px 12px; background: var(--stone-lo);
+  border: 4px solid; border-color: var(--stone-hi) #000 #000 var(--stone-hi); box-shadow: 0 0 0 3px #000;
+}
+.pic img { width: clamp(120px, 24vh, 210px); height: auto; aspect-ratio: 1; image-rendering: pixelated; display: block; }
+.pic img.pop { animation: pop 0.35s steps(5); }
+@keyframes pop { 0% { transform: scale(0.6); } 100% { transform: scale(1); } }
+.hint-word { font-weight: 900; font-size: 1.5rem; color: var(--gold); text-shadow: 2px 2px 0 #000; line-height: 1.1; }
+.row-btns { display: flex; gap: 10px; flex-wrap: wrap; justify-content: center; }
+.row-btns .btn { font-size: 1.05rem; padding: 8px 18px; min-height: 48px; }
+.listen::before { content: ""; display: inline-block; width: 0; height: 0; margin-right: 8px; border-left: 12px solid currentColor; border-top: 8px solid transparent; border-bottom: 8px solid transparent; vertical-align: -1px; }
+
+.slots, .tray { display: flex; flex-wrap: wrap; justify-content: center; gap: 8px; max-width: 100%; }
+.slots.shake { animation: shake 0.42s; }
+@keyframes shake { 0%, 100% { transform: translateX(0); } 20% { transform: translateX(-12px); } 40% { transform: translateX(10px); } 60% { transform: translateX(-7px); } 80% { transform: translateX(4px); } }
+.slot, .tile {
+  width: var(--t); height: var(--t); display: grid; place-items: center; padding: 0;
+  font-family: var(--word); font-weight: 900; font-size: calc(var(--t) * 0.56); line-height: 1; color: var(--ink);
+  touch-action: none;
+}
+.slot { background: rgba(0, 0, 0, 0.35); border: 3px dashed var(--stone-hi); cursor: pointer; }
+.slot.filled { background: var(--stone); border: 3px solid; border-color: var(--stone-hi) var(--stone-lo) var(--stone-lo) var(--stone-hi); box-shadow: 0 0 0 2px #000; }
+.slot.locked { border-color: var(--gold); color: var(--gold); cursor: default; }
+.slots.good .slot { background: var(--grass); border-color: var(--grass-hi) var(--grass-lo) var(--grass-lo) var(--grass-hi); color: #fff; }
+.slots.bad .slot.filled { background: #6d1f1a; }
+.tile {
+  background: #8a6a45; border: 3px solid; border-color: #c49a64 #4f3a22 #4f3a22 #c49a64; box-shadow: 0 0 0 2px #000, 4px 4px 0 2px rgba(0, 0, 0, 0.35);
+  cursor: grab; text-shadow: 2px 2px 0 #4f3a22;
+}
+.tile.used { visibility: hidden; }
+.tile:focus-visible { outline: 3px solid var(--gem); outline-offset: 3px; }
+.ghost { position: fixed; z-index: 6; pointer-events: none; transform: translate(-50%, -50%) scale(1.12); opacity: 0.95; }
+
+/* the house */
+.build { width: min(100%, 360px); display: grid; gap: 8px; justify-items: center; }
+.build-label { font-weight: 900; font-size: 0.95rem; letter-spacing: 0.1em; color: var(--ink-dim); }
+.build-wrap { position: relative; width: 100%; background: rgba(0, 0, 0, 0.25); border: 3px solid #000; }
+.build-wrap canvas { display: block; width: 100%; height: auto; image-rendering: pixelated; }
+#dropCv { position: absolute; inset: 0; }
+#dropCv.drop { animation: drop 0.5s cubic-bezier(0.3, 0.9, 0.4, 1.2); }
+@keyframes drop { 0% { transform: translateY(-60%); opacity: 0; } 70% { transform: translateY(3%); opacity: 1; } 100% { transform: translateY(0); } }
+
+#fx { position: fixed; inset: 0; width: 100%; height: 100%; z-index: 5; pointer-events: none; }
+
+/* overlays */
+.overlay {
+  position: fixed; inset: 0; z-index: 7; display: grid; place-items: center;
+  padding: calc(env(safe-area-inset-top, 0px) + 16px) 16px calc(env(safe-area-inset-bottom, 0px) + 16px);
+  background: var(--scrim); overflow-y: auto;
+}
+.panel {
+  width: 100%; max-width: 420px; display: grid; gap: 14px; justify-items: center; text-align: center;
+  background: rgba(31, 28, 39, 0.96); padding: 20px 18px 22px;
+  border: 4px solid; border-color: var(--stone-hi) var(--stone-lo) var(--stone-lo) var(--stone-hi);
+  box-shadow: 0 0 0 3px #000, 8px 8px 0 3px rgba(0, 0, 0, 0.45);
+}
+h1, h2 { margin: 0; line-height: 0.92; text-wrap: balance; }
+h1 { font-family: var(--pixel); font-weight: 700; letter-spacing: 0.04em; font-size: clamp(2.8rem, 13vw, 4rem); color: var(--gem); text-shadow: 4px 4px 0 #157a70, 8px 8px 0 #000; }
+h1 span { display: block; color: var(--gold); text-shadow: 4px 4px 0 #8a5a12, 8px 8px 0 #000; }
+h2 { font-weight: 900; font-size: clamp(1.9rem, 8vw, 2.5rem); color: var(--gold); text-shadow: 3px 3px 0 #8a5a12, 6px 6px 0 #000; }
+.lead { margin: 0; font-weight: 700; font-size: 1.05rem; line-height: 1.4; max-width: 32ch; }
+.levels { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; width: 100%; }
+.lvl { position: relative; display: grid; gap: 2px; padding: 10px 4px; }
+.lvl b { font-size: 1.8rem; line-height: 1; }
+.lvl span { font-size: 0.85rem; color: var(--ink-dim); }
+.lvl[aria-pressed="true"] { background: var(--gold); color: #2a1d00; border-color: #fff0a8 #b8861a #b8861a #fff0a8; }
+.lvl[aria-pressed="true"] span { color: #4a3500; }
+.lvl .star { position: absolute; top: -10px; right: -8px; font-style: normal; font-size: 1.3rem; color: var(--gold); text-shadow: 2px 2px 0 #000; }
+.best { margin: 0; color: var(--ink-dim); font-weight: 700; font-size: 1rem; font-variant-numeric: tabular-nums; }
+.best b { color: var(--ink); }
+#endHouse { width: min(70%, 220px); image-rendering: pixelated; border: 3px solid #000; }
+.learned { list-style: none; margin: 0; padding: 0; width: 100%; display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 6px; }
+.learned li { display: flex; align-items: center; gap: 8px; background: var(--stone-lo); border: 2px solid #000; padding: 4px 8px; text-align: left; min-width: 0; }
+.learned img { width: 34px; height: 34px; image-rendering: pixelated; flex: none; }
+.learned div { display: grid; min-width: 0; }
+.learned b { font-size: 1.05rem; color: var(--ink); }
+.learned span { font-size: 0.85rem; color: var(--ink-dim); overflow-wrap: anywhere; }
+.end-btns { display: flex; gap: 10px; flex-wrap: wrap; justify-content: center; }
+.end-btns .btn:not(.play) { font-size: 1.2rem; padding: 10px 20px; }
+@media (prefers-reduced-motion: reduce) {
+  .slots.shake, #dropCv.drop, .pic img.pop { animation: none; }
+}
+</style>
+
+<div id="app">
+  <header class="hud">
+    <div class="pips" id="pips" aria-label="Žodžiai"></div>
+    <div class="level" id="levelLabel">1 LYGIS</div>
+    <button class="btn small" id="mute" type="button" aria-pressed="false">Garsas</button>
+  </header>
+
+  <main class="board">
+    <section class="play-area" aria-label="Žodis">
+      <div class="pic">
+        <img id="pic" alt="" width="160" height="160">
+        <div class="hint-word" id="ltWord">katė</div>
+      </div>
+      <div class="slots" id="slots" aria-label="Atsakymas"></div>
+      <div class="tray" id="tray" aria-label="Raidės"></div>
+      <div class="row-btns">
+        <button class="btn listen" id="listen" type="button" hidden>Klausyk</button>
+        <button class="btn" id="hint" type="button">Užuomina</button>
+      </div>
+    </section>
+
+    <aside class="build" aria-label="Tavo namas">
+      <div class="build-label">TAVO NAMAS</div>
+      <div class="build-wrap">
+        <canvas id="buildCv"></canvas>
+        <canvas id="dropCv"></canvas>
+      </div>
+    </aside>
+  </main>
+</div>
+<canvas id="fx"></canvas>
+
+<div class="overlay" id="start">
+  <div class="panel">
+    <h1>WORD <span>BUILDER</span></h1>
+    <p class="lead">Pažiūrėk į paveikslėlį ir sudėk angliško žodžio raides. Už kiekvieną žodį pastatysi dalį namo.</p>
+    <div class="levels" role="group" aria-label="Lygis">
+      <button class="btn lvl" type="button" data-level="1" aria-pressed="true"><b>1</b><span>3 raidės</span><i class="star" hidden>&#9733;</i></button>
+      <button class="btn lvl" type="button" data-level="2" aria-pressed="false"><b>2</b><span>4-5 raidės</span><i class="star" hidden>&#9733;</i></button>
+      <button class="btn lvl" type="button" data-level="3" aria-pressed="false"><b>3</b><span>6+ raidės</span><i class="star" hidden>&#9733;</i></button>
+    </div>
+    <button class="btn play" id="play" type="button">ŽAISTI</button>
+    <p class="best">Išmokta žodžių: <b id="learnedCount">0</b> iš <b id="totalCount">32</b></p>
+  </div>
+</div>
+
+<div class="overlay" id="end" hidden>
+  <div class="panel">
+    <h2>NAMAS PASTATYTAS!</h2>
+    <img id="endHouse" alt="Tavo pastatytas namas">
+    <ul class="learned" id="endWords"></ul>
+    <p class="best">Užuominos: <b id="endHints">0</b> &middot; Klaidos: <b id="endMistakes">0</b></p>
+    <div class="end-btns">
+      <button class="btn play" id="nextLvl" type="button">KITAS LYGIS</button>
+      <button class="btn" id="again" type="button">DAR KARTĄ</button>
+    </div>
+    <button class="btn small" id="menu" type="button">Lygiai</button>
+  </div>
+</div>
+
+<script>
+(() => {
+  const TAU = Math.PI * 2;
+  const $ = (id) => document.getElementById(id);
+  const reduce = matchMedia('(prefers-reduced-motion: reduce)').matches;
+
+  /* ---------- pixel icons: drawn once on a 20x20 grid, hardened to pixels, outlined, exported as images ---------- */
+  const OUTLINE = [27, 27, 34];
+  function makeIcon(draw) {
+    const c = document.createElement('canvas');
+    c.width = c.height = 20;
+    const g = c.getContext('2d');
+    const R = (x, y, w, h, col) => { g.fillStyle = col; g.fillRect(x, y, w, h); };
+    const C = (x, y, r, col) => { g.fillStyle = col; g.beginPath(); g.arc(x, y, r, 0, TAU); g.fill(); };
+    const E = (x, y, rx, ry, col) => { g.fillStyle = col; g.beginPath(); g.ellipse(x, y, rx, ry, 0, 0, TAU); g.fill(); };
+    const P = (pts, col) => { g.fillStyle = col; g.beginPath(); for (let i = 0; i < pts.length; i += 2) g.lineTo(pts[i], pts[i + 1]); g.closePath(); g.fill(); };
+    const cut = (fn) => { g.save(); g.globalCompositeOperation = 'destination-out'; fn(); g.restore(); };
+    const X = (x, y, r) => cut(() => C(x, y, r, '#000'));
+    const XR = (x, y, w, h) => cut(() => R(x, y, w, h, '#000'));
+    draw({ R, C, E, P, X, XR });
+    const img = g.getImageData(0, 0, 20, 20), d = img.data;
+    const solid = new Uint8Array(400);
+    for (let i = 0; i < 400; i++) {
+      if (d[i * 4 + 3] >= 110) { d[i * 4 + 3] = 255; solid[i] = 1; } else { d[i * 4] = d[i * 4 + 1] = d[i * 4 + 2] = d[i * 4 + 3] = 0; }
+    }
+    for (let y = 0; y < 20; y++) for (let x = 0; x < 20; x++) {
+      const i = y * 20 + x;
+      if (solid[i]) continue;
+      const n = (x > 0 && solid[i - 1]) || (x < 19 && solid[i + 1]) || (y > 0 && solid[i - 20]) || (y < 19 && solid[i + 20]);
+      if (n) { d[i * 4] = OUTLINE[0]; d[i * 4 + 1] = OUTLINE[1]; d[i * 4 + 2] = OUTLINE[2]; d[i * 4 + 3] = 255; }
+    }
+    g.putImageData(img, 0, 0);
+    const big = document.createElement('canvas');
+    big.width = big.height = 160;
+    const bg = big.getContext('2d');
+    bg.imageSmoothingEnabled = false;
+    bg.drawImage(c, 0, 0, 160, 160);
+    return big.toDataURL();
+  }
+  const starPts = (cx, cy, ro, ri) => {
+    const p = [];
+    for (let i = 0; i < 10; i++) { const a = -Math.PI / 2 + (i * Math.PI) / 5, r = i % 2 ? ri : ro; p.push(cx + Math.cos(a) * r, cy + Math.sin(a) * r); }
+    return p;
+  };
+  const K = '#1b1b22';
+
+  const WORDS = [
+    // level 1: three letters
+    { en: 'cat', lt: 'katė', lvl: 1, draw: ({ E, P, R }) => {
+      P([3, 9, 4, 2, 9, 6], '#ff8a2a'); P([17, 9, 16, 2, 11, 6], '#ff8a2a');
+      P([5, 7, 5, 4, 7, 6], '#ff9ac0'); P([15, 7, 15, 4, 13, 6], '#ff9ac0');
+      E(10, 11.5, 7, 5.5, '#ff8a2a'); R(9, 7, 2, 2, '#d4661a');
+      R(6, 10, 2, 2, K); R(12, 10, 2, 2, K); R(9, 13, 2, 1, '#ff5c8a'); R(8, 15, 4, 1, '#d4661a'); } },
+    { en: 'dog', lt: 'šuo', lvl: 1, draw: ({ E, R }) => {
+      E(10, 11, 6, 6, '#c48a52'); E(4.5, 10.5, 2.2, 5, '#6b4423'); E(15.5, 10.5, 2.2, 5, '#6b4423');
+      E(10, 14, 3.5, 2.5, '#f0d5b0'); R(9, 12, 2, 2, K); R(7, 9, 2, 2, K); R(11, 9, 2, 2, K); R(9, 16, 2, 2, '#ff5c8a'); } },
+    { en: 'sun', lt: 'saulė', lvl: 1, draw: ({ R, C }) => {
+      const ray = '#ffb000';
+      R(9, 1, 2, 3, ray); R(9, 16, 2, 3, ray); R(1, 9, 3, 2, ray); R(16, 9, 3, 2, ray);
+      R(4, 4, 2, 2, ray); R(14, 4, 2, 2, ray); R(4, 14, 2, 2, ray); R(14, 14, 2, 2, ray);
+      C(10, 10, 5.5, '#ffd23f'); R(8, 9, 1, 1, K); R(11, 9, 1, 1, K); R(8, 12, 4, 1, '#d4661a'); } },
+    { en: 'key', lt: 'raktas', lvl: 1, draw: ({ R, C, X }) => {
+      C(6, 10, 4.5, '#ffcc33'); X(6, 10, 1.8); R(10, 9, 8, 2, '#ffcc33'); R(14, 11, 2, 3, '#ffcc33'); R(17, 11, 1, 2, '#ffcc33'); } },
+    { en: 'egg', lt: 'kiaušinis', lvl: 1, draw: ({ E, R }) => {
+      E(10, 11, 5.2, 7, '#fff3d6'); R(7, 7, 1, 2, '#ffffff'); R(12, 14, 2, 1, '#e8d6b0'); } },
+    { en: 'hat', lt: 'skrybėlė', lvl: 1, draw: ({ E, R }) => {
+      E(10, 15.5, 8, 2, '#3b3846'); R(5, 5, 10, 10, '#3b3846'); R(5, 12, 10, 2, '#e8303a'); R(6, 5, 1, 7, '#55515f'); } },
+    { en: 'cup', lt: 'puodelis', lvl: 1, draw: ({ R, C, X }) => {
+      R(4, 7, 9, 9, '#3f8fe8'); R(5, 16, 7, 1, '#3f8fe8'); C(14.5, 11, 3, '#3f8fe8'); X(14.5, 11, 1.3);
+      R(4, 7, 9, 1, '#8fd8ff'); R(6, 2, 1, 3, '#d8dce4'); R(9, 1, 1, 4, '#d8dce4'); } },
+    { en: 'car', lt: 'mašina', lvl: 1, draw: ({ P, R, C }) => {
+      P([5, 9, 7, 5, 13, 5, 15, 9], '#e8303a'); R(2, 9, 16, 5, '#e8303a');
+      P([7.5, 8.5, 8.5, 6, 10, 6, 10, 8.5], '#8fd8ff'); P([11, 8.5, 11, 6, 12.5, 6, 13.5, 8.5], '#8fd8ff');
+      C(6, 15, 2.5, '#26262c'); C(14, 15, 2.5, '#26262c'); R(16, 10, 2, 1, '#ffd23f'); } },
+    { en: 'bee', lt: 'bitė', lvl: 1, draw: ({ E, R, C, P }) => {
+      E(8, 4.5, 2.5, 3, '#d8f0ff'); E(12.5, 4.5, 2.5, 3, '#d8f0ff');
+      E(11, 11, 6, 4.5, '#ffd23f'); R(9, 7, 2, 9, K); R(13, 7, 2, 9, K);
+      C(4.5, 11, 2.8, K); R(3, 10, 1, 1, '#ffffff'); P([17, 10, 19, 11, 17, 12], K); } },
+    // level 2: four or five letters
+    { en: 'fish', lt: 'žuvis', lvl: 2, draw: ({ P, E, R }) => {
+      P([14, 10, 18.5, 6, 18.5, 14], '#ff8a2a'); E(9, 10, 6.5, 4.5, '#ff8a2a'); P([7, 6, 10, 3, 12, 6], '#ffb000');
+      R(5, 8, 2, 2, K); R(9, 9, 1, 3, '#d4661a'); R(11, 9, 1, 3, '#d4661a'); } },
+    { en: 'tree', lt: 'medis', lvl: 2, draw: ({ R, C }) => {
+      R(8, 12, 4, 6, '#8a5a2b'); C(10, 8, 6, '#3f9e3a'); C(5.5, 10.5, 3.5, '#3f9e3a'); C(14.5, 10.5, 3.5, '#3f9e3a');
+      R(7, 5, 2, 2, '#5cbf3a'); R(12, 8, 2, 2, '#5cbf3a'); } },
+    { en: 'moon', lt: 'mėnulis', lvl: 2, draw: ({ C, X, R }) => {
+      C(9, 10, 7.5, '#fff0b0'); X(13, 7.5, 6.5); R(5, 12, 2, 2, '#e8d890'); R(16, 15, 1, 1, '#ffd23f'); R(15, 3, 1, 1, '#ffd23f'); } },
+    { en: 'boat', lt: 'valtis', lvl: 2, draw: ({ R, P }) => {
+      R(1, 16, 18, 2, '#3f8fe8'); P([2, 11, 18, 11, 15, 16, 5, 16], '#8a5a2b');
+      R(9, 2, 1, 9, '#5a3a1c'); P([10, 3, 10, 10, 16.5, 10], '#ffffff'); P([9, 4, 9, 10, 4, 10], '#e8e8f0'); } },
+    { en: 'bird', lt: 'paukštis', lvl: 2, draw: ({ P, E, C, R }) => {
+      P([5, 10, 1, 7, 1, 13], '#3f8fe8'); E(10, 11, 6, 4.5, '#3f8fe8'); C(15, 8, 3, '#3f8fe8');
+      P([17.5, 7, 19, 8.5, 17.5, 10], '#ffb000'); R(15, 7, 1, 1, K); E(9, 11, 3.5, 2, '#1f4f9c');
+      R(8, 15, 1, 3, '#ffb000'); R(11, 15, 1, 3, '#ffb000'); } },
+    { en: 'star', lt: 'žvaigždė', lvl: 2, draw: ({ P, R }) => {
+      P(starPts(10, 10.5, 9, 3.8), '#ffd23f'); R(8, 9, 1, 2, K); R(11, 9, 1, 2, K); R(9, 12, 2, 1, '#d4661a'); } },
+    { en: 'book', lt: 'knyga', lvl: 2, draw: ({ R }) => {
+      R(3, 3, 13, 14, '#e8303a'); R(16, 4, 2, 13, '#fff3d6'); R(4, 17, 13, 1, '#fff3d6');
+      R(6, 6, 7, 2, '#ffd23f'); R(3, 3, 2, 14, '#9c1d22'); } },
+    { en: 'ball', lt: 'kamuolys', lvl: 2, draw: ({ C, P, R }) => {
+      C(10, 10, 7.5, '#e8303a'); P([10, 10, 10, 2.5, 17.5, 10], '#ffd23f'); P([10, 10, 2.5, 10, 10, 17.5], '#3f8fe8');
+      C(10, 10, 1.6, '#ffffff'); R(6, 5, 2, 1, '#ffffff'); } },
+    { en: 'cake', lt: 'tortas', lvl: 2, draw: ({ R, E }) => {
+      R(3, 10, 14, 7, '#f2c79a'); R(3, 8, 14, 3, '#ff9ac0'); R(5, 11, 2, 2, '#ff9ac0'); R(11, 11, 2, 1, '#ff9ac0');
+      R(3, 13, 14, 1, '#c98f5a'); R(9, 4, 2, 4, '#3f8fe8'); E(10, 2.6, 1, 1.4, '#ffb000'); } },
+    { en: 'frog', lt: 'varlė', lvl: 2, draw: ({ E, C, R }) => {
+      E(10, 13, 7.5, 4.5, '#5cbf3a'); C(6, 8.5, 2.8, '#5cbf3a'); C(14, 8.5, 2.8, '#5cbf3a');
+      R(5, 7, 2, 2, K); R(13, 7, 2, 2, K); R(6, 14, 8, 1, '#2f7a1c'); R(4, 12, 1, 1, '#ff9ac0'); R(15, 12, 1, 1, '#ff9ac0'); } },
+    { en: 'apple', lt: 'obuolys', lvl: 2, draw: ({ C, R, E }) => {
+      C(10, 11.5, 6.5, '#e8303a'); R(9, 3, 2, 4, '#5a3a1c'); E(13, 4.5, 2.5, 1.3, '#5cbf3a'); R(6, 8, 2, 2, '#ff9a9a'); } },
+    { en: 'house', lt: 'namas', lvl: 2, draw: ({ P, R }) => {
+      P([1.5, 10, 10, 2, 18.5, 10], '#c0392b'); R(4, 10, 12, 8, '#f2d2a0'); R(9, 13, 3, 5, '#8a5a2b');
+      R(5, 11, 3, 3, '#8fd8ff'); R(13, 11, 2, 3, '#8fd8ff'); } },
+    { en: 'sword', lt: 'kardas', lvl: 2, draw: ({ P, R }) => {
+      P([10, 1, 12, 3.5, 12, 13, 8, 13, 8, 3.5], '#d8dce4'); R(10, 3, 1, 10, '#ffffff');
+      R(5, 13, 10, 2, '#ffcc33'); R(9, 15, 2, 3, '#8a5a2b'); R(9, 18, 2, 1, '#ffcc33'); } },
+    { en: 'clock', lt: 'laikrodis', lvl: 2, draw: ({ C, R }) => {
+      C(10, 10, 8, '#3f8fe8'); C(10, 10, 6.3, '#ffffff'); R(9, 5, 1, 6, K); R(9, 10, 5, 1, K);
+      R(9, 4, 1, 1, '#9aa0aa'); R(9, 15, 1, 1, '#9aa0aa'); R(4, 9, 1, 1, '#9aa0aa'); R(15, 9, 1, 1, '#9aa0aa'); } },
+    // level 3: six letters or more
+    { en: 'castle', lt: 'pilis', lvl: 3, draw: ({ R, C, P }) => {
+      const s = '#8a8f9c', w = '#9aa0aa';
+      R(1, 5, 5, 13, s); R(14, 5, 5, 13, s); R(5, 8, 10, 10, w);
+      [1, 3, 5, 14, 16, 18].forEach((x) => R(x, 3, 1, 2, s)); [7, 9, 11, 13].forEach((x) => R(x, 6, 1, 2, w));
+      R(8, 12, 4, 6, '#5a3a1c'); C(10, 12, 2, '#5a3a1c'); R(3, 8, 1, 2, K); R(16, 8, 1, 2, K);
+      R(10, 1, 1, 5, '#5a3a1c'); P([11, 1, 14, 2, 11, 3], '#e8303a'); } },
+    { en: 'flower', lt: 'gėlė', lvl: 3, draw: ({ R, E, C }) => {
+      R(9, 10, 2, 8, '#2f7a1c'); E(12.5, 14, 2.5, 1.2, '#5cbf3a'); E(7, 15, 2.5, 1.2, '#5cbf3a');
+      for (let k = 0; k < 6; k++) { const a = (k * TAU) / 6; C(10 + Math.cos(a) * 3.6, 7.5 + Math.sin(a) * 3.6, 2.6, '#ff6fa8'); }
+      C(10, 7.5, 2.2, '#ffd23f'); } },
+    { en: 'cheese', lt: 'sūris', lvl: 3, draw: ({ P, C }) => {
+      P([2, 15, 18, 15, 18, 7, 2, 12], '#ffd23f'); P([2, 12, 18, 7, 18, 8.5, 2, 13.5], '#ffe680');
+      C(7, 13.5, 1.3, '#d49a1c'); C(12, 12, 1.6, '#d49a1c'); C(15.5, 13.5, 1, '#d49a1c'); } },
+    { en: 'rocket', lt: 'raketa', lvl: 3, draw: ({ P, E, C, R }) => {
+      P([8, 15, 10, 18.5, 12, 15], '#ffb000'); P([6.5, 11, 3, 17, 7, 15], '#e8303a'); P([13.5, 11, 17, 17, 13, 15], '#e8303a');
+      E(10, 9.5, 3.8, 7, '#e8e8f0'); P([6.6, 6, 10, 1, 13.4, 6], '#e8303a'); C(10, 9, 1.8, '#3f8fe8'); R(9, 8, 1, 1, '#ffffff'); } },
+    { en: 'pencil', lt: 'pieštukas', lvl: 3, draw: ({ R, P }) => {
+      R(4, 7, 10, 6, '#ffd23f'); R(4, 7, 10, 2, '#ffe680'); P([14, 7, 18.5, 10, 14, 13], '#f2d2a0');
+      P([17, 9, 18.5, 10, 17, 11], '#3b3846'); R(1.5, 7, 2.5, 6, '#ff9ac0'); R(4, 7, 1, 6, '#9aa0aa'); } },
+    { en: 'rainbow', lt: 'vaivorykštė', lvl: 3, draw: ({ C, X, XR }) => {
+      C(10, 15, 9, '#e8303a'); C(10, 15, 7.5, '#ff8a2a'); C(10, 15, 6, '#ffd23f'); C(10, 15, 4.5, '#5cbf3a'); C(10, 15, 3, '#3f8fe8');
+      X(10, 15, 1.8); XR(0, 15, 20, 5); C(3, 15, 1.8, '#ffffff'); C(17, 15, 1.8, '#ffffff'); } },
+    { en: 'banana', lt: 'bananas', lvl: 3, draw: ({ P, R }) => {
+      P([3, 8, 6, 12, 10, 14, 14, 13, 17, 9, 17, 7, 15, 10, 11, 11.5, 7, 10.5, 4, 7], '#ffd23f');
+      R(16, 6, 2, 2, '#5a3a1c'); R(2, 7, 2, 2, '#5a3a1c'); R(8, 12, 5, 1, '#e0b020'); } },
+    { en: 'carrot', lt: 'morka', lvl: 3, draw: ({ P, R }) => {
+      P([10, 18, 6, 7, 14, 7], '#ff8a2a'); P([10, 7, 6, 2, 9, 6.5], '#5cbf3a'); P([10, 7, 10, 1, 11, 6.5], '#3f9e3a'); P([10, 7, 14, 2, 11, 6.5], '#5cbf3a');
+      R(8, 10, 2, 1, '#d4661a'); R(10, 13, 2, 1, '#d4661a'); } },
+    { en: 'umbrella', lt: 'skėtis', lvl: 3, draw: ({ C, XR, P, R }) => {
+      C(10, 10, 8, '#9a6be0'); XR(0, 10, 20, 10); P([10, 2, 7, 10, 9, 10], '#b48af0'); P([10, 2, 13, 10, 15, 10], '#b48af0');
+      R(9, 1, 2, 1, '#5a3a1c'); R(9, 10, 2, 7, '#5a3a1c'); R(6, 16, 4, 2, '#5a3a1c'); R(6, 14, 2, 2, '#5a3a1c'); } },
+  ];
+  WORDS.forEach((w) => { w.icon = makeIcon(w.draw); });
+  $('totalCount').textContent = WORDS.length;
+
+  /* ---------- house pieces (10 x 10 block grid; row 9 is grass) ---------- */
+  const fill = (c0, c1, r0, r1, t, out = []) => { for (let r = r0; r <= r1; r++) for (let c = c0; c <= c1; c++) out.push([c, r, t]); return out; };
+  const PIECES = [
+    fill(1, 8, 8, 8, 'S'),
+    (() => { const p = fill(1, 2, 4, 7, 'P'); p.find((b) => b[0] === 2 && b[1] === 5)[2] = 'W'; return p; })(),
+    (() => { const p = fill(7, 8, 4, 7, 'P'); p.find((b) => b[0] === 7 && b[1] === 5)[2] = 'W'; return p; })(),
+    fill(3, 6, 4, 7, 'P').map((b) => (b[0] >= 4 && b[0] <= 5 && b[1] >= 6 ? [b[0], b[1], b[0] === 4 && b[1] === 7 ? 'K' : 'D'] : b)),
+    fill(0, 9, 3, 3, 'R'),
+    fill(1, 8, 2, 2, 'R'),
+    fill(3, 6, 1, 1, 'R').concat(fill(4, 5, 0, 0, 'R')),
+    fill(7, 7, 0, 1, 'C').concat([[0, 8, 'L'], [9, 8, 'L']]),
+  ];
+
+  function hash(x, y, k) { let h = (x * 374761393 + y * 668265263 + k * 2147483647) | 0; h = (h ^ (h >>> 13)) * 1274126177; return ((h ^ (h >>> 16)) >>> 0) / 4294967296; }
+  function drawBlock(g, c, r, s, t) {
+    const x = c * s, y = r * s, u = s / 8;
+    const R = (dx, dy, w, h, col) => { g.fillStyle = col; g.fillRect(x + dx * u, y + dy * u, w * u, h * u); };
+    if (t === 'G' || t === 'L') {
+      R(0, 0, 8, 8, '#7a5534'); R(0, 0, 8, 2, '#5cbf3a');
+      for (let i = 0; i < 6; i++) R((hash(c, r, i) * 7) | 0, 2 + ((hash(c, r, i + 9) * 5) | 0), 1, 1, i % 2 ? '#6c4a2c' : '#86603b');
+      R(1, 2, 1, 1, '#47a02b'); R(5, 2, 1, 1, '#47a02b');
+      return;
+    }
+    if (t === 'S') { R(0, 0, 8, 8, '#8b8b95'); for (let i = 0; i < 7; i++) R((hash(c, r, i) * 7) | 0, (hash(c, r, i + 7) * 7) | 0, 1, 1, i % 2 ? '#70707a' : '#a2a2ac'); }
+    else if (t === 'P') { R(0, 0, 8, 8, '#b07a45'); R(0, 2, 8, 0.5, '#8a5a2b'); R(0, 5, 8, 0.5, '#8a5a2b'); R(((hash(c, r, 1) * 6) | 0) + 1, 0, 0.5, 2, '#8a5a2b'); R(((hash(c, r, 2) * 6) | 0) + 1, 5.5, 0.5, 2.5, '#8a5a2b'); }
+    else if (t === 'W') { R(0, 0, 8, 8, '#b07a45'); R(1, 1, 6, 6, '#f2d2a0'); R(1.6, 1.6, 4.8, 4.8, '#8fd8ff'); R(3.7, 1.6, 0.6, 4.8, '#f2d2a0'); R(1.6, 3.7, 4.8, 0.6, '#f2d2a0'); R(2, 2, 1, 1, '#ffffff'); }
+    else if (t === 'D' || t === 'K') { R(0, 0, 8, 8, '#6b4423'); R(2.6, 0, 0.5, 8, '#4f3018'); R(5.3, 0, 0.5, 8, '#4f3018'); if (t === 'K') R(5.8, 2, 1.2, 1.2, '#ffcc33'); }
+    else if (t === 'R') { R(0, 0, 8, 8, '#c0392b'); R(0, 3.5, 8, 0.6, '#8f2a20'); R(0, 7.4, 8, 0.6, '#8f2a20'); R(3.6, 0, 0.6, 3.5, '#8f2a20'); R(0.2, 4.1, 0.6, 3.3, '#8f2a20'); R(7, 4.1, 0.6, 3.3, '#8f2a20'); R(1, 1, 1, 1, '#e05a48'); }
+    else if (t === 'C') { R(0, 0, 8, 8, '#a0442a'); R(0, 2.5, 8, 0.6, '#d8c8b0'); R(0, 5.5, 8, 0.6, '#d8c8b0'); R(3, 0, 0.6, 2.5, '#d8c8b0'); R(5.5, 3.1, 0.6, 2.4, '#d8c8b0'); }
+    g.fillStyle = 'rgba(0,0,0,0.35)'; g.fillRect(x + s - u * 0.6, y, u * 0.6, s); g.fillRect(x, y + s - u * 0.6, s, u * 0.6);
+  }
+  function drawFlower(g, c, r, s) {
+    const x = c * s, y = r * s, u = s / 8;
+    const R = (dx, dy, w, h, col) => { g.fillStyle = col; g.fillRect(x + dx * u, y + dy * u, w * u, h * u); };
+    R(3.5, 3, 1, 5, '#2f7a1c'); R(2, 1, 4, 2, '#ff6fa8'); R(3, 0, 2, 4, '#ff6fa8'); R(3.3, 1.3, 1.4, 1.4, '#ffd23f'); R(4.5, 5, 2, 1, '#5cbf3a');
+  }
+
+  const buildCv = $('buildCv'), dropCv = $('dropCv');
+  let bs = 32, bdpr = 1;
+  function sizeBuild() {
+    const w = buildCv.parentElement.clientWidth || 300;
+    bdpr = Math.min(window.devicePixelRatio || 1, 2);
+    bs = Math.max(8, Math.floor((w * bdpr) / 10));
+    buildCv.width = dropCv.width = bs * 10;
+    buildCv.height = dropCv.height = bs * 10;
+  }
+  function renderBuild(n) {
+    const g = buildCv.getContext('2d');
+    g.clearRect(0, 0, bs * 10, bs * 10);
+    // faint plan of the whole house
+    g.fillStyle = 'rgba(255,255,255,0.07)';
+    for (let k = n; k < PIECES.length; k++) for (const [c, r] of PIECES[k]) if (!(r === 8 && (c === 0 || c === 9))) g.fillRect(c * bs + 1, r * bs + 1, bs - 2, bs - 2);
+    for (let c = 0; c < 10; c++) drawBlock(g, c, 9, bs, 'G');
+    for (let k = 0; k < n; k++) drawPiece(g, k);
+  }
+  function drawPiece(g, k) {
+    for (const [c, r, t] of PIECES[k]) { if (t === 'L') drawFlower(g, c, r, bs); else drawBlock(g, c, r, bs, t); }
+  }
+  function addPiece(n) {
+    const g = dropCv.getContext('2d');
+    g.clearRect(0, 0, bs * 10, bs * 10);
+    drawPiece(g, n - 1);
+    dropCv.classList.remove('drop'); void dropCv.offsetWidth; dropCv.classList.add('drop');
+    const done = () => { renderBuild(n); g.clearRect(0, 0, bs * 10, bs * 10); dropCv.classList.remove('drop'); };
+    if (reduce) done(); else dropCv.addEventListener('animationend', done, { once: true });
+    setTimeout(() => sfx.thud(), reduce ? 0 : 330);
+  }
+
+  /* ---------- sound ---------- */
+  let actx = null, muted = false, noiseBuf = null;
+  function ensureAudio() {
+    try {
+      if (!actx) {
+        actx = new (window.AudioContext || window.webkitAudioContext)();
+        noiseBuf = actx.createBuffer(1, actx.sampleRate * 0.5, actx.sampleRate);
+        const d = noiseBuf.getChannelData(0);
+        for (let i = 0; i < d.length; i++) d[i] = Math.random() * 2 - 1;
+      }
+      if (actx.state === 'suspended') actx.resume();
+    } catch (e) { actx = null; }
+  }
+  function tone(freq, dur, type = 'square', vol = 0.05, delay = 0, endFreq) {
+    if (muted || !actx) return;
+    const t0 = actx.currentTime + delay;
+    const o = actx.createOscillator(), g = actx.createGain();
+    o.type = type; o.frequency.setValueAtTime(freq, t0);
+    if (endFreq) o.frequency.exponentialRampToValueAtTime(endFreq, t0 + dur);
+    g.gain.setValueAtTime(vol, t0); g.gain.exponentialRampToValueAtTime(0.0008, t0 + dur);
+    o.connect(g).connect(actx.destination); o.start(t0); o.stop(t0 + dur + 0.05);
+  }
+  function noise(dur, vol, cutoff) {
+    if (muted || !actx || !noiseBuf) return;
+    const t0 = actx.currentTime;
+    const src = actx.createBufferSource(), f = actx.createBiquadFilter(), g = actx.createGain();
+    src.buffer = noiseBuf; f.type = 'lowpass'; f.frequency.setValueAtTime(cutoff, t0); f.frequency.exponentialRampToValueAtTime(100, t0 + dur);
+    g.gain.setValueAtTime(vol, t0); g.gain.exponentialRampToValueAtTime(0.001, t0 + dur);
+    src.connect(f).connect(g).connect(actx.destination); src.start(t0); src.stop(t0 + dur);
+  }
+  const sfx = {
+    place: (i) => tone(440 + i * 60, 0.06, 'square', 0.04),
+    back: () => tone(330, 0.06, 'square', 0.035, 0, 220),
+    bad: () => { tone(160, 0.14, 'square', 0.05); tone(120, 0.18, 'square', 0.05, 0.12); },
+    good: () => [523, 659, 784, 1047].forEach((f, i) => tone(f, 0.12, 'square', 0.05, i * 0.08)),
+    hint: () => tone(880, 0.12, 'triangle', 0.07, 0, 1320),
+    thud: () => { noise(0.25, 0.35, 700); tone(110, 0.2, 'sine', 0.25, 0, 60); },
+    round: () => [523, 659, 784, 1047, 784, 1047, 1319].forEach((f, i) => tone(f, 0.14, 'square', 0.05, i * 0.1)),
+  };
+
+  /* ---------- speech: English voice if the device has one ---------- */
+  let voice = null;
+  function pickVoice() {
+    if (!('speechSynthesis' in window)) return;
+    const vs = speechSynthesis.getVoices() || [];
+    const en = vs.filter((v) => (v.lang || '').toLowerCase().replace('_', '-').startsWith('en'));
+    voice = en.find((v) => /en-(us|gb)/i.test(v.lang.replace('_', '-')) && v.localService) || en.find((v) => /en-(us|gb)/i.test(v.lang.replace('_', '-'))) || en[0] || null;
+    $('listen').hidden = !voice;
+  }
+  if ('speechSynthesis' in window) {
+    pickVoice();
+    try { speechSynthesis.addEventListener('voiceschanged', pickVoice); } catch (e) { speechSynthesis.onvoiceschanged = pickVoice; }
+  }
+  function speak(word, force) {
+    if (!voice || (muted && !force)) return;
+    try {
+      speechSynthesis.cancel();
+      const u = new SpeechSynthesisUtterance(word);
+      u.voice = voice; u.lang = voice.lang; u.rate = 0.8;
+      speechSynthesis.speak(u);
+    } catch (e) {}
+  }
+
+  /* ---------- confetti (runs only while pieces are flying) ---------- */
+  const fx = $('fx'), fg = fx.getContext('2d');
+  let parts = [], fxOn = false, fxLast = 0;
+  function burst(x, y, n) {
+    if (reduce) n = Math.ceil(n / 3);
+    const d = Math.min(window.devicePixelRatio || 1, 2);
+    if (fx.width !== Math.round(innerWidth * d)) { fx.width = Math.round(innerWidth * d); fx.height = Math.round(innerHeight * d); }
+    const cols = ['#ffcc33', '#4de8d6', '#5cbf3a', '#ff6fa8', '#ffffff', '#3f8fe8'];
+    for (let i = 0; i < n; i++) {
+      const a = -Math.PI / 2 + (Math.random() - 0.5) * 2.4, sp = 260 + Math.random() * 380;
+      parts.push({ x, y, vx: Math.cos(a) * sp, vy: Math.sin(a) * sp, life: 1 + Math.random() * 0.6, s: 6 + Math.random() * 8, c: cols[i % cols.length] });
+    }
+    if (!fxOn) { fxOn = true; fxLast = performance.now(); requestAnimationFrame(fxLoop); }
+  }
+  function fxLoop(now) {
+    const dt = Math.min(0.05, (now - fxLast) / 1000); fxLast = now;
+    const d = fx.width / innerWidth;
+    fg.setTransform(d, 0, 0, d, 0, 0);
+    fg.clearRect(0, 0, innerWidth, innerHeight);
+    for (let i = parts.length - 1; i >= 0; i--) {
+      const p = parts[i];
+      p.life -= dt; if (p.life <= 0) { parts.splice(i, 1); continue; }
+      p.x += p.vx * dt; p.y += p.vy * dt; p.vy += 900 * dt; p.vx *= 0.99;
+      fg.globalAlpha = Math.min(1, p.life * 2); fg.fillStyle = p.c; fg.fillRect(p.x - p.s / 2, p.y - p.s / 2, p.s, p.s);
+    }
+    fg.globalAlpha = 1;
+    if (parts.length) requestAnimationFrame(fxLoop); else { fg.clearRect(0, 0, innerWidth, innerHeight); fxOn = false; }
+  }
+
+  /* ---------- progress ---------- */
+  let progress = { done: [], learned: [] };
+  try { const p = JSON.parse(localStorage.getItem('wb-progress') || 'null'); if (p && Array.isArray(p.done) && Array.isArray(p.learned)) progress = p; } catch (e) {}
+  function saveProgress() { try { localStorage.setItem('wb-progress', JSON.stringify(progress)); } catch (e) {} }
+
+  /* ---------- game ---------- */
+  const ROUND = 8;
+  const G = { mode: 'start', level: 1, words: [], idx: 0, answer: '', tiles: [], slots: [], built: 0, hints: 0, mistakes: 0, busy: false };
+  const slotsEl = $('slots'), trayEl = $('tray'), pipsEl = $('pips');
+
+  const shuffle = (a) => { for (let i = a.length - 1; i > 0; i--) { const j = (Math.random() * (i + 1)) | 0; [a[i], a[j]] = [a[j], a[i]]; } return a; };
+
+  function startRound(level) {
+    ensureAudio();
+    G.level = level;
+    const pool = shuffle(WORDS.filter((w) => w.lvl === level).slice());
+    G.words = pool.slice(0, ROUND);
+    G.idx = 0; G.built = 0; G.hints = 0; G.mistakes = 0; G.mode = 'play';
+    $('levelLabel').textContent = level + ' LYGIS';
+    $('start').hidden = true; $('end').hidden = true;
+    sizeBuild(); renderBuild(0);
+    newWord();
+  }
+
+  function newWord() {
+    const w = G.words[G.idx];
+    G.answer = w.en;
+    const pic = $('pic');
+    pic.src = w.icon; pic.alt = w.lt;
+    pic.classList.remove('pop'); void pic.offsetWidth; pic.classList.add('pop');
+    $('ltWord').textContent = w.lt;
+    const letters = [...w.en];
+    const decoys = G.level === 1 ? 0 : G.level === 2 ? 1 : 2;
+    const pool = [...'abcdefghiklmnoprstuvwy'].filter((c) => !letters.includes(c));
+    for (let i = 0; i < decoys; i++) letters.push(pool.splice((Math.random() * pool.length) | 0, 1)[0]);
+    let order;
+    do { order = shuffle(letters.slice()); } while (order.slice(0, w.en.length).join('') === w.en);
+    slotsEl.innerHTML = ''; trayEl.innerHTML = '';
+    slotsEl.classList.remove('good', 'bad');
+    G.slots = [...w.en].map((_, i) => {
+      const el = document.createElement('button');
+      el.type = 'button'; el.className = 'slot'; el.dataset.i = i;
+      el.setAttribute('aria-label', 'Vieta ' + (i + 1));
+      slotsEl.appendChild(el);
+      return { el, tile: null, locked: false };
+    });
+    G.tiles = order.map((ch, i) => {
+      const el = document.createElement('button');
+      el.type = 'button'; el.className = 'tile'; el.dataset.i = i; el.textContent = ch;
+      trayEl.appendChild(el);
+      return { ch, el, slot: -1 };
+    });
+    renderPips();
+    G.busy = false;
+  }
+
+  function renderPips() {
+    let h = '';
+    for (let i = 0; i < ROUND; i++) h += `<i class="${i < G.idx ? 'done' : i === G.idx && G.mode === 'play' ? 'now' : ''}"></i>`;
+    pipsEl.innerHTML = h;
+    pipsEl.setAttribute('aria-label', 'Žodis ' + Math.min(G.idx + 1, ROUND) + ' iš ' + ROUND);
+  }
+
+  function renderSlots() {
+    G.slots.forEach((s) => {
+      s.el.textContent = s.tile ? s.tile.ch : '';
+      s.el.classList.toggle('filled', !!s.tile);
+      s.el.classList.toggle('locked', s.locked);
+    });
+    G.tiles.forEach((t) => t.el.classList.toggle('used', t.slot >= 0));
+  }
+
+  function place(tile, idx, lock) {
+    if (G.busy || tile.slot >= 0) return;
+    if (idx == null) idx = G.slots.findIndex((s) => !s.tile);
+    if (idx < 0) return;
+    const s = G.slots[idx];
+    if (s.locked) return;
+    if (s.tile) unplace(s.tile, true);
+    s.tile = tile; tile.slot = idx;
+    if (lock) s.locked = true;
+    slotsEl.classList.remove('bad');
+    renderSlots();
+    sfx.place(idx);
+    checkFull();
+  }
+  function unplace(tile, quiet) {
+    if (tile.slot < 0) return;
+    const s = G.slots[tile.slot];
+    if (s.locked) return;
+    s.tile = null; tile.slot = -1;
+    slotsEl.classList.remove('bad');
+    renderSlots();
+    if (!quiet) sfx.back();
+  }
+
+  function checkFull() {
+    if (G.slots.some((s) => !s.tile)) return;
+    const word = G.slots.map((s) => s.tile.ch).join('');
+    if (word === G.answer) success(); else fail();
+  }
+  function fail() {
+    G.mistakes++;
+    slotsEl.classList.add('bad');
+    slotsEl.classList.remove('shake'); void slotsEl.offsetWidth; slotsEl.classList.add('shake');
+    sfx.bad();
+    if (navigator.vibrate) { try { navigator.vibrate(60); } catch (e) {} }
+  }
+  function success() {
+    G.busy = true;
+    slotsEl.classList.add('good');
+    sfx.good();
+    setTimeout(() => speak(G.answer), 350);
+    const r = slotsEl.getBoundingClientRect();
+    burst(r.left + r.width / 2, r.top + r.height / 2, 40);
+    G.built++;
+    addPiece(G.built);
+    if (!progress.learned.includes(G.answer)) { progress.learned.push(G.answer); saveProgress(); }
+    setTimeout(() => {
+      G.idx++;
+      if (G.idx >= ROUND) roundEnd(); else newWord();
+    }, 1600);
+  }
+
+  function hint() {
+    if (G.busy || G.mode !== 'play') return;
+    const i = G.slots.findIndex((s, k) => !(s.tile && s.tile.ch === G.answer[k]));
+    if (i < 0) return;
+    const need = G.answer[i];
+    const s = G.slots[i];
+    if (s.tile) unplace(s.tile, true);
+    let t = G.tiles.find((x) => x.ch === need && x.slot < 0);
+    if (!t) t = G.tiles.find((x) => x.ch === need && x.slot >= 0 && G.answer[x.slot] !== need && !G.slots[x.slot].locked);
+    if (!t) return;
+    if (t.slot >= 0) unplace(t, true);
+    G.hints++;
+    sfx.hint();
+    place(t, i, true);
+  }
+
+  function roundEnd() {
+    G.mode = 'end';
+    renderPips();
+    if (!progress.done.includes(G.level)) progress.done.push(G.level);
+    saveProgress();
+    sfx.round();
+    $('endHouse').src = buildCv.toDataURL();
+    $('endWords').innerHTML = G.words.map((w) => `<li><img src="${w.icon}" alt=""><div><b>${w.en}</b><span>${w.lt}</span></div></li>`).join('');
+    $('endHints').textContent = G.hints;
+    $('endMistakes').textContent = G.mistakes;
+    $('nextLvl').hidden = G.level >= 3;
+    $('again').classList.toggle('play', G.level >= 3);
+    $('end').hidden = false;
+    burst(innerWidth / 2, innerHeight * 0.3, 60);
+    setTimeout(() => ($('nextLvl').hidden ? $('again') : $('nextLvl')).focus({ preventScroll: true }), 50);
+  }
+
+  function showStart() {
+    G.mode = 'start';
+    $('end').hidden = true; $('start').hidden = false;
+    $('learnedCount').textContent = progress.learned.filter((w) => WORDS.some((x) => x.en === w)).length;
+    document.querySelectorAll('.lvl').forEach((b) => { b.querySelector('.star').hidden = !progress.done.includes(+b.dataset.level); });
+    const next = [1, 2, 3].find((l) => !progress.done.includes(l)) || 3;
+    selectLevel(next);
+    $('play').focus({ preventScroll: true });
+  }
+  let chosen = 1;
+  function selectLevel(l) {
+    chosen = l;
+    document.querySelectorAll('.lvl').forEach((b) => b.setAttribute('aria-pressed', String(+b.dataset.level === l)));
+  }
+
+  /* ---------- input: tap, drag, keyboard ---------- */
+  let drag = null;
+  document.addEventListener('pointerdown', (e) => {
+    if (G.mode !== 'play' || G.busy) return;
+    const tEl = e.target.closest('.tile'), sEl = e.target.closest('.slot');
+    let tile = null, from = null;
+    if (tEl && !tEl.classList.contains('used')) { tile = G.tiles[+tEl.dataset.i]; from = 'tray'; }
+    else if (sEl) { const s = G.slots[+sEl.dataset.i]; if (s.tile && !s.locked) { tile = s.tile; from = 'slot'; } }
+    if (!tile) return;
+    e.preventDefault();
+    ensureAudio();
+    drag = { tile, from, x0: e.clientX, y0: e.clientY, ghost: null, id: e.pointerId };
+  });
+  window.addEventListener('pointermove', (e) => {
+    if (!drag || e.pointerId !== drag.id) return;
+    if (!drag.ghost && Math.hypot(e.clientX - drag.x0, e.clientY - drag.y0) > 10) {
+      const gh = document.createElement('div');
+      gh.className = 'tile ghost'; gh.textContent = drag.tile.ch;
+      document.body.appendChild(gh);
+      drag.ghost = gh;
+      if (drag.from === 'tray') drag.tile.el.classList.add('used');
+    }
+    if (drag.ghost) { drag.ghost.style.left = e.clientX + 'px'; drag.ghost.style.top = e.clientY + 'px'; }
+  });
+  function endDrag(e, cancelled) {
+    if (!drag || e.pointerId !== drag.id) return;
+    const d = drag; drag = null;
+    if (!d.ghost) {
+      if (cancelled) return;
+      if (d.from === 'tray') place(d.tile); else unplace(d.tile);
+      return;
+    }
+    d.ghost.remove();
+    const el = cancelled ? null : document.elementFromPoint(e.clientX, e.clientY);
+    const sEl = el && el.closest ? el.closest('.slot') : null;
+    if (sEl && !G.slots[+sEl.dataset.i].locked) {
+      if (d.from === 'slot') unplace(d.tile, true);
+      place(d.tile, +sEl.dataset.i);
+    } else if (d.from === 'slot' && !cancelled) {
+      unplace(d.tile);
+    }
+    renderSlots();
+  }
+  window.addEventListener('pointerup', (e) => endDrag(e, false));
+  window.addEventListener('pointercancel', (e) => endDrag(e, true));
+  // keyboard activation of a focused tile or slot (click with detail 0 means Enter or Space)
+  document.addEventListener('click', (e) => {
+    if (e.detail !== 0 || G.mode !== 'play') return;
+    const tEl = e.target.closest('.tile'), sEl = e.target.closest('.slot');
+    if (tEl) place(G.tiles[+tEl.dataset.i]);
+    else if (sEl) { const s = G.slots[+sEl.dataset.i]; if (s.tile) unplace(s.tile); }
+  });
+  window.addEventListener('keydown', (e) => {
+    if (G.mode !== 'play' || G.busy || e.metaKey || e.ctrlKey || e.altKey) return;
+    if (e.key === 'Backspace') {
+      e.preventDefault();
+      for (let i = G.slots.length - 1; i >= 0; i--) { const s = G.slots[i]; if (s.tile && !s.locked) { unplace(s.tile); break; } }
+      return;
+    }
+    const ch = (e.key || '').toLowerCase();
+    if (ch.length === 1 && ch >= 'a' && ch <= 'z') {
+      e.preventDefault();
+      ensureAudio();
+      const t = G.tiles.find((x) => x.ch === ch && x.slot < 0);
+      if (t) place(t); else sfx.bad();
+    }
+  });
+
+  /* ---------- buttons ---------- */
+  $('hint').addEventListener('click', hint);
+  $('listen').addEventListener('click', () => speak(G.answer, true));
+  document.querySelectorAll('.lvl').forEach((b) => b.addEventListener('click', () => selectLevel(+b.dataset.level)));
+  $('play').addEventListener('click', () => startRound(chosen));
+  $('nextLvl').addEventListener('click', () => startRound(Math.min(3, G.level + 1)));
+  $('again').addEventListener('click', () => startRound(G.level));
+  $('menu').addEventListener('click', showStart);
+  function setMuted(v) {
+    muted = v;
+    $('mute').setAttribute('aria-pressed', String(muted));
+    try { localStorage.setItem('wb-muted', muted ? '1' : '0'); } catch (e) {}
+  }
+  $('mute').addEventListener('click', () => { setMuted(!muted); if (!muted) ensureAudio(); });
+  try { if (localStorage.getItem('wb-muted') === '1') setMuted(true); } catch (e) {}
+
+  let rt = 0;
+  window.addEventListener('resize', () => { clearTimeout(rt); rt = setTimeout(() => { sizeBuild(); renderBuild(G.built); }, 120); });
+
+  // first frame: a sample word behind the start panel, so the screen shows what the game is
+  G.words = [WORDS[0]]; G.idx = 0;
+  newWord();
+  sizeBuild(); renderBuild(3);
+  G.words = [];
+  showStart();
+})();
+</script>
+
+</html>

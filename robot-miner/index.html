@@ -1,0 +1,910 @@
+<!doctype html>
+<html lang="lt">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<style>body{margin:0}</style>
+<title>Robot Miner</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Nunito:wght@700;800;900&family=Pixelify+Sans:wght@400;700&display=swap">
+<style>
+/* layout: top bar, then the cave board beside (wide screens) or above (tall screens) the program, command buttons and run controls */
+:root {
+  --night: #141b3a;
+  --dusk: #3a3570;
+  --stone: #3b3846;
+  --stone-hi: #6e6a7c;
+  --stone-lo: #1f1c27;
+  --gold: #ffcc33;
+  --gem: #4de8d6;
+  --red: #e0402e;
+  --grass: #5cbf3a;
+  --grass-hi: #8ee35f;
+  --grass-lo: #2f7a1c;
+  --ink: #f3f0f7;
+  --ink-dim: #b7b1c2;
+  --scrim: rgba(12, 10, 24, 0.62);
+  --c-move: #3f7fd8;
+  --c-turn: #8a5fd0;
+  --c-mine: #d9822b;
+  --c-loop: #c9962a;
+  --pixel: "Pixelify Sans", "Courier New", ui-monospace, monospace;
+  --word: "Nunito", "Arial Rounded MT Bold", system-ui, sans-serif;
+  color-scheme: dark;
+}
+[hidden] { display: none !important; }
+html, body { height: 100%; }
+body {
+  background: var(--night);
+  color: var(--ink);
+  font-family: var(--pixel);
+  overflow: hidden;
+  touch-action: manipulation;
+  user-select: none;
+  -webkit-user-select: none;
+  -webkit-touch-callout: none;
+  -webkit-tap-highlight-color: transparent;
+}
+#app { position: fixed; inset: 0; display: grid; grid-template-rows: auto minmax(0, 1fr); }
+
+.btn {
+  font: inherit; font-weight: 700; color: var(--ink); cursor: pointer; touch-action: manipulation;
+  background: var(--stone); border: 3px solid; border-color: var(--stone-hi) var(--stone-lo) var(--stone-lo) var(--stone-hi);
+  box-shadow: 0 0 0 2px #000;
+}
+.btn:focus-visible { outline: 3px solid var(--gem); outline-offset: 3px; }
+.btn:active { border-color: var(--stone-lo) var(--stone-hi) var(--stone-hi) var(--stone-lo); }
+.btn:disabled { opacity: 0.45; cursor: default; }
+.small { font-family: var(--word); font-weight: 800; font-size: 0.9rem; padding: 4px 10px; }
+.small[aria-pressed="true"] { background: var(--stone-lo); color: var(--ink-dim); text-decoration: line-through; }
+.play {
+  font-family: var(--word); font-weight: 900; font-size: 1.4rem; letter-spacing: 0.04em; color: #fff;
+  background: var(--grass); border-color: var(--grass-hi) var(--grass-lo) var(--grass-lo) var(--grass-hi);
+  text-shadow: 2px 2px 0 var(--grass-lo);
+}
+.play:active { border-color: var(--grass-lo) var(--grass-hi) var(--grass-hi) var(--grass-lo); }
+.play.stop { background: var(--red); border-color: #ff8a7a #7a1a10 #7a1a10 #ff8a7a; text-shadow: 2px 2px 0 #7a1a10; }
+
+/* top bar */
+.top {
+  display: flex; align-items: center; gap: 10px;
+  padding: calc(env(safe-area-inset-top, 0px) + 8px) 12px 8px;
+  background: var(--stone-lo); border-bottom: 4px solid #000;
+}
+.top .title { font-size: 1.35rem; letter-spacing: 0.06em; text-shadow: 2px 2px 0 #000; white-space: nowrap; }
+.top .title b { color: var(--gold); }
+.top .hint { flex: 1; min-width: 0; font-family: var(--word); font-weight: 800; font-size: 1rem; color: var(--gem); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.count { font-family: var(--word); font-weight: 900; font-size: 1rem; color: var(--ink); background: #000; padding: 4px 10px; white-space: nowrap; font-variant-numeric: tabular-nums; }
+.count.full { color: #2a1d00; background: var(--gold); }
+.count.flash { animation: flash 0.5s steps(2) 2; }
+@keyframes flash { 50% { background: var(--red); color: #fff; } }
+
+/* main */
+.main { display: grid; grid-template-rows: minmax(0, 1fr) auto; min-height: 0; }
+.boardWrap { position: relative; min-height: 0; display: grid; place-items: center; padding: 12px; overflow: hidden; }
+#board { display: block; image-rendering: pixelated; box-shadow: 0 0 0 4px #000, 8px 8px 0 4px rgba(0, 0, 0, 0.45); }
+.side {
+  display: grid; gap: 10px; align-content: start; min-height: 0;
+  padding: 10px 12px calc(env(safe-area-inset-bottom, 0px) + 12px);
+  background: var(--stone-lo); border-top: 4px solid #000;
+}
+@media (min-aspect-ratio: 5/4) {
+  .main { grid-template-columns: minmax(0, 1fr) minmax(340px, 440px); grid-template-rows: minmax(0, 1fr); }
+  .side { border-top: 0; border-left: 4px solid #000; grid-template-rows: minmax(0, 1fr) auto auto; align-content: stretch; }
+  .prog { max-height: none; }
+}
+
+/* program */
+.prog {
+  min-height: 84px; max-height: 26vh; overflow-y: auto;
+  background: #0e0c14; border: 3px solid #000; box-shadow: inset 0 0 0 2px var(--stone);
+  padding: 8px; display: flex; flex-wrap: wrap; gap: 6px; align-content: flex-start; align-items: flex-start;
+}
+.chip {
+  width: 52px; height: 52px; padding: 0; display: grid; place-items: center; cursor: pointer; color: #fff;
+  border: 3px solid; box-shadow: 0 0 0 1.5px #000; touch-action: manipulation; position: relative;
+}
+.chip svg, .cmd svg { width: 30px; height: 30px; display: block; }
+.k-F { background: var(--c-move); border-color: #7fb0ff #1f4b8f #1f4b8f #7fb0ff; }
+.k-L, .k-R { background: var(--c-turn); border-color: #c0a0ff #4f2f8a #4f2f8a #c0a0ff; }
+.k-M { background: var(--c-mine); border-color: #ffc27a #8a4a10 #8a4a10 #ffc27a; }
+.k-P { background: var(--c-loop); border-color: #ffe08a #7a5510 #7a5510 #ffe08a; }
+.chip.now { outline: 4px solid var(--gold); outline-offset: 2px; transform: translateY(-3px); }
+.chip.err { outline: 4px solid var(--red); outline-offset: 2px; }
+.chip.err::after { content: "!"; position: absolute; top: -12px; right: -10px; width: 22px; height: 22px; display: grid; place-items: center;
+  font-family: var(--word); font-weight: 900; font-size: 1rem; color: #fff; background: var(--red); box-shadow: 0 0 0 2px #000; }
+.slot {
+  width: 52px; height: 52px; padding: 0; cursor: pointer; background: transparent; color: var(--ink-dim);
+  border: 3px dashed var(--stone-hi); font-family: var(--word); font-weight: 900; font-size: 1.6rem; line-height: 1;
+}
+.slot.on { border-color: var(--gold); color: var(--gold); background: rgba(255, 204, 51, 0.1); animation: pulse 1.2s ease-in-out infinite; }
+@keyframes pulse { 50% { background: rgba(255, 204, 51, 0.25); } }
+.loop { display: flex; flex-wrap: wrap; align-items: flex-start; gap: 6px; padding: 6px; background: rgba(201, 150, 42, 0.18); border: 3px solid var(--c-loop); min-width: 0; max-width: 100%; }
+.loop.now { border-color: var(--gold); }
+.loop.err { border-color: var(--red); }
+.loop .count-btn {
+  height: 52px; min-width: 52px; padding: 0 8px; font-family: var(--word); font-weight: 900; font-size: 1.35rem; color: #2a1d00; cursor: pointer;
+  background: var(--gold); border: 3px solid; border-color: #fff0a8 #b8861a #b8861a #fff0a8; box-shadow: 0 0 0 1.5px #000;
+}
+.loop .body { display: flex; flex-wrap: wrap; gap: 6px; padding-left: 8px; border-left: 4px solid var(--c-loop); min-width: 52px; }
+.empty-note { font-family: var(--word); font-weight: 800; color: var(--ink-dim); font-size: 0.95rem; align-self: center; padding: 0 4px; }
+
+/* commands */
+.palette { display: flex; gap: 8px; justify-content: center; flex-wrap: wrap; }
+.cmd {
+  flex: 1 1 0; min-width: 64px; max-width: 112px; height: 76px; padding: 4px 2px; display: grid; place-items: center; gap: 2px;
+  font-family: var(--word); font-weight: 900; font-size: 0.85rem; color: #fff; cursor: pointer; touch-action: manipulation;
+  border: 3px solid; box-shadow: 0 0 0 2px #000; text-shadow: 1px 1px 0 rgba(0, 0, 0, 0.5);
+}
+.cmd:active { transform: translateY(2px); }
+.cmd:disabled { opacity: 0.4; cursor: default; transform: none; }
+.cmd:focus-visible { outline: 3px solid var(--gem); outline-offset: 3px; }
+.controls { display: flex; gap: 8px; }
+.controls .play { flex: 2; height: 60px; }
+.controls .btn:not(.play) { flex: 1; height: 60px; font-family: var(--word); font-weight: 900; font-size: 1rem; }
+.busy .palette, .busy .prog { pointer-events: none; }
+.busy .palette { opacity: 0.5; }
+
+/* bug banner */
+.bug {
+  position: absolute; left: 50%; bottom: 14px; transform: translateX(-50%); z-index: 2;
+  width: min(92%, 420px); display: grid; gap: 8px; justify-items: center; text-align: center;
+  background: rgba(31, 28, 39, 0.96); padding: 12px 14px 14px;
+  border: 4px solid var(--red); box-shadow: 0 0 0 3px #000, 6px 6px 0 3px rgba(0, 0, 0, 0.45);
+  animation: rise 0.25s ease-out 0.15s both;
+}
+@keyframes rise { from { opacity: 0; transform: translate(-50%, 12px); } to { opacity: 1; transform: translate(-50%, 0); } }
+.bug h3 { margin: 0; font-family: var(--word); font-weight: 900; font-size: 1.6rem; color: var(--red); letter-spacing: 0.06em; text-shadow: 2px 2px 0 #000; }
+.bug p { margin: 0; font-family: var(--word); font-weight: 800; font-size: 1.1rem; }
+.bug .btn { font-family: var(--word); font-weight: 900; font-size: 1.1rem; padding: 8px 26px; }
+
+/* overlays */
+.overlay {
+  position: fixed; inset: 0; z-index: 5; display: grid; place-items: center;
+  padding: calc(env(safe-area-inset-top, 0px) + 16px) 16px calc(env(safe-area-inset-bottom, 0px) + 16px);
+  background: radial-gradient(ellipse at 50% 45%, rgba(12, 10, 24, 0.4), rgba(12, 10, 24, 0.85) 75%);
+  overflow-y: auto;
+}
+.panel {
+  width: 100%; max-width: 440px; display: grid; gap: 14px; justify-items: center; text-align: center;
+  background: rgba(31, 28, 39, 0.96); padding: 18px 18px 20px;
+  border: 4px solid; border-color: var(--stone-hi) var(--stone-lo) var(--stone-lo) var(--stone-hi);
+  box-shadow: 0 0 0 3px #000, 8px 8px 0 3px rgba(0, 0, 0, 0.45);
+}
+h1, h2 { margin: 0; font-weight: 700; line-height: 0.9; letter-spacing: 0.04em; text-wrap: balance; }
+h1 { font-size: clamp(2.6rem, 12vw, 3.6rem); color: var(--gold); text-shadow: 4px 4px 0 #8a5a12, 8px 8px 0 #000; }
+h1 span { display: block; color: var(--gem); text-shadow: 4px 4px 0 #157a70, 8px 8px 0 #000; }
+h2 { font-family: var(--word); font-weight: 900; font-size: clamp(2rem, 9vw, 2.6rem); color: var(--gem); text-shadow: 3px 3px 0 #157a70, 6px 6px 0 #000; }
+.lead { margin: 0; font-family: var(--word); font-weight: 700; font-size: 1.05rem; line-height: 1.4; max-width: 32ch; }
+.seg { display: flex; }
+.seg .btn { font-size: 0.95rem; padding: 4px 14px; }
+.seg .btn[aria-pressed="true"] { background: var(--gold); color: #2a1d00; border-color: #fff0a8 #b8861a #b8861a #fff0a8; }
+.levels { display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; width: 100%; }
+.lvl {
+  aspect-ratio: 1; max-width: 100%; display: grid; place-items: center; align-content: center; gap: 4px; padding: 4px;
+  font-family: var(--pixel); font-weight: 700; font-size: 1.7rem; color: var(--ink);
+}
+.lvl.loopy { background: #4a3b1c; }
+.lvl.cur { outline: 3px solid var(--gold); outline-offset: 3px; }
+.lvl:disabled { opacity: 0.35; }
+.stars { display: flex; gap: 2px; justify-content: center; }
+.star { width: 14px; height: 14px; background: #000; clip-path: polygon(50% 0, 61% 35%, 98% 35%, 68% 57%, 79% 91%, 50% 70%, 21% 91%, 32% 57%, 2% 35%, 39% 35%); }
+.star.on { background: var(--gold); }
+.stars.big .star { width: 44px; height: 44px; }
+.stars.big { gap: 8px; }
+.stars.big .star.on { animation: pop 0.35s steps(4) both; }
+.stars.big .star:nth-child(2) { animation-delay: 0.15s; }
+.stars.big .star:nth-child(3) { animation-delay: 0.3s; }
+@keyframes pop { from { transform: scale(1.8); } to { transform: scale(1); } }
+.win-note { margin: 0; font-family: var(--word); font-weight: 800; font-size: 1rem; color: var(--ink-dim); }
+.win-note b { color: var(--ink); }
+.row-btns { display: flex; gap: 10px; flex-wrap: wrap; justify-content: center; }
+.row-btns .btn { font-family: var(--word); font-weight: 900; font-size: 1.15rem; padding: 10px 22px; }
+@media (prefers-reduced-motion: reduce) {
+  .slot.on, .stars.big .star.on, .count.flash, .bug { animation: none; }
+}
+</style>
+
+<div id="app">
+  <div class="top">
+    <button class="btn small" id="toLevels" type="button" data-t="levels">Lygiai</button>
+    <div class="title"><span data-t="level">Lygis</span> <b id="lvlNum">1</b></div>
+    <div class="hint" id="hint"></div>
+    <div class="count" id="count">0</div>
+    <button class="btn small" id="mute" type="button" aria-pressed="false" data-t="sound">Garsas</button>
+  </div>
+  <div class="main">
+    <div class="boardWrap" id="boardWrap">
+      <canvas id="board" aria-label="Cave map with a mining robot and a diamond"></canvas>
+      <div class="bug" id="bug" hidden role="alert">
+        <h3 data-t="bug">KLAIDA</h3>
+        <p id="bugWhy"></p>
+        <button class="btn" id="fix" type="button" data-t="fix">Taisyti</button>
+      </div>
+    </div>
+    <div class="side">
+      <div class="prog" id="prog" aria-label="Program"></div>
+      <div class="palette" id="palette"></div>
+      <div class="controls">
+        <button class="btn play" id="run" type="button" data-t="run">PALEISTI</button>
+        <button class="btn" id="step" type="button" data-t="step">Žingsnis</button>
+        <button class="btn" id="reset" type="button" data-t="reset">Iš naujo</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="overlay" id="levelsOv">
+  <div class="panel">
+    <div class="seg" role="group" aria-label="Language">
+      <button class="btn" type="button" data-lang="lt" aria-pressed="true">LT</button>
+      <button class="btn" type="button" data-lang="en" aria-pressed="false">EN</button>
+    </div>
+    <h1>ROBOT <span>MINER</span></h1>
+    <p class="lead" data-t="lead"></p>
+    <div class="levels" id="levels"></div>
+  </div>
+</div>
+
+<div class="overlay" id="winOv" hidden>
+  <div class="panel">
+    <h2 data-t="win">DEIMANTAS!</h2>
+    <div class="stars big" id="winStars"><i class="star"></i><i class="star"></i><i class="star"></i></div>
+    <p class="win-note" id="winNote"></p>
+    <div class="row-btns">
+      <button class="btn" id="again" type="button" data-t="again">Dar kartą</button>
+      <button class="btn play" id="next" type="button" data-t="next">Kitas lygis</button>
+    </div>
+  </div>
+</div>
+
+<script>
+(() => {
+  const $ = (id) => document.getElementById(id);
+  const reduce = matchMedia('(prefers-reduced-motion: reduce)').matches;
+
+  /* ---------- text ---------- */
+  const TXT = {
+    lt: {
+      lead: 'Sudėk komandas ir nuvesk robotą iki deimanto.',
+      levels: 'Lygiai', level: 'Lygis', sound: 'Garsas',
+      F: 'Pirmyn', L: 'Kairėn', R: 'Dešinėn', M: 'Kask', P: 'Kartok',
+      run: 'PALEISTI', stop: 'STOP', step: 'Žingsnis', reset: 'Iš naujo',
+      bug: 'KLAIDA', fix: 'Taisyti',
+      why: {
+        wall: 'Robotas atsitrenkė į sieną.',
+        stone: 'Kelią užstoja akmuo. Pirma jį iškask.',
+        lava: 'Robotas įvažiavo į lavą!',
+        air: 'Priekyje nėra akmens.',
+        end: 'Komandos baigėsi, o deimantas dar toli.',
+        empty: 'Pirma pridėk komandų.',
+      },
+      win: 'DEIMANTAS!', again: 'Dar kartą', next: 'Kitas lygis', done: 'Visi lygiai įveikti!',
+      used: (n) => `Panaudota blokų: <b>${n}</b>`,
+      par: (n) => `3 žvaigždėms reikia <b>${n}</b>.`,
+      perfect: 'Tobula programa!',
+      empty: 'Spausk komandą apačioje',
+      hints: { 1: 'Nuvesk robotą iki deimanto.', 4: 'Robotas moka suktis.', 7: 'Akmenį galima iškasti.', 9: 'Kartok: ta pati komanda daug kartų.' },
+    },
+    en: {
+      lead: 'Line up commands and drive the robot to the diamond.',
+      levels: 'Levels', level: 'Level', sound: 'Sound',
+      F: 'Forward', L: 'Left', R: 'Right', M: 'Mine', P: 'Repeat',
+      run: 'RUN', stop: 'STOP', step: 'Step', reset: 'Reset',
+      bug: 'BUG', fix: 'Fix it',
+      why: {
+        wall: 'The robot hit a wall.',
+        stone: 'A stone blocks the way. Mine it first.',
+        lava: 'The robot drove into lava!',
+        air: 'There is no stone in front.',
+        end: 'The commands ran out before the diamond.',
+        empty: 'Add some commands first.',
+      },
+      win: 'DIAMOND!', again: 'Try again', next: 'Next level', done: 'All levels done!',
+      used: (n) => `Blocks used: <b>${n}</b>`,
+      par: (n) => `3 stars need <b>${n}</b>.`,
+      perfect: 'Perfect program!',
+      empty: 'Tap a command below',
+      hints: { 1: 'Drive the robot to the diamond.', 4: 'The robot can turn.', 7: 'Stones can be mined.', 9: 'Repeat: one command, many times.' },
+    },
+  };
+
+  /* ---------- levels ----------
+     # wall, . floor, s stone (mineable), L lava, D diamond, R robot start.
+     dir: 0 up, 1 right, 2 down, 3 left. par = fewest blocks. limit = most blocks allowed. */
+  const LEVELS = [
+    { g: ['######', '#R..D#', '######'], dir: 1, par: 3 },
+    { g: ['#######', '#LLLLL#', '#R...D#', '#LLLLL#', '#######'], dir: 1, par: 4 },
+    { g: ['#####', '##D##', '##.##', '##.##', '##R##', '#####'], dir: 0, par: 3 },
+    { g: ['######', '####D#', '####.#', '#R...#', '######'], dir: 1, par: 6 },
+    { g: ['#######', '#R..###', '###.###', '###...#', '#####D#', '#######'], dir: 1, par: 10 },
+    { g: ['#######', '#D..LL#', '#LL.LL#', '#LL..R#', '#######'], dir: 3, par: 8 },
+    { g: ['#######', '#R.s.D#', '#######'], dir: 1, par: 5 },
+    { g: ['######', '#R.s.#', '####s#', '####D#', '######'], dir: 1, par: 8 },
+    { g: ['##########', '#R......D#', '##########'], dir: 1, par: 2, limit: 3 },
+    { g: ['#######', '#####D#', '####..#', '###..##', '##..###', '#R.####', '#######'], dir: 1, par: 5, limit: 6 },
+    { g: ['#########', '#Rs.s.sD#', '#########'], dir: 1, par: 4, limit: 5 },
+    { g: ['######', '#R...#', '#LLL.#', '#LLL.#', '#D...#', '######'], dir: 1, par: 5, limit: 6 },
+  ];
+  const cmdsFor = (n) => (n <= 3 ? 'F' : n <= 6 ? 'FLR' : n <= 8 ? 'FLRM' : 'FLRMP');
+  const DX = [0, 1, 0, -1], DY = [-1, 0, 1, 0];
+
+  const ICON = {
+    F: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 2 L21 12 H15.5 V22 H8.5 V12 H3 Z" fill="currentColor"/></svg>',
+    L: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M18 22 V12 a4 4 0 0 0 -4 -4 H9" fill="none" stroke="currentColor" stroke-width="4"/><path d="M10 2 L2 8 L10 14 Z" fill="currentColor"/></svg>',
+    R: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 22 V12 a4 4 0 0 1 4 -4 H15" fill="none" stroke="currentColor" stroke-width="4"/><path d="M14 2 L22 8 L14 14 Z" fill="currentColor"/></svg>',
+    M: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 21 L14 11" stroke="#5a3a1c" stroke-width="4" stroke-linecap="square"/><path d="M6 6 Q14 0 22 9 L19.5 11 Q14 6 8 8 Z" fill="currentColor"/></svg>',
+    P: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 13 a8 8 0 0 1 13 -7" fill="none" stroke="currentColor" stroke-width="3.5"/><path d="M15 1 L21 6 L14 10 Z" fill="currentColor"/><path d="M20 11 a8 8 0 0 1 -13 7" fill="none" stroke="currentColor" stroke-width="3.5"/><path d="M9 23 L3 18 L10 14 Z" fill="currentColor"/></svg>',
+  };
+
+  /* ---------- storage ---------- */
+  let lang = 'lt', muted = false, progress = { stars: {} };
+  try {
+    const l = localStorage.getItem('rm-lang'); if (l === 'lt' || l === 'en') lang = l;
+    muted = localStorage.getItem('rm-muted') === '1';
+    const p = JSON.parse(localStorage.getItem('rm-progress') || 'null'); if (p && p.stars) progress = p;
+  } catch (e) {}
+  const save = (k, v) => { try { localStorage.setItem(k, v); } catch (e) {} };
+  const unlockedUpTo = () => {
+    let n = 1;
+    while (n < LEVELS.length && progress.stars[n]) n++;
+    return n;
+  };
+
+  /* ---------- sound ---------- */
+  let actx = null, noiseBuf = null;
+  function ensureAudio() {
+    try {
+      if (!actx) {
+        actx = new (window.AudioContext || window.webkitAudioContext)();
+        noiseBuf = actx.createBuffer(1, actx.sampleRate * 0.5, actx.sampleRate);
+        const d = noiseBuf.getChannelData(0);
+        for (let i = 0; i < d.length; i++) d[i] = Math.random() * 2 - 1;
+      }
+      if (actx.state === 'suspended') actx.resume();
+    } catch (e) { actx = null; }
+  }
+  function tone(freq, dur, type = 'square', vol = 0.05, delay = 0, endFreq) {
+    if (muted || !actx) return;
+    const t0 = actx.currentTime + delay;
+    const o = actx.createOscillator(), g = actx.createGain();
+    o.type = type; o.frequency.setValueAtTime(freq, t0);
+    if (endFreq) o.frequency.exponentialRampToValueAtTime(endFreq, t0 + dur);
+    g.gain.setValueAtTime(vol, t0); g.gain.exponentialRampToValueAtTime(0.0008, t0 + dur);
+    o.connect(g).connect(actx.destination); o.start(t0); o.stop(t0 + dur + 0.05);
+  }
+  function noise(dur, vol, cutoff) {
+    if (muted || !actx || !noiseBuf) return;
+    const t0 = actx.currentTime;
+    const src = actx.createBufferSource(), f = actx.createBiquadFilter(), g = actx.createGain();
+    src.buffer = noiseBuf; f.type = 'lowpass'; f.frequency.setValueAtTime(cutoff, t0); f.frequency.exponentialRampToValueAtTime(100, t0 + dur);
+    g.gain.setValueAtTime(vol, t0); g.gain.exponentialRampToValueAtTime(0.001, t0 + dur);
+    src.connect(f).connect(g).connect(actx.destination); src.start(t0); src.stop(t0 + dur);
+  }
+  const sfx = {
+    add: () => tone(660, 0.05, 'square', 0.04),
+    remove: () => tone(330, 0.06, 'square', 0.04),
+    move: () => tone(440, 0.07, 'square', 0.035, 0, 520),
+    turn: () => tone(560, 0.08, 'triangle', 0.06, 0, 760),
+    mine: () => { noise(0.22, 0.35, 2200); tone(180, 0.1, 'square', 0.04); },
+    bug: () => { tone(220, 0.16, 'square', 0.06, 0, 110); tone(140, 0.25, 'square', 0.06, 0.15, 70); },
+    win: () => [523, 659, 784, 1047, 784, 1047, 1319].forEach((f, i) => tone(f, 0.13, 'square', 0.05, i * 0.08)),
+  };
+
+  /* ---------- pixel art ---------- */
+  function makeCanvas(w, h, draw) {
+    const c = document.createElement('canvas');
+    c.width = Math.max(1, Math.round(w)); c.height = Math.max(1, Math.round(h));
+    draw(c.getContext('2d'));
+    return c;
+  }
+  const px = (g, x, y, w, h, col) => { g.fillStyle = col; g.fillRect(x, y, w, h); };
+  function rng(seed) {
+    return () => {
+      seed = (seed + 0x6d2b79f5) | 0;
+      let t = Math.imul(seed ^ (seed >>> 15), 1 | seed);
+      t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t;
+      return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+    };
+  }
+  function noiseTex(seed, shades) {
+    const r = rng(seed);
+    return makeCanvas(16, 16, (g) => {
+      for (let y = 0; y < 16; y++) for (let x = 0; x < 16; x++) px(g, x, y, 1, 1, shades[(r() * shades.length) | 0]);
+    });
+  }
+  function maskSprite(rows, colors) {
+    return makeCanvas(rows[0].length, rows.length, (g) => {
+      rows.forEach((row, y) => [...row].forEach((c, x) => { if (colors[c]) px(g, x, y, 1, 1, colors[c]); }));
+    });
+  }
+  const STONE = ['#80808a', '#777782', '#8b8b95', '#70707a', '#82828c', '#686872'];
+  const TEX = {
+    floor: noiseTex(7, ['#6a6070', '#625868', '#71677a', '#5b5262', '#675d6e']),
+    wall: noiseTex(11, ['#16141c', '#1d1b24', '#111016', '#24212c', '#19171f']),
+    stone: makeCanvas(16, 16, (g) => {
+      g.drawImage(noiseTex(13, STONE), 0, 0);
+      px(g, 0, 0, 16, 1, '#a5a5ae'); px(g, 0, 0, 1, 16, '#a5a5ae');
+      px(g, 0, 15, 16, 1, '#4a4a52'); px(g, 15, 0, 1, 16, '#4a4a52');
+      [[5, 4], [6, 5], [6, 6], [7, 7], [10, 9], [11, 10], [9, 10]].forEach(([x, y]) => px(g, x, y, 1, 1, '#3a3a42'));
+    }),
+    lava: [0, 1].map((f) => noiseTex(21 + f * 5, ['#ff7a1a', '#ff9a2e', '#e85a10', '#ffc04a', '#ff8a20'])),
+  };
+  const DIAMOND = maskSprite([
+    '..hhhhh..',
+    '.hwhhhch.',
+    'hhhhhhccc',
+    '.ccchccc.',
+    '..ccccc..',
+    '...ccc...',
+    '....c....',
+  ], { h: '#b8fff6', w: '#ffffff', c: '#4de8d6' });
+  const ROBOT = maskSprite([
+    '.....dd.....',
+    '.TT.dddd.TT.',
+    '.ttyyyyyytt.',
+    '.TTyEyyEyTT.',
+    '.ttyyyyyytt.',
+    '.TTybbbbyTT.',
+    '.ttybggbytt.',
+    '.TTybggbyTT.',
+    '.ttybbbbytt.',
+    '.TTyyyyyyTT.',
+    '.tt......tt.',
+    '............',
+  ], { t: '#2a2a30', T: '#4a4a55', y: '#f2c230', E: '#7ff3ff', b: '#8a8f9c', g: '#4de8d6', d: '#c3c8d2' });
+  const MARK = maskSprite([
+    'xx...xx',
+    'xxx.xxx',
+    '.xxxxx.',
+    '..xxx..',
+    '.xxxxx.',
+    'xxx.xxx',
+    'xx...xx',
+  ], { x: '#ff3b2f' });
+
+  /* ---------- board + atlas ---------- */
+  const boardWrap = $('boardWrap'), board = $('board'), ctx = board.getContext('2d');
+  let T = 48, dpr = 1, atlas = null;
+  const SPR = {};
+  function buildAtlas() {
+    const items = [];
+    const add = (key, draw) => items.push({ key, draw });
+    add('floor', (c) => c.drawImage(TEX.floor, 0, 0, T, T));
+    add('wall', (c) => {
+      c.drawImage(TEX.wall, 0, 0, T, T);
+      c.fillStyle = 'rgba(255,255,255,0.06)'; c.fillRect(0, 0, T, T * 0.08);
+    });
+    add('stone', (c) => { c.drawImage(TEX.floor, 0, 0, T, T); c.drawImage(TEX.stone, T * 0.06, T * 0.06, T * 0.88, T * 0.88); });
+    add('lava0', (c) => c.drawImage(TEX.lava[0], 0, 0, T, T));
+    add('lava1', (c) => c.drawImage(TEX.lava[1], 0, 0, T, T));
+    add('diamond', (c) => {
+      const gr = c.createRadialGradient(T / 2, T / 2, T * 0.1, T / 2, T / 2, T * 0.5);
+      gr.addColorStop(0, 'rgba(77,232,214,0.45)'); gr.addColorStop(1, 'rgba(77,232,214,0)');
+      c.fillStyle = gr; c.fillRect(0, 0, T, T);
+      const w = T * 0.62, h = w * 7 / 9;
+      c.drawImage(DIAMOND, (T - w) / 2, (T - h) / 2, w, h);
+    });
+    add('robot', (c) => c.drawImage(ROBOT, T * 0.06, T * 0.06, T * 0.88, T * 0.88));
+    add('mark', (c) => c.drawImage(MARK, T * 0.18, T * 0.18, T * 0.64, T * 0.64));
+    const size = Math.ceil(T * dpr);
+    const perRow = Math.max(1, Math.floor(2048 / (size + 2)));
+    items.forEach((it, i) => { it.sx = (i % perRow) * (size + 2); it.sy = Math.floor(i / perRow) * (size + 2); });
+    const h = (Math.floor((items.length - 1) / perRow) + 1) * (size + 2);
+    atlas = makeCanvas(Math.max(256, Math.min(2048, items.length * (size + 2))), Math.max(256, h), (g) => {
+      g.imageSmoothingEnabled = false;
+      items.forEach((it) => { g.save(); g.translate(it.sx, it.sy); g.scale(dpr, dpr); it.draw(g); g.restore(); });
+    });
+    items.forEach((it) => { SPR[it.key] = { sx: it.sx, sy: it.sy, size }; });
+  }
+  function tile(key, x, y) {
+    const s = SPR[key];
+    ctx.drawImage(atlas, s.sx, s.sy, s.size, s.size, x, y, T, T);
+  }
+
+  /* ---------- game state ---------- */
+  let lvlIdx = 0, L = null, grid = [], cols = 0, rows = 0, start = null;
+  let prog = [], slot = null; // slot: null = main row, or a loop item
+  const robot = { x: 0, y: 0, dir: 1, ang: 0 };
+  let anim = null, trail = [], parts = [], mark = null, t = 0;
+  let run = { active: false };
+
+  function loadLevel(i) {
+    lvlIdx = i; L = LEVELS[i];
+    rows = L.g.length; cols = L.g[0].length;
+    for (let y = 0; y < rows; y++) for (let x = 0; x < cols; x++) if (L.g[y][x] === 'R') start = { x, y };
+    prog = []; slot = null;
+    resetRobot();
+    $('lvlNum').textContent = i + 1;
+    renderPalette(); renderProg(); updateCount(); updateHint();
+    layoutBoard();
+  }
+  function resetRobot() {
+    grid = L.g.map((r) => [...r.replace('R', '.')]);
+    robot.x = start.x; robot.y = start.y; robot.dir = L.dir; robot.ang = L.dir * 90;
+    anim = null; trail = [{ x: start.x, y: start.y }]; parts = []; mark = null;
+    run = { active: false };
+    $('bug').hidden = true;
+    document.querySelectorAll('.now').forEach((e) => e.classList.remove('now'));
+    document.querySelectorAll('.count-btn').forEach((b) => { const it = prog[+b.dataset.n]; if (it) b.textContent = it.n + '\u00d7'; });
+    document.body.classList.remove('busy');
+    setRunLabel();
+  }
+  const cell = (x, y) => (y < 0 || y >= rows || x < 0 || x >= cols ? null : grid[y][x]);
+
+  /* ---------- program editing ---------- */
+  const countBlocks = () => prog.reduce((n, it) => n + (it.t === 'P' ? 1 + it.body.length : 1), 0);
+  const limit = () => L.limit || 99;
+
+  function edited() {
+    if (run.active || robot.x !== start.x || robot.y !== start.y || robot.dir !== L.dir || mark) resetRobot();
+    document.querySelectorAll('.err').forEach((e) => e.classList.remove('err'));
+    renderProg(); updateCount();
+  }
+  function addCmd(k) {
+    if (countBlocks() >= limit()) {
+      const c = $('count'); c.classList.remove('flash'); void c.offsetWidth; c.classList.add('flash');
+      sfx.bug();
+      return;
+    }
+    if (k === 'P') {
+      const loop = { t: 'P', n: 3, body: [] };
+      prog.push(loop); slot = loop;
+    } else (slot ? slot.body : prog).push({ t: k });
+    sfx.add();
+    edited();
+  }
+  function itemAt(path) {
+    const [a, b] = path.split('.').map(Number);
+    return b === undefined ? { list: prog, i: a } : { list: prog[a].body, i: b };
+  }
+
+  function chipHTML(it, path) {
+    return `<button class="chip k-${it.t}" type="button" data-path="${path}" aria-label="${TXT[lang][it.t]}">${ICON[it.t]}</button>`;
+  }
+  function renderProg() {
+    let h = '';
+    prog.forEach((it, i) => {
+      if (it.t === 'P') {
+        h += `<div class="loop" data-loop="${i}">` +
+          `<button class="chip k-P" type="button" data-path="${i}" aria-label="${TXT[lang].P}">${ICON.P}</button>` +
+          `<button class="count-btn" type="button" data-n="${i}" aria-label="${TXT[lang].P} ${it.n}">${it.n}×</button>` +
+          `<div class="body">` + it.body.map((b, j) => chipHTML(b, i + '.' + j)).join('') +
+          `<button class="slot${slot === it ? ' on' : ''}" type="button" data-slot="${i}" aria-label="+">+</button></div></div>`;
+      } else h += chipHTML(it, String(i));
+    });
+    h += `<button class="slot${slot === null ? ' on' : ''}" type="button" data-slot="main" aria-label="+">+</button>`;
+    if (!prog.length) h += `<span class="empty-note">${TXT[lang].empty}</span>`;
+    $('prog').innerHTML = h;
+  }
+  $('prog').addEventListener('click', (e) => {
+    const b = e.target.closest('button');
+    if (!b || run.active && run.mode === 'run') return;
+    ensureAudio();
+    if (b.dataset.slot !== undefined) {
+      slot = b.dataset.slot === 'main' ? null : prog[+b.dataset.slot];
+      renderProg();
+      return;
+    }
+    if (b.dataset.n !== undefined) {
+      const it = prog[+b.dataset.n];
+      it.n = it.n >= 9 ? 2 : it.n + 1;
+      sfx.add(); edited();
+      return;
+    }
+    if (b.dataset.path !== undefined) {
+      const { list, i } = itemAt(b.dataset.path);
+      if (list[i] === slot) slot = null;
+      list.splice(i, 1);
+      sfx.remove(); edited();
+    }
+  });
+
+  function renderPalette() {
+    const ks = cmdsFor(lvlIdx + 1);
+    $('palette').innerHTML = [...ks].map((k) =>
+      `<button class="cmd k-${k}" type="button" data-k="${k}">${ICON[k]}<span>${TXT[lang][k]}</span></button>`).join('');
+  }
+  $('palette').addEventListener('click', (e) => {
+    const b = e.target.closest('.cmd');
+    if (!b || (run.active && run.mode === 'run')) return;
+    ensureAudio();
+    if (b.dataset.k === 'P' && slot) slot = null;
+    addCmd(b.dataset.k);
+  });
+
+  function updateCount() {
+    const n = countBlocks(), c = $('count');
+    c.textContent = L.limit ? `${n} / ${L.limit}` : String(n);
+    c.classList.toggle('full', !!L.limit && n >= L.limit);
+  }
+  function updateHint() { $('hint').textContent = TXT[lang].hints[lvlIdx + 1] || ''; }
+
+  /* ---------- running ---------- */
+  function compile() {
+    const steps = [];
+    prog.forEach((it, i) => {
+      if (it.t === 'P') for (let k = 0; k < it.n; k++) it.body.forEach((b, j) => steps.push({ t: b.t, path: i + '.' + j, loop: i, iter: k + 1, n: it.n }));
+      else steps.push({ t: it.t, path: String(i) });
+    });
+    return steps;
+  }
+  function setRunLabel() {
+    const r = $('run'), on = run.active && run.mode === 'run';
+    r.textContent = on ? TXT[lang].stop : TXT[lang].run;
+    r.classList.toggle('stop', on);
+  }
+  function beginRun(mode) {
+    resetRobot();
+    document.querySelectorAll('.err').forEach((e) => e.classList.remove('err'));
+    run = { active: true, mode, steps: compile(), i: 0, wait: 0.15 };
+    if (mode === 'run') document.body.classList.add('busy');
+    setRunLabel();
+  }
+  $('run').addEventListener('click', () => {
+    ensureAudio();
+    if (run.active && run.mode === 'run') { resetRobot(); return; }
+    if (!countBlocks()) { showBug('empty', null); return; }
+    beginRun('run');
+  });
+  $('step').addEventListener('click', () => {
+    ensureAudio();
+    if (run.active && run.mode === 'run') return;
+    if (anim) return;
+    if (!countBlocks()) { showBug('empty', null); return; }
+    if (!run.active || run.halt) beginRun('step');
+    if (run.i < run.steps.length) execStep();
+  });
+  $('reset').addEventListener('click', () => { resetRobot(); });
+  $('fix').addEventListener('click', () => { resetRobot(); });
+
+  function markNow(s) {
+    document.querySelectorAll('.now').forEach((e) => e.classList.remove('now'));
+    const chip = document.querySelector(`.chip[data-path="${s.path}"]`);
+    if (chip) chip.classList.add('now');
+    if (s.loop !== undefined) {
+      const lp = document.querySelector(`.loop[data-loop="${s.loop}"]`);
+      if (lp) {
+        lp.classList.add('now');
+        const nb = lp.querySelector('.count-btn');
+        if (nb) nb.textContent = `${s.iter}/${s.n}`;
+      }
+    }
+  }
+
+  function execStep() {
+    const s = run.steps[run.i++];
+    run.cur = s;
+    markNow(s);
+    const fx = robot.x + DX[robot.dir], fy = robot.y + DY[robot.dir];
+    const front = cell(fx, fy);
+    if (s.t === 'F') {
+      if (front === null || front === '#' || front === 's') {
+        startAnim('bump');
+        run.pendingBug = { why: front === 's' ? 'stone' : 'wall', x: fx, y: fy, path: s.path };
+        sfx.move();
+      } else {
+        startAnim('move', { x: fx, y: fy });
+        robot.x = fx; robot.y = fy;
+        trail.push({ x: fx, y: fy });
+        if (front === 'L') run.pendingBug = { why: 'lava', x: fx, y: fy, path: s.path, sink: true };
+        else if (front === 'D') run.pendingWin = true;
+        sfx.move();
+      }
+    } else if (s.t === 'L' || s.t === 'R') {
+      const d = s.t === 'L' ? -1 : 1;
+      robot.dir = (robot.dir + 4 + d) % 4;
+      startAnim('turn', { from: robot.ang, to: robot.ang + d * 90 });
+      robot.ang += d * 90;
+      sfx.turn();
+    } else if (s.t === 'M') {
+      if (front === 's') {
+        grid[fy][fx] = '.';
+        const cx = (fx + 0.5) * T, cy = (fy + 0.5) * T;
+        for (let i = 0; i < (reduce ? 6 : 18); i++) {
+          const a = Math.random() * Math.PI * 2, sp = T * (1 + Math.random() * 3);
+          parts.push({ x: cx, y: cy, vx: Math.cos(a) * sp, vy: Math.sin(a) * sp, life: 0.5 + Math.random() * 0.3, size: T * (0.06 + Math.random() * 0.08), color: STONE[i % STONE.length] });
+        }
+        startAnim('mine');
+        sfx.mine();
+      } else {
+        startAnim('bump');
+        run.pendingBug = { why: 'air', x: fx, y: fy, path: s.path };
+      }
+    }
+  }
+
+  function startAnim(kind, data) {
+    const dur = kind === 'move' ? 0.32 : kind === 'turn' ? 0.25 : kind === 'bump' ? 0.3 : 0.25;
+    anim = { kind, t: 0, dur, fromX: robot.x, fromY: robot.y, ...data };
+  }
+
+  function afterAnim() {
+    if (!run.active) return;
+    if (run.pendingWin) { win(); return; }
+    if (run.pendingBug) { const b = run.pendingBug; showBug(b.why, b); return; }
+    if (run.i >= run.steps.length) showBug('end', { x: robot.x, y: robot.y, path: null });
+  }
+
+  function showBug(why, b) {
+    if (run.active) run.halt = true;
+    document.body.classList.remove('busy');
+    if (b && b.x !== undefined) mark = { x: b.x, y: b.y, sink: !!b.sink };
+    if (b && b.path) {
+      const chip = document.querySelector(`.chip[data-path="${b.path}"]`);
+      if (chip) chip.classList.add('err');
+      const lp = chip && chip.closest('.loop');
+      if (lp) lp.classList.add('err');
+    }
+    $('bugWhy').textContent = TXT[lang].why[why];
+    $('bug').hidden = false;
+    if (why !== 'empty') sfx.bug(); else sfx.remove();
+    run.mode = 'done';
+    setRunLabel();
+  }
+
+  function win() {
+    run.active = false;
+    document.body.classList.remove('busy');
+    setRunLabel();
+    const n = countBlocks();
+    const stars = n <= L.par ? 3 : n <= L.par + 2 ? 2 : 1;
+    const key = lvlIdx + 1;
+    progress.stars[key] = Math.max(progress.stars[key] || 0, stars);
+    save('rm-progress', JSON.stringify(progress));
+    document.querySelectorAll('#winStars .star').forEach((s, i) => {
+      s.classList.remove('on'); void s.offsetWidth;
+      s.classList.toggle('on', i < stars);
+    });
+    $('winNote').innerHTML = TXT[lang].used(n) + ' ' + (stars === 3 ? TXT[lang].perfect : TXT[lang].par(L.par));
+    const last = lvlIdx >= LEVELS.length - 1;
+    $('next').textContent = last ? TXT[lang].levels : TXT[lang].next;
+    sfx.win();
+    setTimeout(() => { $('winOv').hidden = false; }, 350);
+  }
+
+  $('again').addEventListener('click', () => { $('winOv').hidden = true; resetRobot(); });
+  $('next').addEventListener('click', () => {
+    $('winOv').hidden = true;
+    if (lvlIdx >= LEVELS.length - 1) { openLevels(); return; }
+    loadLevel(lvlIdx + 1);
+  });
+
+  /* ---------- loop + drawing ---------- */
+  function update(dt) {
+    t += dt;
+    if (anim) {
+      anim.t += dt / anim.dur;
+      if (anim.t >= 1) { anim = null; afterAnim(); }
+    }
+    if (run.active && run.mode === 'run' && !anim && !run.halt) {
+      run.wait -= dt;
+      if (run.wait <= 0 && run.i < run.steps.length) { execStep(); run.wait = 0.12; }
+    }
+    for (let i = parts.length - 1; i >= 0; i--) {
+      const p = parts[i];
+      p.life -= dt;
+      if (p.life <= 0) { parts.splice(i, 1); continue; }
+      p.x += p.vx * dt; p.y += p.vy * dt; p.vx *= 0.9; p.vy *= 0.9;
+    }
+  }
+
+  function draw() {
+    if (!atlas) return;
+    ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+    ctx.imageSmoothingEnabled = false;
+    const lf = Math.floor(t * 2.5) % 2;
+    for (let y = 0; y < rows; y++) for (let x = 0; x < cols; x++) {
+      const c = grid[y][x], X = x * T, Y = y * T;
+      if (c === '#') tile('wall', X, Y);
+      else if (c === 'L') tile(lf ? 'lava1' : 'lava0', X, Y);
+      else if (c === 's') tile('stone', X, Y);
+      else tile('floor', X, Y);
+      if (c === 'D') tile('diamond', X, Y + Math.sin(t * 3) * T * 0.04);
+    }
+    // trail
+    ctx.fillStyle = 'rgba(255,204,51,0.7)';
+    for (const p of trail) ctx.fillRect((p.x + 0.5) * T - T * 0.07, (p.y + 0.5) * T - T * 0.07, T * 0.14, T * 0.14);
+
+    // robot
+    let rx = robot.x, ry = robot.y, ang = robot.ang, scale = 1;
+    if (anim) {
+      const e = anim.t < 0.5 ? 2 * anim.t * anim.t : 1 - Math.pow(-2 * anim.t + 2, 2) / 2;
+      if (anim.kind === 'move') { rx = anim.fromX + (robot.x - anim.fromX) * e; ry = anim.fromY + (robot.y - anim.fromY) * e; }
+      else if (anim.kind === 'turn') ang = anim.from + (anim.to - anim.from) * e;
+      else if (anim.kind === 'bump') { const k = Math.sin(anim.t * Math.PI) * 0.28; rx += DX[robot.dir] * k; ry += DY[robot.dir] * k; }
+      else if (anim.kind === 'mine') scale = 1 + Math.sin(anim.t * Math.PI) * 0.08;
+    }
+    const sink = mark && mark.sink && !anim;
+    if (sink) scale = 0.55;
+    ctx.save();
+    ctx.translate((rx + 0.5) * T, (ry + 0.5) * T);
+    ctx.rotate(ang * Math.PI / 180);
+    ctx.scale(scale, scale);
+    const s = SPR.robot;
+    ctx.drawImage(atlas, s.sx, s.sy, s.size, s.size, -T / 2, -T / 2, T, T);
+    if (sink) { ctx.globalAlpha = 0.45; ctx.fillStyle = '#ff5a10'; ctx.fillRect(-T / 2, -T / 2, T, T); ctx.globalAlpha = 1; }
+    ctx.restore();
+
+    for (const p of parts) {
+      ctx.globalAlpha = Math.min(1, p.life * 2);
+      ctx.fillStyle = p.color;
+      ctx.fillRect(p.x - p.size / 2, p.y - p.size / 2, p.size, p.size);
+    }
+    ctx.globalAlpha = 1;
+
+    if (mark && !anim) { ctx.globalAlpha = 0.6 + 0.4 * Math.sin(t * 8); tile('mark', mark.x * T, mark.y * T); ctx.globalAlpha = 1; }
+  }
+
+  function layoutBoard() {
+    if (!L) return;
+    const r = boardWrap.getBoundingClientRect();
+    if (!r.width || !r.height) return;
+    const newDpr = Math.min(window.devicePixelRatio || 1, 2);
+    const nT = Math.floor(Math.max(16, Math.min(104, (r.width - 32) / cols, (r.height - 32) / rows)));
+    dpr = newDpr; T = nT;
+    board.width = Math.round(cols * T * dpr); board.height = Math.round(rows * T * dpr);
+    board.style.width = cols * T + 'px'; board.style.height = rows * T + 'px';
+    buildAtlas();
+  }
+
+  let last = performance.now();
+  function frame(now) {
+    const dt = Math.min(0.05, (now - last) / 1000);
+    last = now;
+    update(dt); draw();
+    requestAnimationFrame(frame);
+  }
+
+  /* ---------- levels screen, language, sound ---------- */
+  function renderLevels() {
+    const up = unlockedUpTo();
+    $('levels').innerHTML = LEVELS.map((lv, i) => {
+      const n = i + 1, st = progress.stars[n] || 0;
+      const stars = [0, 1, 2].map((k) => `<i class="star${k < st ? ' on' : ''}"></i>`).join('');
+      return `<button class="btn lvl${lv.limit ? ' loopy' : ''}${i === lvlIdx ? ' cur' : ''}" type="button" data-lvl="${i}" ${n > up ? 'disabled' : ''}
+        aria-label="${TXT[lang].level} ${n}">${n}<span class="stars">${stars}</span></button>`;
+    }).join('');
+  }
+  function openLevels() { renderLevels(); $('levelsOv').hidden = false; }
+  $('levels').addEventListener('click', (e) => {
+    const b = e.target.closest('[data-lvl]');
+    if (!b || b.disabled) return;
+    ensureAudio();
+    $('levelsOv').hidden = true;
+    loadLevel(+b.dataset.lvl);
+  });
+  $('toLevels').addEventListener('click', () => { resetRobot(); openLevels(); });
+
+  function applyLang() {
+    document.documentElement.lang = lang;
+    document.querySelectorAll('[data-t]').forEach((el) => {
+      const v = TXT[lang][el.dataset.t];
+      if (typeof v === 'string') el.textContent = v;
+    });
+    document.querySelectorAll('[data-lang]').forEach((b) => b.setAttribute('aria-pressed', String(b.dataset.lang === lang)));
+    if (L) { renderPalette(); renderProg(); updateHint(); setRunLabel(); }
+    renderLevels();
+    save('rm-lang', lang);
+  }
+  document.querySelectorAll('[data-lang]').forEach((b) => b.addEventListener('click', () => { lang = b.dataset.lang; applyLang(); }));
+
+  function setMuted(v) {
+    muted = v;
+    $('mute').setAttribute('aria-pressed', String(muted));
+    save('rm-muted', muted ? '1' : '0');
+  }
+  $('mute').addEventListener('click', () => { setMuted(!muted); if (!muted) ensureAudio(); });
+  setMuted(muted);
+
+  if ('ResizeObserver' in window) new ResizeObserver(layoutBoard).observe(boardWrap);
+  else window.addEventListener('resize', layoutBoard);
+
+  loadLevel(Math.min(unlockedUpTo(), LEVELS.length) - 1);
+  applyLang();
+  requestAnimationFrame(frame);
+})();
+</script>
+
+</html>
