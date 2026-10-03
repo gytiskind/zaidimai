@@ -19,4 +19,7 @@ wrap() {
 wrap ../unicorn-star-catch/index.html unicorn/index.html en
 wrap ../ore-rush/index.html ore-rush/index.html en
 wrap ../key-siege/index.html key-siege/index.html lt
-echo "built: unicorn, ore-rush, key-siege"
+wrap ../robot-miner/index.html robot-miner/index.html lt
+wrap ../word-builder/index.html word-builder/index.html lt
+wrap ../element-craft/index.html element-craft/index.html lt
+echo "built: 6 games"
