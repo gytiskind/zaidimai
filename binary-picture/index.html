@@ -1,0 +1,694 @@
+<!doctype html>
+<html lang="lt">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<style>body{margin:0}.zm-back{display:inline-flex;align-items:center;justify-self:center;align-self:center;font:900 0.95rem "Nunito","Arial Rounded MT Bold",system-ui,sans-serif;color:#f3f0f7;text-decoration:none;background:#3b3846;border:3px solid;border-color:#6e6a7c #1f1c27 #1f1c27 #6e6a7c;box-shadow:0 0 0 2px #000;padding:5px 12px;touch-action:manipulation;white-space:nowrap}.zm-back:focus-visible{outline:3px solid #4de8d6;outline-offset:3px}</style>
+<script src="../zm.js"></script>
+<title>Binary Picture</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Nunito:wght@700;800;900&family=Pixelify+Sans:wght@400;700&display=swap">
+<style>
+/* layout: top bar, then one centered puzzle (bit rows beside pixel rows), a feedback line and the check controls */
+:root {
+  --night: #141b3a;
+  --dusk: #3a3570;
+  --stone: #3b3846;
+  --stone-hi: #6e6a7c;
+  --stone-lo: #1f1c27;
+  --gold: #ffcc33;
+  --gem: #4de8d6;
+  --red: #e0402e;
+  --grass: #5cbf3a;
+  --grass-hi: #8ee35f;
+  --grass-lo: #2f7a1c;
+  --ink: #f3f0f7;
+  --ink-dim: #b7b1c2;
+  --cell-off: #0e0c14;
+  --c-red: #e8303a;
+  --c-blue: #2f7de1;
+  --c-yellow: #ffcc33;
+  --t-decode: #2a4a7a;
+  --t-encode: #4a3270;
+  --t-color: #4a3b1c;
+  --pixel: "Pixelify Sans", "Courier New", ui-monospace, monospace;
+  --word: "Nunito", "Arial Rounded MT Bold", system-ui, sans-serif;
+  color-scheme: dark;
+}
+[hidden] { display: none !important; }
+html, body { height: 100%; }
+body {
+  background: var(--night);
+  color: var(--ink);
+  font-family: var(--word);
+  overflow: hidden;
+  touch-action: manipulation;
+  user-select: none;
+  -webkit-user-select: none;
+  -webkit-touch-callout: none;
+  -webkit-tap-highlight-color: transparent;
+}
+#app { position: fixed; inset: 0; display: grid; grid-template-rows: auto minmax(0, 1fr); }
+
+.btn {
+  font: inherit; font-weight: 800; color: var(--ink); cursor: pointer; touch-action: manipulation;
+  background: var(--stone); border: 3px solid; border-color: var(--stone-hi) var(--stone-lo) var(--stone-lo) var(--stone-hi);
+  box-shadow: 0 0 0 2px #000;
+}
+.btn:focus-visible { outline: 3px solid var(--gem); outline-offset: 3px; }
+.btn:active { border-color: var(--stone-lo) var(--stone-hi) var(--stone-hi) var(--stone-lo); }
+.btn:disabled { opacity: 0.45; cursor: default; }
+.small { font-family: var(--word); font-weight: 800; font-size: 0.9rem; padding: 4px 10px; }
+.small[aria-pressed="true"] { background: var(--stone-lo); color: var(--ink-dim); text-decoration: line-through; }
+.play {
+  font-family: var(--word); font-weight: 900; font-size: 1.4rem; letter-spacing: 0.04em; color: #fff;
+  background: var(--grass); border-color: var(--grass-hi) var(--grass-lo) var(--grass-lo) var(--grass-hi);
+  text-shadow: 2px 2px 0 var(--grass-lo);
+}
+.play:active { border-color: var(--grass-lo) var(--grass-hi) var(--grass-hi) var(--grass-lo); }
+
+/* top bar */
+.top {
+  display: flex; align-items: center; gap: 10px;
+  padding: calc(env(safe-area-inset-top, 0px) + 8px) 12px 8px;
+  background: var(--stone-lo); border-bottom: 4px solid #000;
+}
+.top .title { font-weight: 900; font-size: 1.25rem; white-space: nowrap; text-shadow: 2px 2px 0 #000; }
+.top .title b { color: var(--gold); }
+.top .hint { flex: 1; min-width: 0; font-weight: 800; font-size: 1rem; color: var(--gem); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
+/* main */
+.main {
+  min-height: 0; display: grid; grid-template-rows: auto minmax(0, 1fr) auto auto; justify-items: center; gap: 10px;
+  padding: 12px 16px calc(env(safe-area-inset-bottom, 0px) + 12px); overflow: hidden;
+}
+.legend { grid-row: 1; display: flex; gap: 8px; flex-wrap: wrap; justify-content: center; }
+.sw {
+  display: grid; justify-items: center; gap: 3px; padding: 6px 10px 4px; min-width: 64px;
+  font-weight: 900; font-size: 1.15rem; font-variant-numeric: tabular-nums; letter-spacing: 0.08em;
+}
+.sw i { width: 36px; height: 36px; display: block; border: 3px solid #000; }
+.sw[aria-pressed="true"] { background: var(--stone-lo); outline: 4px solid var(--gold); outline-offset: 2px; }
+.puzzle { grid-row: 2; align-self: center; display: grid; gap: calc(var(--cell) * 0.08); touch-action: none; --cell: 48px; }
+.row { display: flex; align-items: center; gap: calc(var(--cell) * 0.3); }
+.bits { display: flex; justify-content: flex-end; }
+.d {
+  width: calc(var(--cell) * 0.5); text-align: center; font-weight: 900; font-size: max(11px, calc(var(--cell) * 0.44));
+  color: var(--ink-dim); font-variant-numeric: tabular-nums; line-height: 1.15; transition: color 0.1s, background 0.1s;
+}
+.d.one { color: var(--gold); }
+.bits.pairs { gap: calc(var(--cell) * 0.2); }
+.bits.pairs .d { width: calc(var(--cell) * 0.76); color: var(--ink); letter-spacing: 0.04em; }
+.d.hl { color: #fff; background: rgba(77, 232, 214, 0.4); box-shadow: 0 0 0 2px var(--gem); }
+.cells { display: flex; gap: calc(var(--cell) * 0.08); }
+.cell {
+  width: var(--cell); height: var(--cell); padding: 0; cursor: pointer; position: relative;
+  background: var(--cell-off); border: 2px solid #000; box-shadow: inset 0 0 0 1px var(--stone);
+  touch-action: none;
+}
+.cell.on { background: var(--gem); box-shadow: inset -4px -4px 0 rgba(0, 0, 0, 0.25); }
+.cell[data-v="1"] { background: var(--c-red); box-shadow: inset -4px -4px 0 rgba(0, 0, 0, 0.25); }
+.cell[data-v="2"] { background: var(--c-blue); box-shadow: inset -4px -4px 0 rgba(0, 0, 0, 0.25); }
+.cell[data-v="3"] { background: var(--c-yellow); box-shadow: inset -4px -4px 0 rgba(0, 0, 0, 0.25); }
+.cell:focus-visible { outline: 3px solid var(--gold); outline-offset: 1px; z-index: 1; }
+.cell.bad, .bb.bad { outline: 4px solid var(--red); outline-offset: -2px; z-index: 1; }
+.cell.bad::after { content: ""; position: absolute; inset: 22%; background:
+  linear-gradient(45deg, transparent 42%, var(--red) 42%, var(--red) 58%, transparent 58%),
+  linear-gradient(-45deg, transparent 42%, var(--red) 42%, var(--red) 58%, transparent 58%); }
+.pcell { width: calc(var(--cell) * 0.7); height: calc(var(--cell) * 0.7); background: var(--cell-off); border: 2px solid #000; }
+.pic { display: flex; gap: calc(var(--cell) * 0.06); }
+.bb {
+  width: var(--cell); height: var(--cell); padding: 0; cursor: pointer; font-family: var(--word); font-weight: 900;
+  font-size: calc(var(--cell) * 0.55); line-height: 1; color: var(--ink-dim); font-variant-numeric: tabular-nums;
+  background: var(--stone-lo); border: 3px solid; border-color: var(--stone-hi) #000 #000 var(--stone-hi);
+}
+.bb.one { color: #2a1d00; background: var(--gold); border-color: #fff0a8 #b8861a #b8861a #fff0a8; }
+.bb:focus-visible { outline: 3px solid var(--gem); outline-offset: 1px; }
+.reveal .cell, .reveal .pcell { animation: pop 0.35s steps(4) both; }
+.reveal .bb { background: var(--grass); color: #fff; border-color: var(--grass-hi) var(--grass-lo) var(--grass-lo) var(--grass-hi); }
+@keyframes pop { 0% { transform: scale(0.4); } 60% { transform: scale(1.15); } 100% { transform: scale(1); } }
+.msg { grid-row: 3; margin: 0; min-height: 1.5em; font-weight: 900; font-size: 1.15rem; color: var(--red); text-align: center; }
+.msg.good { color: var(--grass-hi); }
+.actions { grid-row: 4; display: flex; gap: 10px; width: min(100%, 520px); }
+.actions .play { flex: 2; height: 60px; }
+.actions .btn:not(.play) { flex: 1; height: 60px; font-weight: 900; font-size: 1.05rem; }
+.busy .puzzle, .busy .actions, .busy .legend { pointer-events: none; }
+
+/* overlays */
+.overlay {
+  position: fixed; inset: 0; z-index: 5; display: grid; place-items: center;
+  padding: calc(env(safe-area-inset-top, 0px) + 16px) 16px calc(env(safe-area-inset-bottom, 0px) + 16px);
+  background: radial-gradient(ellipse at 50% 45%, rgba(12, 10, 24, 0.4), rgba(12, 10, 24, 0.85) 75%);
+  overflow-y: auto;
+}
+.panel {
+  width: 100%; max-width: 460px; display: grid; gap: 14px; justify-items: center; text-align: center;
+  background: rgba(31, 28, 39, 0.96); padding: 18px 18px 20px;
+  border: 4px solid; border-color: var(--stone-hi) var(--stone-lo) var(--stone-lo) var(--stone-hi);
+  box-shadow: 0 0 0 3px #000, 8px 8px 0 3px rgba(0, 0, 0, 0.45);
+}
+h1, h2 { margin: 0; line-height: 0.9; letter-spacing: 0.04em; text-wrap: balance; }
+h1 { font-family: var(--pixel); font-weight: 700; font-size: clamp(2.2rem, 10vw, 3.2rem); color: var(--gold); text-shadow: 4px 4px 0 #8a5a12, 8px 8px 0 #000; }
+h1 span { display: block; color: var(--gem); text-shadow: 4px 4px 0 #157a70, 8px 8px 0 #000; }
+h2 { font-family: var(--word); font-weight: 900; font-size: clamp(2rem, 9vw, 2.6rem); color: var(--gem); text-shadow: 3px 3px 0 #157a70, 6px 6px 0 #000; }
+.lead { margin: 0; font-weight: 800; font-size: 1.1rem; line-height: 1.4; max-width: 32ch; }
+.lead-bits { font-weight: 900; font-size: 1.4rem; letter-spacing: 0.12em; color: var(--gold); }
+.lead-bits span { color: var(--ink-dim); }
+.seg { display: flex; }
+.seg .btn { font-size: 0.95rem; padding: 4px 14px; }
+.seg .btn[aria-pressed="true"] { background: var(--gold); color: #2a1d00; border-color: #fff0a8 #b8861a #b8861a #fff0a8; }
+.levels { display: grid; grid-template-columns: repeat(5, 1fr); gap: 10px; width: 100%; }
+.lvl {
+  aspect-ratio: 1; max-width: 100%; display: grid; place-items: center; align-content: center; gap: 4px; padding: 4px;
+  font-family: var(--word); font-weight: 900; font-size: 1.6rem; color: var(--ink);
+}
+.lvl.t-decode { background: var(--t-decode); }
+.lvl.t-encode { background: var(--t-encode); }
+.lvl.t-color { background: var(--t-color); }
+.lvl.cur { outline: 3px solid var(--gold); outline-offset: 3px; }
+.lvl:disabled { opacity: 0.35; }
+.kinds { display: flex; gap: 12px; flex-wrap: wrap; justify-content: center; font-weight: 800; font-size: 0.9rem; color: var(--ink-dim); }
+.kinds i { display: inline-block; width: 14px; height: 14px; border: 2px solid #000; vertical-align: -2px; margin-right: 4px; }
+.stars { display: flex; gap: 2px; justify-content: center; }
+.star { width: 14px; height: 14px; background: #000; clip-path: polygon(50% 0, 61% 35%, 98% 35%, 68% 57%, 79% 91%, 50% 70%, 21% 91%, 32% 57%, 2% 35%, 39% 35%); }
+.star.on { background: var(--gold); }
+.stars.big .star { width: 44px; height: 44px; }
+.stars.big { gap: 8px; }
+.stars.big .star.on { animation: starpop 0.35s steps(4) both; }
+.stars.big .star:nth-child(2) { animation-delay: 0.15s; }
+.stars.big .star:nth-child(3) { animation-delay: 0.3s; }
+@keyframes starpop { from { transform: scale(1.8); } to { transform: scale(1); } }
+.win-name { margin: 0; font-weight: 900; font-size: 1.5rem; color: var(--gold); }
+#winPic { width: 160px; height: 160px; image-rendering: pixelated; box-shadow: 0 0 0 3px #000; background: var(--cell-off); }
+.win-note { margin: 0; font-weight: 800; font-size: 1.1rem; color: var(--ink-dim); }
+.win-note b { color: var(--ink); font-size: 1.3rem; }
+.row-btns { display: flex; gap: 10px; flex-wrap: wrap; justify-content: center; }
+.row-btns .btn { font-weight: 900; font-size: 1.15rem; padding: 10px 22px; }
+@media (prefers-reduced-motion: reduce) {
+  .reveal .cell, .reveal .pcell, .stars.big .star.on { animation: none; }
+  .d { transition: none; }
+}
+</style>
+
+<div id="app">
+  <div class="top">
+    <a class="zm-back" href="../">← Meniu</a>
+    <button class="btn small" id="toLevels" type="button" data-t="levels">Lygiai</button>
+    <div class="title"><span data-t="level">Lygis</span> <b id="lvlNum">1</b></div>
+    <div class="hint" id="hint"></div>
+    <button class="btn small" id="mute" type="button" aria-pressed="false" data-t="sound">Garsas</button>
+  </div>
+  <div class="main" id="main">
+    <div class="legend" id="legend" hidden></div>
+    <div class="puzzle" id="puzzle"></div>
+    <p class="msg" id="msg" role="status"></p>
+    <div class="actions">
+      <button class="btn" id="clear" type="button" data-t="clear">Išvalyti</button>
+      <button class="btn play" id="check" type="button" data-t="check">TIKRINTI</button>
+    </div>
+  </div>
+</div>
+
+<div class="overlay" id="levelsOv">
+  <div class="panel">
+    <div class="seg" role="group" aria-label="Language">
+      <button class="btn" type="button" data-lang="lt" aria-pressed="true">LT</button>
+      <button class="btn" type="button" data-lang="en" aria-pressed="false">EN</button>
+    </div>
+    <h1 id="gameTitle">DVEJETAINIS <span>PAVEIKSLAS</span></h1>
+    <p class="lead" data-t="lead"></p>
+    <div class="lead-bits" aria-hidden="true">0 1 1 0 <span>=</span> &#9632;&#9632;</div>
+    <div class="levels" id="levels"></div>
+    <div class="kinds" id="kinds"></div>
+    <a class="zm-back" href="../">← Meniu</a>
+  </div>
+</div>
+
+<div class="overlay" id="winOv" hidden>
+  <div class="panel">
+    <h2 data-t="win">PAVYKO!</h2>
+    <canvas id="winPic" width="160" height="160" aria-hidden="true"></canvas>
+    <p class="win-name" id="winName"></p>
+    <div class="stars big" id="winStars"><i class="star"></i><i class="star"></i><i class="star"></i></div>
+    <p class="win-note" id="winNote"></p>
+    <div class="row-btns">
+      <button class="btn" id="again" type="button" data-t="again">Dar kartą</button>
+      <button class="btn play" id="next" type="button" data-t="next">Kitas lygis</button>
+    </div>
+    <a class="zm-back" href="../">← Meniu</a>
+  </div>
+</div>
+
+<script>
+(() => {
+  // site profiles (zaidimai/zm.js); absent in the claude.ai version, so everything falls back
+  const ZM = window.ZM || null;
+  const NS = (k) => (ZM ? ZM.ns(k) : k);
+  const $ = (id) => document.getElementById(id);
+  const reduce = matchMedia('(prefers-reduced-motion: reduce)').matches;
+
+  /* ---------- text ---------- */
+  const TXT = {
+    lt: {
+      title: ['DVEJETAINIS', 'PAVEIKSLAS'],
+      lead: 'Kompiuteris viską saugo nuliais ir vienetais.',
+      levels: 'Lygiai', level: 'Lygis', sound: 'Garsas',
+      check: 'TIKRINTI', clear: 'Išvalyti',
+      hint: { decode: '1 = nuspalvink, 0 = palik tuščią.', encode: 'Spalvotas langelis = 1, tuščias = 0.', color: 'Du bitai = viena spalva.' },
+      kinds: { decode: 'Iššifruok', encode: 'Užšifruok', color: 'Spalvos' },
+      fix: (n) => `Pataisyk raudonus: ${n}`,
+      fixBits: (n) => `Pataisyk raudonus bitus: ${n}`,
+      win: 'PAVYKO!', again: 'Dar kartą', next: 'Kitas lygis', done: 'Visi lygiai įveikti!',
+      itIs: (name) => `Tai ${name}!`,
+      bits: (n) => `Tavo paveikslas = <b>${n}</b> ${ltBits(n)}`,
+      colorNames: ['tuščia', 'raudona', 'mėlyna', 'geltona'],
+      cell: (r, c) => `Eilutė ${r}, langelis ${c}`,
+    },
+    en: {
+      title: ['BINARY', 'PICTURE'],
+      lead: 'A computer stores everything as zeros and ones.',
+      levels: 'Levels', level: 'Level', sound: 'Sound',
+      check: 'CHECK', clear: 'Clear',
+      hint: { decode: '1 = fill it, 0 = leave it empty.', encode: 'Filled square = 1, empty = 0.', color: 'Two bits = one color.' },
+      kinds: { decode: 'Decode', encode: 'Encode', color: 'Colors' },
+      fix: (n) => `Fix the red squares: ${n}`,
+      fixBits: (n) => `Fix the red bits: ${n}`,
+      win: 'YOU DID IT!', again: 'Try again', next: 'Next level', done: 'All levels done!',
+      itIs: (name) => `It is ${name}!`,
+      bits: (n) => `Your picture = <b>${n}</b> bits`,
+      colorNames: ['empty', 'red', 'blue', 'yellow'],
+      cell: (r, c) => `Row ${r}, square ${c}`,
+    },
+  };
+  // Lithuanian noun form after a number: 1 bitas, 2 bitai, 10 bitų
+  function ltBits(n) {
+    const a = n % 10, b = n % 100;
+    if (a === 1 && b !== 11) return 'bitas';
+    if (a >= 2 && a <= 9 && !(b >= 12 && b <= 19)) return 'bitai';
+    return 'bitų';
+  }
+
+  /* ---------- pictures and levels ----------
+     1-bit pictures: '.' = 0, any letter = 1 (the letter only picks the reveal color).
+     2-bit pictures: '.' = 00 empty, r = 01 red, b = 10 blue, y = 11 yellow. */
+  /* DATA START */
+  const PICS = {
+    heart: { lt: 'širdis', en: 'a heart', pal: { r: '#e8303a' }, rows: [
+      '.r.r.',
+      'rrrrr',
+      'rrrrr',
+      '.rrr.',
+      '..r..',
+    ] },
+    house: { lt: 'namas', en: 'a house', pal: { r: '#d9412f', w: '#e8c9a0', b: '#7a4f2e' }, rows: [
+      '..rr..',
+      '.rrrr.',
+      'rrrrrr',
+      '.wwww.',
+      '.wbbw.',
+      '.wbbw.',
+    ] },
+    star: { lt: 'žvaigždė', en: 'a star', pal: { y: '#ffcc33' }, rows: [
+      '...y...',
+      '..yyy..',
+      'yyyyyyy',
+      '.yyyyy.',
+      '..yyy..',
+      '.yy.yy.',
+      '.y...y.',
+    ] },
+    robot: { lt: 'robotas', en: 'a robot', pal: { a: '#ffcc33', g: '#9aa0aa' }, rows: [
+      '...aa...',
+      '.gggggg.',
+      'gg.gg.gg',
+      'gg.gg.gg',
+      'gggggggg',
+      'gg....gg',
+      '.gggggg.',
+      '..g..g..',
+    ] },
+    tree: { lt: 'medis', en: 'a tree', pal: { g: '#5cbf3a', b: '#7a4f2e' }, rows: [
+      '.ggg.',
+      'ggggg',
+      'ggggg',
+      '..b..',
+      '..b..',
+    ] },
+    key: { lt: 'raktas', en: 'a key', pal: { y: '#ffcc33' }, rows: [
+      '.yyy..',
+      '.y.y..',
+      '.yyy..',
+      '..y...',
+      '..yy..',
+      '..yyy.',
+    ] },
+    fish: { lt: 'žuvis', en: 'a fish', pal: { o: '#ff8a2a' }, rows: [
+      '.........',
+      '....oooo.',
+      'o..oooooo',
+      'oo.oooo.o',
+      'ooooooooo',
+      'oo.oooooo',
+      'o..oooooo',
+      '....oooo.',
+      '.........',
+    ] },
+    ghost: { lt: 'vaiduoklis', en: 'a ghost', pal: { w: '#f3f0f7' }, rows: [
+      '...wwww...',
+      '.wwwwwwww.',
+      '.wwwwwwww.',
+      'ww..ww..ww',
+      'ww..ww..ww',
+      'wwwwwwwwww',
+      'wwwwwwwwww',
+      'wwwwwwwwww',
+      'wwwwwwwwww',
+      'w.ww..ww.w',
+    ] },
+    mushroom: { lt: 'grybas', en: 'a mushroom', rows: [
+      '.rr.',
+      'rryr',
+      'rrrr',
+      '.yy.',
+    ] },
+    boat: { lt: 'valtis', en: 'a boat', rows: [
+      '..r..',
+      '..yy.',
+      '..yyy',
+      'rrrrr',
+      'bbbbb',
+    ] },
+  };
+  const LEVELS = [
+    { type: 'decode', pic: 'heart' },
+    { type: 'decode', pic: 'house' },
+    { type: 'decode', pic: 'star' },
+    { type: 'decode', pic: 'robot' },
+    { type: 'encode', pic: 'tree' },
+    { type: 'encode', pic: 'key' },
+    { type: 'decode', pic: 'fish' },
+    { type: 'decode', pic: 'ghost' },
+    { type: 'color', pic: 'mushroom' },
+    { type: 'color', pic: 'boat' },
+  ];
+  const CV = { '.': 0, r: 1, b: 2, y: 3 };
+  const COLORS = ['#0e0c14', '#e8303a', '#2f7de1', '#ffcc33'];
+  // what the picture is as numbers: 0/1 per square (1-bit) or 0..3 per square (2-bit)
+  const targetOf = (lv) => PICS[lv.pic].rows.map((r) => [...r].map((c) => (lv.type === 'color' ? CV[c] : c === '.' ? 0 : 1)));
+  // the bits written next to each row
+  const bitsOf = (lv) => targetOf(lv).map((row) => row.map((v) => (lv.type === 'color' ? v.toString(2).padStart(2, '0') : String(v))));
+  // the real color of one square, for the reveal
+  const colorOf = (lv, r, c) => {
+    const ch = PICS[lv.pic].rows[r][c];
+    if (lv.type === 'color') return COLORS[CV[ch]];
+    return ch === '.' ? COLORS[0] : PICS[lv.pic].pal[ch];
+  };
+  /* DATA END */
+
+  /* ---------- storage ---------- */
+  let lang = 'lt', muted = false, progress = { stars: {} };
+  try {
+    const l = localStorage.getItem('bp-lang'); if (l === 'lt' || l === 'en') lang = l;
+    muted = localStorage.getItem('bp-muted') === '1';
+    const p = JSON.parse(localStorage.getItem(NS('bp-progress')) || 'null'); if (p && p.stars) progress = p;
+  } catch (e) {}
+  const save = (k, v) => { try { localStorage.setItem(k, v); } catch (e) {} };
+  const unlockedUpTo = () => {
+    let n = 1;
+    while (n < LEVELS.length && progress.stars[n]) n++;
+    return n;
+  };
+
+  /* ---------- sound ---------- */
+  let actx = null;
+  function ensureAudio() {
+    try {
+      if (!actx) actx = new (window.AudioContext || window.webkitAudioContext)();
+      if (actx.state === 'suspended') actx.resume();
+    } catch (e) { actx = null; }
+  }
+  function tone(freq, dur, type = 'square', vol = 0.05, delay = 0, endFreq) {
+    if (muted || !actx) return;
+    const t0 = actx.currentTime + delay;
+    const o = actx.createOscillator(), g = actx.createGain();
+    o.type = type; o.frequency.setValueAtTime(freq, t0);
+    if (endFreq) o.frequency.exponentialRampToValueAtTime(endFreq, t0 + dur);
+    g.gain.setValueAtTime(vol, t0); g.gain.exponentialRampToValueAtTime(0.0008, t0 + dur);
+    o.connect(g).connect(actx.destination); o.start(t0); o.stop(t0 + dur + 0.05);
+  }
+  const sfx = {
+    on: () => tone(660, 0.05, 'square', 0.035),
+    off: () => tone(330, 0.05, 'square', 0.035),
+    pick: () => tone(520, 0.06, 'triangle', 0.06),
+    bad: () => { tone(220, 0.16, 'square', 0.06, 0, 110); tone(140, 0.25, 'square', 0.06, 0.15, 70); },
+    win: () => [523, 659, 784, 1047, 784, 1047, 1319].forEach((f, i) => tone(f, 0.13, 'square', 0.05, i * 0.08)),
+  };
+
+  /* ---------- game state ---------- */
+  let lvlIdx = 0, L = null, target = [], cur = [], rows = 0, cols = 0, wrongChecks = 0, brush = 1, done = false;
+  const puzzle = $('puzzle'), legend = $('legend'), msg = $('msg');
+
+  function loadLevel(i) {
+    lvlIdx = i; L = LEVELS[i];
+    target = targetOf(L);
+    rows = target.length; cols = target[0].length;
+    cur = target.map((r) => r.map(() => 0));
+    wrongChecks = 0; brush = 1; done = false;
+    $('lvlNum').textContent = i + 1;
+    msg.textContent = ''; msg.classList.remove('good');
+    document.body.classList.remove('busy');
+    render();
+    layout();
+  }
+
+  function render() {
+    const bits = bitsOf(L);
+    const T = TXT[lang];
+    $('hint').textContent = T.hint[L.type];
+    legend.hidden = L.type !== 'color';
+    if (L.type === 'color') {
+      legend.innerHTML = [1, 2, 3, 0].map((v) =>
+        `<button class="btn sw" type="button" data-v="${v}" aria-pressed="${v === brush}" aria-label="${v.toString(2).padStart(2, '0')} ${T.colorNames[v]}">` +
+        `<i style="background:${COLORS[v]}"></i>${v.toString(2).padStart(2, '0')}</button>`).join('');
+    }
+    let h = '';
+    for (let r = 0; r < rows; r++) {
+      if (L.type === 'encode') {
+        const pic = target[r].map((v, c) => `<i class="pcell" style="background:${colorOf(L, r, c)}"></i>`).join('');
+        const btns = cur[r].map((v, c) => `<button class="bb${v ? ' one' : ''}" type="button" data-r="${r}" data-c="${c}" aria-label="${T.cell(r + 1, c + 1)}">${v}</button>`).join('');
+        h += `<div class="row"><div class="pic">${pic}</div><div class="cells">${btns}</div></div>`;
+      } else {
+        const ds = bits[r].map((b, c) => `<span class="d${L.type === 'decode' && b === '1' ? ' one' : ''}" data-c="${c}">${b}</span>`).join('');
+        const cs = cur[r].map((v, c) => `<button class="cell${cellClass(v)}" type="button" data-r="${r}" data-c="${c}"${L.type === 'color' ? ` data-v="${v}"` : ''} aria-label="${T.cell(r + 1, c + 1)}"></button>`).join('');
+        h += `<div class="row"><div class="bits${L.type === 'color' ? ' pairs' : ''}" aria-hidden="true">${ds}</div><div class="cells">${cs}</div></div>`;
+      }
+    }
+    puzzle.innerHTML = h;
+    puzzle.classList.remove('reveal');
+  }
+  const cellClass = (v) => (L.type === 'decode' && v ? ' on' : '');
+
+  // cell size so the whole puzzle fits the screen
+  function layout() {
+    if (!L) return;
+    const main = $('main').getBoundingClientRect();
+    if (!main.width) return;
+    const legendH = L.type === 'color' ? 80 : 0;
+    const availW = main.width - 40;
+    const availH = main.height - legendH - 60 - 36 - 64;
+    const perCol = L.type === 'encode' ? 1.78 : L.type === 'color' ? 2.04 : 1.58;
+    const cell = Math.floor(Math.max(18, Math.min(64, (availW - 20) / (perCol * cols + 0.3), availH / (rows * 1.09))));
+    puzzle.style.setProperty('--cell', cell + 'px');
+  }
+
+  function setCell(r, c, v) {
+    if (cur[r][c] === v) return;
+    cur[r][c] = v;
+    const el = puzzle.querySelector(`[data-r="${r}"][data-c="${c}"]`);
+    if (!el) return;
+    el.classList.remove('bad');
+    if (L.type === 'encode') { el.textContent = v; el.classList.toggle('one', !!v); }
+    else if (L.type === 'color') el.dataset.v = v;
+    else el.classList.toggle('on', !!v);
+    const d = puzzle.querySelectorAll('.row')[r].querySelector(`.d[data-c="${c}"]`);
+    if (d) { d.classList.add('hl'); clearTimeout(d._t); d._t = setTimeout(() => d.classList.remove('hl'), 350); }
+    if (L.type === 'color') sfx.pick(); else (v ? sfx.on : sfx.off)();
+    if (msg.textContent && !puzzle.querySelector('.bad')) msg.textContent = '';
+  }
+  // first square touched decides the value; sliding a finger paints the same value
+  let paint = null;
+  function valueFor(r, c) { return L.type === 'color' ? (cur[r][c] === brush ? 0 : brush) : cur[r][c] ? 0 : 1; }
+  function targetAt(x, y) {
+    const el = document.elementFromPoint(x, y);
+    return el && el.closest('#puzzle [data-r]');
+  }
+  puzzle.addEventListener('pointerdown', (e) => {
+    const el = e.target.closest('[data-r]');
+    if (!el || done) return;
+    e.preventDefault();
+    ensureAudio();
+    const r = +el.dataset.r, c = +el.dataset.c;
+    paint = { v: valueFor(r, c), id: e.pointerId };
+    setCell(r, c, paint.v);
+  });
+  window.addEventListener('pointermove', (e) => {
+    if (!paint || e.pointerId !== paint.id || L.type === 'encode') return;
+    const el = targetAt(e.clientX, e.clientY);
+    if (el) setCell(+el.dataset.r, +el.dataset.c, paint.v);
+  });
+  const endPaint = () => { paint = null; };
+  window.addEventListener('pointerup', endPaint);
+  window.addEventListener('pointercancel', endPaint);
+  // keyboard: Enter or Space on a focused square (click with detail 0)
+  puzzle.addEventListener('click', (e) => {
+    if (e.detail !== 0 || done) return;
+    const el = e.target.closest('[data-r]');
+    if (!el) return;
+    const r = +el.dataset.r, c = +el.dataset.c;
+    setCell(r, c, valueFor(r, c));
+  });
+  legend.addEventListener('click', (e) => {
+    const b = e.target.closest('[data-v]');
+    if (!b) return;
+    ensureAudio();
+    brush = +b.dataset.v;
+    legend.querySelectorAll('[data-v]').forEach((x) => x.setAttribute('aria-pressed', String(+x.dataset.v === brush)));
+    sfx.pick();
+  });
+
+  $('clear').addEventListener('click', () => {
+    if (done) return;
+    for (let r = 0; r < rows; r++) for (let c = 0; c < cols; c++) cur[r][c] = 0;
+    msg.textContent = '';
+    render(); layout();
+    sfx.off();
+  });
+
+  $('check').addEventListener('click', () => {
+    if (done) return;
+    ensureAudio();
+    let wrong = 0;
+    puzzle.querySelectorAll('[data-r]').forEach((el) => {
+      const r = +el.dataset.r, c = +el.dataset.c;
+      const bad = cur[r][c] !== target[r][c];
+      el.classList.toggle('bad', bad);
+      if (bad) wrong++;
+    });
+    if (wrong) {
+      wrongChecks++;
+      msg.classList.remove('good');
+      msg.textContent = (L.type === 'encode' ? TXT[lang].fixBits : TXT[lang].fix)(wrong);
+      sfx.bad();
+      return;
+    }
+    win();
+  });
+
+  function win() {
+    done = true;
+    document.body.classList.add('busy');
+    // reveal the real colors, square by square
+    puzzle.querySelectorAll('.cell').forEach((el, i) => {
+      el.style.background = colorOf(L, +el.dataset.r, +el.dataset.c);
+      if (!reduce) el.style.animationDelay = Math.min(i * 12, 700) + 'ms';
+    });
+    puzzle.querySelectorAll('.pcell').forEach((el, i) => { if (!reduce) el.style.animationDelay = Math.min(i * 12, 700) + 'ms'; });
+    puzzle.classList.add('reveal');
+    sfx.win();
+    const stars = wrongChecks === 0 ? 3 : wrongChecks === 1 ? 2 : 1;
+    const key = lvlIdx + 1;
+    const prevStars = progress.stars[key] || 0;
+    progress.stars[key] = Math.max(prevStars, stars);
+    save(NS('bp-progress'), JSON.stringify(progress));
+    // XP: 10 for a first clear, 20 per newly earned star; record = total stars over all levels
+    if (ZM) {
+      const total = Object.values(progress.stars).reduce((a, b) => a + b, 0);
+      ZM.report('binary-picture', { score: total, xp: (prevStars ? 0 : 10) + 20 * Math.max(0, stars - prevStars) });
+    }
+    setTimeout(() => showWin(stars), reduce ? 300 : 1300);
+  }
+
+  function showWin(stars) {
+    const T = TXT[lang];
+    const cv = $('winPic'), g = cv.getContext('2d');
+    const s = Math.floor(160 / Math.max(rows, cols));
+    g.fillStyle = COLORS[0]; g.fillRect(0, 0, 160, 160);
+    const ox = Math.floor((160 - s * cols) / 2), oy = Math.floor((160 - s * rows) / 2);
+    for (let r = 0; r < rows; r++) for (let c = 0; c < cols; c++) {
+      if (!target[r][c]) continue;
+      g.fillStyle = colorOf(L, r, c); g.fillRect(ox + c * s, oy + r * s, s, s);
+    }
+    $('winName').textContent = T.itIs(PICS[L.pic][lang]);
+    document.querySelectorAll('#winStars .star').forEach((st, i) => {
+      st.classList.remove('on'); void st.offsetWidth;
+      st.classList.toggle('on', i < stars);
+    });
+    const nBits = rows * cols * (L.type === 'color' ? 2 : 1);
+    const last = lvlIdx >= LEVELS.length - 1;
+    $('winNote').innerHTML = T.bits(nBits) + (last ? '<br>' + T.done : '');
+    $('next').textContent = last ? T.levels : T.next;
+    $('winOv').hidden = false;
+    setTimeout(() => $('next').focus({ preventScroll: true }), 50);
+  }
+  $('again').addEventListener('click', () => { $('winOv').hidden = true; loadLevel(lvlIdx); });
+  $('next').addEventListener('click', () => {
+    $('winOv').hidden = true;
+    if (lvlIdx >= LEVELS.length - 1) { openLevels(); return; }
+    loadLevel(lvlIdx + 1);
+  });
+
+  /* ---------- levels screen, language, sound ---------- */
+  function renderLevels() {
+    const up = unlockedUpTo();
+    const T = TXT[lang];
+    $('levels').innerHTML = LEVELS.map((lv, i) => {
+      const n = i + 1, st = progress.stars[n] || 0;
+      const stars = [0, 1, 2].map((k) => `<i class="star${k < st ? ' on' : ''}"></i>`).join('');
+      return `<button class="btn lvl t-${lv.type}${i === lvlIdx ? ' cur' : ''}" type="button" data-lvl="${i}" ${n > up ? 'disabled' : ''}
+        aria-label="${T.level} ${n}, ${T.kinds[lv.type]}">${n}<span class="stars">${stars}</span></button>`;
+    }).join('');
+    $('kinds').innerHTML = ['decode', 'encode', 'color'].map((k) => `<span><i style="background:var(--t-${k})"></i>${T.kinds[k]}</span>`).join('');
+  }
+  function openLevels() { renderLevels(); $('levelsOv').hidden = false; }
+  $('levels').addEventListener('click', (e) => {
+    const b = e.target.closest('[data-lvl]');
+    if (!b || b.disabled) return;
+    ensureAudio();
+    $('levelsOv').hidden = true;
+    loadLevel(+b.dataset.lvl);
+  });
+  $('toLevels').addEventListener('click', () => openLevels());
+
+  function applyLang() {
+    document.documentElement.lang = lang;
+    document.querySelectorAll('[data-t]').forEach((el) => {
+      const v = TXT[lang][el.dataset.t];
+      if (typeof v === 'string') el.textContent = v;
+    });
+    const [a, b] = TXT[lang].title;
+    $('gameTitle').innerHTML = `${a} <span>${b}</span>`;
+    document.querySelectorAll('[data-lang]').forEach((x) => x.setAttribute('aria-pressed', String(x.dataset.lang === lang)));
+    if (L) { render(); layout(); }
+    renderLevels();
+    save('bp-lang', lang);
+  }
+  document.querySelectorAll('[data-lang]').forEach((b) => b.addEventListener('click', () => { lang = b.dataset.lang; applyLang(); }));
+
+  function setMuted(v) {
+    muted = v;
+    $('mute').setAttribute('aria-pressed', String(muted));
+    save('bp-muted', muted ? '1' : '0');
+  }
+  $('mute').addEventListener('click', () => { setMuted(!muted); if (!muted) ensureAudio(); });
+  setMuted(muted);
+
+  if ('ResizeObserver' in window) new ResizeObserver(layout).observe($('main'));
+  else window.addEventListener('resize', layout);
+
+  loadLevel(Math.min(unlockedUpTo(), LEVELS.length) - 1);
+  applyLang();
+})();
+</script>
+
+</html>
