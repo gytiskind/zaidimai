@@ -28,8 +28,7 @@ wrap ../word-builder/index.html word-builder/index.html lt
 wrap ../element-craft/index.html element-craft/index.html lt
 wrap ../bug-hunt/index.html bug-hunt/index.html lt
 wrap ../sorting-factory/index.html sorting-factory/index.html lt
-wrap ../teach-ai/index.html teach-ai/index.html lt
 wrap ../bitas-draws/index.html bitas-draws/index.html lt
 wrap ../binary-picture/index.html binary-picture/index.html lt
-wrap ../ai-detective/index.html ai-detective/index.html lt
-echo "built: 12 games"
+wrap ../robo-mokinys/index.html robo-mokinys/index.html lt
+echo "built: 11 games"

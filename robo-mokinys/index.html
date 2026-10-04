@@ -1,0 +1,1067 @@
+<!doctype html>
+<html lang="lt">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<style>body{margin:0}.zm-back{display:inline-flex;align-items:center;justify-self:center;align-self:center;font:900 0.95rem "Nunito","Arial Rounded MT Bold",system-ui,sans-serif;color:#f3f0f7;text-decoration:none;background:#3b3846;border:3px solid;border-color:#6e6a7c #1f1c27 #1f1c27 #6e6a7c;box-shadow:0 0 0 2px #000;padding:5px 12px;touch-action:manipulation;white-space:nowrap}.zm-back:focus-visible{outline:3px solid #4de8d6;outline-offset:3px}</style>
+<script src="../zm.js"></script>
+<title>Robo Mokinys</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Nunito:wght@700;800;900&family=Pixelify+Sans:wght@700&display=swap">
+<style>
+/* layout: full-bleed cave canvas (Ore Rush world); HUD on top; a "robot memory" card appears while the robot plays; overlays are stone panels */
+:root {
+  --cave: #17141f;
+  --stone: #3b3846;
+  --stone-hi: #6e6a7c;
+  --stone-lo: #1f1c27;
+  --gold: #ffcc33;
+  --cyan: #4de8d6;
+  --cyan-lo: #1d9c8f;
+  --red: #e0402e;
+  --grass: #5cbf3a;
+  --grass-hi: #8ee35f;
+  --grass-lo: #2f7a1c;
+  --ink: #f3f0f7;
+  --ink-dim: #b7b1c2;
+  --scrim: rgba(12, 10, 18, 0.7);
+  --flash: #ffe6b4;
+  --pixel: "Pixelify Sans", "Courier New", ui-monospace, monospace;
+  --word: "Nunito", "Arial Rounded MT Bold", system-ui, sans-serif;
+  color-scheme: dark;
+}
+[hidden] { display: none !important; }
+html, body { height: 100%; }
+body {
+  background: var(--cave); color: var(--ink); font-family: var(--word);
+  overflow: hidden; touch-action: none; user-select: none; -webkit-user-select: none;
+  -webkit-touch-callout: none; -webkit-tap-highlight-color: transparent;
+}
+canvas { image-rendering: pixelated; }
+#stage { position: fixed; inset: 0; will-change: transform; }
+#bg, #game { position: absolute; inset: 0; width: 100%; height: 100%; display: block; }
+#flash { position: fixed; inset: 0; z-index: 1; background: var(--flash); opacity: 0; pointer-events: none; }
+#safe { position: fixed; bottom: 0; left: 0; width: 1px; height: env(safe-area-inset-bottom, 0px); pointer-events: none; }
+
+/* HUD */
+.hud {
+  position: fixed; left: 0; right: 0; top: 0; z-index: 2;
+  display: flex; align-items: flex-start; justify-content: space-between; gap: 10px;
+  padding: calc(env(safe-area-inset-top, 0px) + 10px) 14px 0; pointer-events: none;
+}
+.hud > * { pointer-events: auto; }
+.who { display: flex; align-items: center; gap: 8px; }
+.who img { width: 40px; height: 40px; image-rendering: pixelated; }
+.score { font-weight: 900; font-size: 2.2rem; line-height: 1; color: var(--gold); font-variant-numeric: tabular-nums; text-shadow: 3px 3px 0 #000; min-width: 3ch; }
+.mid { flex: 1; display: grid; justify-items: center; gap: 6px; }
+.phase {
+  font-weight: 900; font-size: 1rem; letter-spacing: 0.03em; padding: 5px 12px; border: 3px solid #000; box-shadow: 3px 3px 0 #000;
+  background: var(--gold); color: #2a1d00; display: inline-flex; align-items: center; gap: 8px; white-space: nowrap;
+}
+.phase.robot { background: var(--cyan); color: #0d2a27; }
+.eye { width: 18px; height: 12px; background: #fff; border: 2px solid #000; border-radius: 50%; display: inline-grid; place-items: center; animation: look 1.6s steps(2) infinite; }
+.eye::after { content: ""; width: 6px; height: 6px; background: #000; border-radius: 50%; }
+@keyframes look { 50% { transform: scaleY(0.2); } }
+.stats { font-weight: 800; font-size: 0.9rem; color: var(--ink); text-shadow: 2px 2px 0 #000; display: flex; gap: 12px; }
+.stats b { color: var(--cyan); font-variant-numeric: tabular-nums; }
+.right { display: grid; justify-items: end; gap: 6px; }
+
+.btn {
+  font: inherit; font-weight: 900; color: var(--ink); cursor: pointer; touch-action: manipulation;
+  background: var(--stone); border: 3px solid; border-color: var(--stone-hi) var(--stone-lo) var(--stone-lo) var(--stone-hi);
+  box-shadow: 0 0 0 2px #000; padding: 8px 16px; font-size: 1rem;
+}
+.btn:focus-visible { outline: 3px solid var(--cyan); outline-offset: 4px; }
+.btn.small { font-size: 0.85rem; padding: 4px 10px; }
+.btn.small[aria-pressed="true"] { text-decoration: line-through; color: var(--ink-dim); }
+.btn.play {
+  font-size: 1.5rem; padding: 12px 34px; color: #fff;
+  background: var(--grass); border-color: var(--grass-hi) var(--grass-lo) var(--grass-lo) var(--grass-hi);
+  text-shadow: 2px 2px 0 var(--grass-lo);
+}
+.btn.cyan { background: var(--cyan-lo); border-color: var(--cyan) #0b4a44 #0b4a44 var(--cyan); }
+.btn.danger { background: #7a2016; border-color: #c4483a #3a0d08 #3a0d08 #c4483a; }
+.btn:active { transform: translateY(2px); }
+
+/* robot memory card, shown while the robot plays */
+.recall {
+  position: fixed; right: 12px; top: calc(env(safe-area-inset-top, 0px) + 64px); z-index: 2;
+  background: rgba(13, 11, 20, 0.92); border: 3px solid var(--cyan); box-shadow: 4px 4px 0 #000;
+  padding: 6px 8px 8px; display: grid; gap: 4px; justify-items: center; pointer-events: none;
+}
+.recall span { font-weight: 900; font-size: 0.8rem; color: var(--cyan); letter-spacing: 0.04em; text-transform: uppercase; }
+.recall canvas { width: 180px; height: 125px; display: block; background: #0d0b14; }
+
+/* overlays */
+.overlay {
+  position: fixed; inset: 0; z-index: 3; display: grid; place-items: center; overflow-y: auto;
+  padding: calc(env(safe-area-inset-top, 0px) + 18px) 16px calc(env(safe-area-inset-bottom, 0px) + 18px);
+  background: radial-gradient(ellipse at 50% 45%, rgba(12, 10, 18, 0.25), var(--scrim) 75%);
+}
+.panel {
+  width: 100%; max-width: 440px; display: grid; gap: 14px; justify-items: center; text-align: center;
+  background: rgba(31, 28, 39, 0.95); padding: 18px 18px 20px;
+  border: 4px solid; border-color: var(--stone-hi) var(--stone-lo) var(--stone-lo) var(--stone-hi);
+  box-shadow: 0 0 0 3px #000, 8px 8px 0 3px rgba(0, 0, 0, 0.45);
+}
+h1 { margin: 0; font-family: var(--pixel); font-size: clamp(2.8rem, 13vw, 4rem); line-height: 0.9; letter-spacing: 0.04em; color: var(--cyan); text-shadow: 4px 4px 0 #0b4a44, 8px 8px 0 #000; }
+h1 span { display: block; color: var(--gold); text-shadow: 4px 4px 0 #8a5a12, 8px 8px 0 #000; }
+h2 { margin: 0; font-weight: 900; font-size: clamp(1.7rem, 7vw, 2.2rem); line-height: 1.05; text-wrap: balance; }
+.lead { margin: 0; font-weight: 800; font-size: 1.08rem; line-height: 1.4; color: var(--ink); max-width: 34ch; }
+.lead em { font-style: normal; color: var(--gold); }
+.steps { display: grid; grid-template-columns: 1fr auto 1fr; gap: 8px; align-items: center; width: 100%; }
+.step { display: grid; justify-items: center; gap: 4px; font-weight: 900; font-size: 0.95rem; }
+.step img { width: 76px; height: 76px; image-rendering: pixelated; }
+.arrow { font-weight: 900; font-size: 1.6rem; color: var(--ink-dim); }
+.seg { display: flex; }
+.seg .btn { font-size: 0.9rem; padding: 4px 14px; }
+.seg .btn[aria-pressed="true"] { background: var(--gold); color: #2a1d00; border-color: #fff0a8 #b8861a #b8861a #fff0a8; }
+.levels { display: grid; grid-template-columns: repeat(2, 1fr); gap: 10px; width: 100%; }
+.lvl { display: grid; gap: 4px; justify-items: center; padding: 10px 6px; min-height: 92px; }
+.lvl b { font-family: var(--pixel); font-size: 1.6rem; line-height: 1; }
+.lvl span { font-size: 0.95rem; }
+.lvl .stars { font-size: 1rem; letter-spacing: 2px; color: #4a4655; }
+.lvl .stars i { font-style: normal; }
+.lvl .stars i.on { color: var(--gold); }
+.lvl:disabled { opacity: 0.45; cursor: default; }
+.intro-ico { width: 120px; height: 120px; image-rendering: pixelated; }
+.row { display: flex; flex-wrap: wrap; gap: 10px; justify-content: center; }
+.vs { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; width: 100%; }
+.side { background: var(--stone-lo); border: 2px solid #000; padding: 10px 8px; display: grid; gap: 4px; justify-items: center; }
+.side img { width: 64px; height: 64px; image-rendering: pixelated; }
+.side b { font-size: 2.4rem; line-height: 1; font-weight: 900; color: var(--gold); font-variant-numeric: tabular-nums; }
+.side.ai b { color: var(--cyan); }
+.side .caught { font-weight: 800; font-size: 0.85rem; color: var(--ink); }
+.side span { font-size: 0.8rem; font-weight: 800; color: var(--ink-dim); text-transform: uppercase; letter-spacing: 0.06em; }
+.bigstars { font-size: 2.6rem; letter-spacing: 6px; color: #4a4655; line-height: 1; }
+.bigstars i { font-style: normal; }
+.bigstars i.on { color: var(--gold); text-shadow: 3px 3px 0 #000; }
+.verdict { margin: 0; font-weight: 900; font-size: 1.3rem; }
+.lesson { margin: 0; font-weight: 800; font-size: 1rem; color: var(--cyan); max-width: 36ch; line-height: 1.35; }
+.memline { margin: 0; font-weight: 800; font-size: 0.9rem; color: var(--ink-dim); }
+.memline b { color: var(--ink); font-variant-numeric: tabular-nums; }
+@media (prefers-reduced-motion: reduce) { .eye { animation: none; } .btn:active { transform: none; } }
+</style>
+
+<div id="stage">
+  <canvas id="bg"></canvas>
+  <canvas id="game" aria-label="A miner and a robot in minecarts catching falling ore blocks"></canvas>
+</div>
+<div id="flash"></div>
+<div id="safe"></div>
+
+<div class="hud" id="hud" hidden>
+  <div class="who"><img id="whoImg" alt=""><span class="score" id="score" aria-live="polite">0</span></div>
+  <div class="mid">
+    <div class="phase" id="phase"></div>
+    <div class="stats"><span><span data-t="left"></span>: <b id="left">0</b></span><span><span data-t="memory"></span>: <b id="mem">0</b></span></div>
+  </div>
+  <div class="right">
+    <button class="btn small" id="mute" type="button" aria-pressed="false" data-t="sound"></button>
+  </div>
+</div>
+
+<div class="recall" id="recall" hidden>
+  <span data-t="recall"></span>
+  <canvas id="recallCv" width="300" height="208"></canvas>
+</div>
+
+<div class="overlay" id="menuOv">
+  <div class="panel">
+    <div class="seg" role="group" aria-label="Language">
+      <button class="btn" type="button" data-lang="lt" aria-pressed="true">LT</button>
+      <button class="btn" type="button" data-lang="en" aria-pressed="false">EN</button>
+    </div>
+    <h1>ROBO <span>MOKINYS</span></h1>
+    <div class="steps" aria-hidden="true">
+      <div class="step"><img class="kidImg" alt=""><span data-t="stepYou"></span></div>
+      <div class="arrow">&rarr;</div>
+      <div class="step"><img class="robotImg" alt=""><span data-t="stepRobot"></span></div>
+    </div>
+    <p class="lead" data-t="lead"></p>
+    <div class="levels" id="levels"></div>
+    <a class="zm-back" href="../">← Meniu</a>
+  </div>
+</div>
+
+<div class="overlay" id="introOv" hidden>
+  <div class="panel">
+    <img class="intro-ico" id="introImg" alt="">
+    <h2 id="introTitle"></h2>
+    <p class="lead" id="introText"></p>
+    <div class="row">
+      <button class="btn play" id="introGo" type="button"></button>
+    </div>
+    <div class="row">
+      <button class="btn small" id="introAlt" type="button" hidden></button>
+      <button class="btn small" id="introLevels" type="button" data-t="levels"></button>
+    </div>
+  </div>
+</div>
+
+<div class="overlay" id="resultOv" hidden>
+  <div class="panel">
+    <h2 id="verdict"></h2>
+    <div class="vs">
+      <div class="side"><img class="kidImg" alt=""><b id="rKid">0</b><span data-t="you"></span><small class="caught" id="cKid"></small></div>
+      <div class="side ai"><img class="robotImg" alt=""><b id="rAi">0</b><span data-t="robot"></span><small class="caught" id="cAi"></small></div>
+    </div>
+    <div class="bigstars" id="rStars" aria-label=""><i>&#9733;</i><i>&#9733;</i><i>&#9733;</i></div>
+    <p class="lesson" id="lesson"></p>
+    <p class="memline"><span data-t="memory"></span>: <b id="rMem">0</b> <span data-t="moments"></span></p>
+    <div class="row">
+      <button class="btn cyan" id="teachMore" type="button" data-t="teachMore"></button>
+      <button class="btn danger" id="wipe" type="button" data-t="wipe"></button>
+    </div>
+    <div class="row">
+      <button class="btn play" id="nextLvl" type="button" data-t="next"></button>
+    </div>
+    <div class="row">
+      <button class="btn small" id="toLevels" type="button" data-t="levels"></button>
+      <a class="zm-back" href="../">← Meniu</a>
+    </div>
+  </div>
+</div>
+
+<script>
+(() => {
+  // site profiles (zaidimai/zm.js); absent in the claude.ai version, so everything falls back
+  const ZM = window.ZM || null;
+  const NS = (k) => (ZM ? ZM.ns(k) : k);
+
+  const TAU = Math.PI * 2;
+  const $ = (id) => document.getElementById(id);
+  const cvs = $('game'), ctx = cvs.getContext('2d'), bgc = $('bg'), stage = $('stage'), flashEl = $('flash');
+  const reduce = matchMedia('(prefers-reduced-motion: reduce)').matches;
+  const WORDF = '"Nunito", "Arial Rounded MT Bold", system-ui, sans-serif';
+
+  /* ---------- text ---------- */
+  const TXT = {
+    lt: {
+      lead: 'Tu žaidi, o robotas žiūri ir įsimena kiekvieną tavo judesį. Tada jis žaidžia <em>vienas</em>, kaip tu jį išmokei.',
+      stepYou: 'Tu moki', stepRobot: 'Robotas kartoja', levels: 'Lygiai', sound: 'Garsas',
+      left: 'Liko', memory: 'Atmintis', moments: 'akimirkų', recall: 'Tavo akimirka',
+      phaseTrain: 'TU ŽAIDI', phaseTest: 'ROBOTAS ŽAIDŽIA',
+      you: 'Tu', robot: 'Robotas', teachMore: 'Mokyk daugiau', wipe: 'Išvalyk atmintį', next: 'Kitas lygis',
+      trainTitle: 'Mokyk robotą', testTitle: 'Dabar žaidžia robotas',
+      trainText: (L) => L.trainText.lt,
+      testText: 'Jokių taisyklių jam niekas neparašė. Jis žino tik tai, ką matė tavo žaidime.',
+      go: 'Žaisti', watch: 'Žiūrėti', teachFirst: 'Pirma pamokyk daugiau',
+      beat: 'Robotas tave aplenkė!', close: 'Beveik kaip tu!', weak: 'Robotui reikia daugiau pamokų',
+      idle: 'Robotas stovi vietoje, nes tu irgi stovėjai.', oreN: 'Rūda',
+      names: ['Rink rūdą', 'Saugokis TNT', 'Greitas lietus', 'Apversta!'],
+    },
+    en: {
+      lead: 'You play while the robot watches and remembers every move you make. Then it plays <em>alone</em>, the way you taught it.',
+      stepYou: 'You teach', stepRobot: 'Robot copies', levels: 'Levels', sound: 'Sound',
+      left: 'Left', memory: 'Memory', moments: 'moments', recall: 'Your moment',
+      phaseTrain: 'YOU PLAY', phaseTest: 'ROBOT PLAYS',
+      you: 'You', robot: 'Robot', teachMore: 'Teach more', wipe: 'Wipe memory', next: 'Next level',
+      trainTitle: 'Teach the robot', testTitle: 'Now the robot plays',
+      trainText: (L) => L.trainText.en,
+      testText: 'Nobody wrote it any rules. It only knows what it saw in your game.',
+      go: 'Play', watch: 'Watch', teachFirst: 'Teach it more first',
+      beat: 'Your robot beat you!', close: 'Almost as good as you!', weak: 'The robot needs more lessons',
+      idle: 'The robot stands still because you stood still.', oreN: 'Ore',
+      names: ['Catch ore', 'Avoid TNT', 'Fast rain', 'Upside down!'],
+    },
+  };
+  let lang = 'lt';
+  try { if (localStorage.getItem('robo-lang') === 'en') lang = 'en'; } catch (e) {}
+  const T = () => TXT[lang];
+
+  /* ---------- levels ---------- */
+  const ORE_V = { coal: 1, iron: 2, gold: 3, diamond: 5 };
+  const LEVELS = [
+    { n: 34, every: 0.66, speed: 150, tnt: 0, flip: false, min: 25,
+      trainText: { lt: 'Gaudyk rūdą. Robotas žiūri, kur tu važiuoji.', en: 'Catch the ore. The robot watches where you drive.' },
+      lesson: { lt: 'Robotas išmoko iš tavo judesių. Jis daro tai, ką darei tu.', en: 'The robot learned from your moves. It does what you did.' } },
+    { n: 36, every: 0.6, speed: 165, tnt: 0.32, flip: false, min: 20,
+      trainText: { lt: 'Gaudyk rūdą, bet bėk nuo TNT. Robotas mokysis bėgti kartu su tavim.', en: 'Catch ore but run from TNT. The robot will learn to run too.' },
+      lesson: { lt: 'Jei tu vengei TNT, robotas irgi vengia. Jei ne, ir jis ne!', en: 'If you avoided TNT, so does the robot. If not, neither does it!' } },
+    { n: 44, every: 0.48, speed: 215, tnt: 0.36, flip: false, min: 20,
+      trainText: { lt: 'Dabar greičiau! Kuo daugiau pavyzdžių, tuo protingesnis robotas.', en: 'Faster now! More examples make a smarter robot.' },
+      lesson: { lt: 'Daugiau pavyzdžių, protingesnis robotas. Spausk „Mokyk daugiau“.', en: 'More examples, smarter robot. Try "Teach more".' } },
+    { n: 36, every: 0.6, speed: 170, tnt: 0.42, flip: true, min: 8,
+      trainText: { lt: 'Taisyklės apsivertė: TNT duoda taškų, o rūda atima! Išmokyk robotą iš naujo.', en: 'The rules flipped: TNT gives points and ore takes them away! Teach the robot again.' },
+      flipTest: { lt: 'Taisyklės apsivertė: TNT duoda taškų, o rūda atima! Robotas dar prisimena senas taisykles. Ką jis darys?', en: 'The rules flipped: TNT gives points and ore takes them away! The robot still remembers the old rules. What will it do?' },
+      lesson: { lt: 'Kai taisyklės pasikeičia, seną atmintį reikia išvalyti ir mokyti iš naujo.', en: 'When the rules change, wipe the old memory and teach again.' } },
+  ];
+  const valueOf = (type, L) => (L.flip ? (type === 'tnt' ? 3 : -2) : (type === 'tnt' ? -5 : ORE_V[type]));
+
+  /* ---------- pixel art ---------- */
+  function rng(seed) {
+    return () => {
+      seed = (seed + 0x6d2b79f5) | 0;
+      let t = Math.imul(seed ^ (seed >>> 15), 1 | seed);
+      t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t;
+      return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+    };
+  }
+  function makeCanvas(w, h, draw) {
+    const c = document.createElement('canvas');
+    c.width = Math.max(1, Math.round(w)); c.height = Math.max(1, Math.round(h));
+    draw(c.getContext('2d'));
+    return c;
+  }
+  const px = (g, x, y, w, h, col) => { g.fillStyle = col; g.fillRect(x, y, w, h); };
+  function stoneTex(seed, shades) {
+    const r = rng(seed);
+    return makeCanvas(16, 16, (g) => {
+      for (let y = 0; y < 16; y++) for (let x = 0; x < 16; x++) px(g, x, y, 1, 1, shades[(r() * shades.length) | 0]);
+      for (let i = 0; i < 5; i++) px(g, (r() * 14) | 0, (r() * 14) | 0, 2, 1, shades[shades.length - 1]);
+    });
+  }
+  const STONE = ['#80808a', '#777782', '#8b8b95', '#70707a', '#82828c', '#686872'];
+  const DEEP = ['#4c4a57', '#45434f', '#53515e', '#3f3d48', '#4a4855', '#383641'];
+  const ORES = {
+    coal: { main: '#2a2a2e', hi: '#4b4b55', dark: '#121214', glow: null },
+    iron: { main: '#d9a98a', hi: '#f3d6c1', dark: '#a67558', glow: null },
+    gold: { main: '#f8d838', hi: '#fff6a0', dark: '#c4921a', glow: '255,214,60' },
+    diamond: { main: '#4de8d6', hi: '#d0fff7', dark: '#1d9c8f', glow: '77,232,214' },
+  };
+  function oreTex(name, seed) {
+    const o = ORES[name], r = rng(seed), base = stoneTex(seed + 7, STONE);
+    return makeCanvas(16, 16, (g) => {
+      g.drawImage(base, 0, 0);
+      for (let i = 0; i < 6; i++) {
+        const cx = 1 + ((r() * 12) | 0), cy = 1 + ((r() * 12) | 0);
+        px(g, cx, cy, 2, 2, o.main); px(g, cx + 2, cy + 1, 1, 1, o.main);
+        px(g, cx, cy, 1, 1, o.hi); px(g, cx + 1, cy + 2, 1, 1, o.dark);
+      }
+    });
+  }
+  const TNT_LETTERS = { T: ['###', '.#.', '.#.', '.#.', '.#.'], N: ['#..#', '##.#', '#.##', '#..#', '#..#'] };
+  function tntTex(lit) {
+    return makeCanvas(16, 16, (g) => {
+      for (let x = 0; x < 16; x++) px(g, x, 0, 1, 16, lit ? '#ffffff' : x % 4 < 2 ? '#db3a2a' : '#b02a1d');
+      if (lit) return;
+      px(g, 0, 4, 16, 8, '#ebe5da'); px(g, 0, 11, 16, 1, '#c3bba9');
+      let ox = 2;
+      for (const ch of 'TNT') {
+        const L = TNT_LETTERS[ch];
+        L.forEach((row, y) => [...row].forEach((c, x) => { if (c === '#') px(g, ox + x, 5 + y, 1, 1, '#1b1b1b'); }));
+        ox += L[0].length + 1;
+      }
+    });
+  }
+  const TEX = {
+    coal: oreTex('coal', 11), iron: oreTex('iron', 23), gold: oreTex('gold', 37), diamond: oreTex('diamond', 41),
+    tnt: tntTex(false), tntLit: tntTex(true),
+  };
+  const WALL = [stoneTex(3, STONE), stoneTex(5, STONE), stoneTex(9, STONE), stoneTex(13, STONE)];
+  const FLOOR = [stoneTex(17, DEEP), stoneTex(19, DEEP), stoneTex(29, DEEP)];
+
+  function cart(g, frame, body, top, dark, stripe) {
+    px(g, 0, 11, 22, 1, top); px(g, 0, 12, 22, 1, dark);
+    px(g, 1, 13, 20, 5, body); px(g, 2, 13, 18, 1, top);
+    px(g, 7, 13, 1, 5, dark); px(g, 14, 13, 1, 5, dark);
+    if (stripe) px(g, 1, 15, 20, 1, stripe);
+    [[3, 16], [10, 16], [17, 16]].forEach(([x, y]) => px(g, x, y, 1, 1, '#3c3f47'));
+    px(g, 2, 18, 18, 1, '#4a4d56');
+    [3, 15].forEach((wx) => {
+      px(g, wx, 18, 4, 4, '#26262c'); px(g, wx + 1, 19, 2, 2, '#5a5f6a');
+      if (frame) { px(g, wx + 1, 19, 1, 1, '#b8bec9'); px(g, wx + 2, 20, 1, 1, '#b8bec9'); }
+      else { px(g, wx + 2, 19, 1, 1, '#b8bec9'); px(g, wx + 1, 20, 1, 1, '#b8bec9'); }
+    });
+  }
+  function kidSprite(frame) {
+    return makeCanvas(22, 22, (g) => {
+      px(g, 7, 0, 8, 1, '#c8961c'); px(g, 6, 1, 10, 2, '#f2c230'); px(g, 7, 1, 2, 1, '#ffe27a');
+      px(g, 5, 3, 12, 1, '#c8961c'); px(g, 14, 1, 2, 2, '#fff7c2'); px(g, 16, 1, 1, 2, '#ffe680');
+      px(g, 7, 4, 8, 4, '#e8b48a'); px(g, 7, 4, 2, 3, '#5a3a22'); px(g, 11, 4, 3, 1, '#5a3a22');
+      px(g, 12, 5, 1, 1, '#1d1d2b'); px(g, 13, 5, 1, 1, '#ffffff'); px(g, 11, 7, 3, 1, '#b97a52'); px(g, 7, 7, 1, 1, '#c98f66');
+      px(g, 8, 8, 6, 3, '#2f7de1'); px(g, 9, 8, 1, 3, '#1f5bb0'); px(g, 12, 8, 1, 3, '#1f5bb0');
+      px(g, 5, 9, 3, 1, '#2f7de1'); px(g, 14, 9, 3, 1, '#2f7de1'); px(g, 4, 9, 2, 3, '#e8b48a'); px(g, 16, 9, 2, 3, '#e8b48a');
+      cart(g, frame, '#8a8f9c', '#c3c8d2', '#5c606b', null);
+    });
+  }
+  function robotSprite(frame) {
+    return makeCanvas(22, 22, (g) => {
+      px(g, 10, 0, 2, 1, '#ff5a4a'); px(g, 10, 1, 1, 2, '#9aa0aa');
+      px(g, 6, 3, 10, 6, '#b8bec9'); px(g, 6, 3, 10, 1, '#d8dde5'); px(g, 6, 8, 10, 1, '#7c838f'); px(g, 15, 3, 1, 6, '#8a919d');
+      px(g, 7, 4, 8, 3, '#1b2230');
+      px(g, 8, 5, 2, 1, '#4de8d6'); px(g, 12, 5, 2, 1, '#4de8d6');
+      px(g, 9, 7, 4, 1, '#5c636e'); px(g, 10, 7, 1, 1, '#b8bec9'); px(g, 12, 7, 1, 1, '#b8bec9');
+      px(g, 8, 9, 6, 2, '#7c838f'); px(g, 10, 9, 2, 1, '#4de8d6');
+      px(g, 5, 9, 3, 1, '#9aa0aa'); px(g, 14, 9, 3, 1, '#9aa0aa'); px(g, 4, 9, 2, 3, '#c3c8d2'); px(g, 16, 9, 2, 3, '#c3c8d2');
+      cart(g, frame, '#5d6fa8', '#8fa2d1', '#3c4870', '#4de8d6');
+    });
+  }
+  const KID = [kidSprite(0), kidSprite(1)];
+  const ROBOT = [robotSprite(0), robotSprite(1)];
+  const big = (spr, s) => makeCanvas(22 * s, 22 * s, (g) => { g.imageSmoothingEnabled = false; g.drawImage(spr, 0, 0, 22 * s, 22 * s); }).toDataURL();
+  const KID_URL = big(KID[0], 6), ROBOT_URL = big(ROBOT[0], 6);
+  document.querySelectorAll('.kidImg').forEach((i) => { i.src = KID_URL; });
+  document.querySelectorAll('.robotImg').forEach((i) => { i.src = ROBOT_URL; });
+
+  /* ---------- state ---------- */
+  let W = 0, H = 0, ground = 0, k = 1, B = 44, heroW = 120, dpr = 1, atlas = null;
+  let torches = [];
+  const SPR = {};
+  const cartS = { x: 0, target: 0, dir: 1, dist: 0, bounce: 0 };
+  const S = {
+    mode: 'menu', level: 0, phase: null, score: 0, blocks: [], parts: [], floats: [],
+    simT: 0, acc: 0, spawned: 0, nextSpawn: 0, r: null, sampleT: 0, rec: [], shake: 0, flash: 0,
+    lastKid: null, sense: null, decision: 0, demoT: 0, trains: 0,
+    caughtOre: 0, caughtTnt: 0, kidStats: null,
+  };
+  const keys = { l: false, r: false };
+
+  /* ---------- memory (the robot's brain): one list of [features..., action] per level ---------- */
+  let progress = { stars: {} };
+  let MEM = {};
+  function loadSaved() {
+    try { const p = JSON.parse(localStorage.getItem(NS('robo-progress')) || 'null'); if (p && p.stars) progress = p; } catch (e) {}
+    try { const m = JSON.parse(localStorage.getItem(NS('robo-mem')) || 'null'); if (m && typeof m === 'object') MEM = m; } catch (e) {}
+  }
+  const saveProgress = () => { try { localStorage.setItem(NS('robo-progress'), JSON.stringify(progress)); } catch (e) {} };
+  const saveMem = () => { try { localStorage.setItem(NS('robo-mem'), JSON.stringify(MEM)); } catch (e) {} };
+  const mem = (i) => (MEM[i] || (MEM[i] = []));
+
+  /* ---------- sizing ---------- */
+  function resize() {
+    dpr = Math.min(window.devicePixelRatio || 1, 2);
+    W = innerWidth; H = innerHeight;
+    cvs.width = bgc.width = Math.round(W * dpr);
+    cvs.height = bgc.height = Math.round(H * dpr);
+    k = Math.max(0.8, Math.min(1.35, Math.min(W, H) / 560));
+    B = Math.round(Math.max(38, Math.min(62, W * 0.11)));
+    heroW = Math.max(118, Math.min(190, W * 0.32));
+    ground = Math.round(H - $('safe').offsetHeight - Math.max(B * 1.3, H * 0.1));
+    if (!cartS.x) cartS.x = cartS.target = W / 2;
+    cartS.x = Math.min(cartS.x, W); cartS.target = Math.min(cartS.target, W);
+    torches = [];
+    const n = Math.max(2, Math.round(W / 260));
+    for (let i = 0; i < n; i++) torches.push({ x: ((i + 0.5) / n) * W, y: ground - B * 4.2 - (i % 2) * B * 1.2, p: Math.random() * TAU });
+    buildBackground();
+    buildAtlas();
+  }
+
+  function buildBackground() {
+    const g = bgc.getContext('2d');
+    g.setTransform(dpr, 0, 0, dpr, 0, 0);
+    g.imageSmoothingEnabled = false;
+    const r = rng(77), T0 = B;
+    for (let y = 0; y < ground; y += T0) for (let x = 0; x < W; x += T0) {
+      g.drawImage(WALL[(r() * WALL.length) | 0], x, y, T0, T0);
+      if (r() < 0.06) g.drawImage(TEX[r() < 0.7 ? 'coal' : 'iron'], x, y, T0, T0);
+    }
+    g.fillStyle = 'rgba(14,10,24,0.5)'; g.fillRect(0, 0, W, ground);
+    for (let x = 0; x < W; x += T0) g.drawImage(WALL[(r() * WALL.length) | 0], x, -T0 * 0.35, T0, T0);
+    g.fillStyle = 'rgba(14,10,24,0.35)'; g.fillRect(0, 0, W, T0 * 1.4);
+    for (let y = ground; y < H; y += T0) for (let x = 0; x < W; x += T0) g.drawImage(FLOOR[(r() * FLOOR.length) | 0], x, y, T0, T0);
+    g.fillStyle = 'rgba(0,0,0,0.25)'; g.fillRect(0, ground, W, H - ground);
+    const tieW = T0 * 0.22, tieH = T0 * 0.14;
+    for (let x = T0 * 0.15; x < W; x += T0 * 0.5) {
+      g.fillStyle = '#6b4a2b'; g.fillRect(x, ground - tieH * 0.4, tieW, tieH);
+    }
+    g.fillStyle = '#a9adb8'; g.fillRect(0, ground - T0 * 0.1, W, T0 * 0.06);
+    g.fillStyle = '#5f636e'; g.fillRect(0, ground - T0 * 0.04, W, T0 * 0.04);
+    const s = B / 10;
+    for (const tc of torches) {
+      const gr = g.createRadialGradient(tc.x, tc.y, 0, tc.x, tc.y, B * 4);
+      gr.addColorStop(0, 'rgba(255,150,50,0.3)'); gr.addColorStop(1, 'rgba(255,120,30,0)');
+      g.fillStyle = gr; g.beginPath(); g.arc(tc.x, tc.y, B * 4, 0, TAU); g.fill();
+      g.fillStyle = '#6b4a2b'; g.fillRect(tc.x - s, tc.y, s * 2, s * 9);
+      g.fillStyle = '#ff8a1e'; g.fillRect(tc.x - s * 1.5, tc.y - s * 3, s * 3, s * 3);
+      g.fillStyle = '#ffd34a'; g.fillRect(tc.x - s * 0.5, tc.y - s * 4, s * 2, s * 2.5);
+    }
+  }
+
+  function drawCube(c, tex, x, y, b, glow) {
+    const d = b * 0.26, x0 = x - b / 2 - d / 2, y0 = y - b / 2 + d / 2;
+    if (glow) {
+      const gr = c.createRadialGradient(x, y, b * 0.3, x, y, b * 1.5);
+      gr.addColorStop(0, `rgba(${glow},0.4)`); gr.addColorStop(1, `rgba(${glow},0)`);
+      c.fillStyle = gr; c.beginPath(); c.arc(x, y, b * 1.5, 0, TAU); c.fill();
+    }
+    c.drawImage(tex, x0, y0, b, b);
+    c.save(); c.transform(b / 16, 0, -d / 16, d / 16, x0 + d, y0 - d);
+    c.drawImage(tex, 0, 0); c.fillStyle = 'rgba(255,255,255,0.2)'; c.fillRect(0, 0, 16, 16); c.restore();
+    c.save(); c.transform(d / 16, -d / 16, 0, b / 16, x0 + b, y0);
+    c.drawImage(tex, 0, 0); c.fillStyle = 'rgba(0,0,0,0.38)'; c.fillRect(0, 0, 16, 16); c.restore();
+    c.strokeStyle = 'rgba(0,0,0,0.55)'; c.lineWidth = Math.max(1, b / 24); c.strokeRect(x0, y0, b, b);
+  }
+
+  // all moving art pre-drawn once into one large canvas (tiny canvases drawn per frame lag on tablets)
+  function buildAtlas() {
+    const items = [];
+    const add = (key, css, draw) => items.push({ key, css, size: Math.ceil(css * dpr), draw });
+    const glowDisc = (c, cx, cy, r, rgb, a) => {
+      const gr = c.createRadialGradient(cx, cy, 0, cx, cy, r);
+      gr.addColorStop(0, `rgba(${rgb},${a})`); gr.addColorStop(1, `rgba(${rgb},0)`);
+      c.fillStyle = gr; c.beginPath(); c.arc(cx, cy, r, 0, TAU); c.fill();
+    };
+    for (const t of Object.keys(ORES)) add('cube:' + t, ORES[t].glow ? B * 3 : B * 1.5, (c, x, y) => drawCube(c, TEX[t], x, y, B, ORES[t].glow));
+    add('cube:tnt', B * 1.5, (c, x, y) => drawCube(c, TEX.tnt, x, y, B, null));
+    add('cube:tntLit', B * 3, (c, x, y) => drawCube(c, TEX.tntLit, x, y, B, '255,90,60'));
+    const p = heroW / 22;
+    [0, 1].forEach((f) => {
+      add('kid' + f, heroW, (c, x, y) => c.drawImage(KID[f], x - 11 * p, y - 11 * p, 22 * p, 22 * p));
+      add('robot' + f, heroW, (c, x, y) => c.drawImage(ROBOT[f], x - 11 * p, y - 11 * p, 22 * p, 22 * p));
+    });
+    add('lamp', 18 * p, (c, x, y) => glowDisc(c, x, y, 9 * p, '255,240,170', 0.45));
+    add('eyes', 18 * p, (c, x, y) => glowDisc(c, x, y, 9 * p, '77,232,214', 0.5));
+    add('torch', B * 3, (c, x, y) => glowDisc(c, x, y, B * 1.5, '255,170,60', 0.35));
+    let x = 0, y = 0, rowH = 0;
+    for (const it of items) {
+      if (x + it.size > 2048) { x = 0; y += rowH + 2; rowH = 0; }
+      it.sx = x; it.sy = y; x += it.size + 2; rowH = Math.max(rowH, it.size);
+    }
+    atlas = makeCanvas(2048, Math.max(256, y + rowH), (g) => {
+      g.imageSmoothingEnabled = false;
+      for (const it of items) { g.save(); g.translate(it.sx, it.sy); g.scale(dpr, dpr); it.draw(g, it.css / 2, it.css / 2); g.restore(); }
+    });
+    items.forEach((it) => { SPR[it.key] = it; });
+  }
+  function blit(key, x, y) {
+    const s = SPR[key], d = s.size / dpr;
+    ctx.drawImage(atlas, s.sx, s.sy, s.size, s.size, x - d / 2, y - d / 2, d, d);
+  }
+
+  /* ---------- sound ---------- */
+  let actx = null, muted = false, noiseBuf = null;
+  try { muted = localStorage.getItem('robo-muted') === '1'; } catch (e) {}
+  function ensureAudio() {
+    try {
+      if (!actx) {
+        actx = new (window.AudioContext || window.webkitAudioContext)();
+        noiseBuf = actx.createBuffer(1, actx.sampleRate * 0.8, actx.sampleRate);
+        const d = noiseBuf.getChannelData(0);
+        for (let i = 0; i < d.length; i++) d[i] = Math.random() * 2 - 1;
+      }
+      if (actx.state === 'suspended') actx.resume();
+    } catch (e) { actx = null; }
+  }
+  function tone(freq, dur, type = 'square', vol = 0.05, delay = 0, endFreq) {
+    if (muted || !actx) return;
+    const t0 = actx.currentTime + delay, o = actx.createOscillator(), g = actx.createGain();
+    o.type = type; o.frequency.setValueAtTime(freq, t0);
+    if (endFreq) o.frequency.exponentialRampToValueAtTime(endFreq, t0 + dur);
+    g.gain.setValueAtTime(vol, t0); g.gain.exponentialRampToValueAtTime(0.0008, t0 + dur);
+    o.connect(g).connect(actx.destination); o.start(t0); o.stop(t0 + dur + 0.05);
+  }
+  function noise(dur, vol, cutoff) {
+    if (muted || !actx || !noiseBuf) return;
+    const t0 = actx.currentTime, src = actx.createBufferSource(), f = actx.createBiquadFilter(), g = actx.createGain();
+    src.buffer = noiseBuf; f.type = 'lowpass'; f.frequency.setValueAtTime(cutoff, t0); f.frequency.exponentialRampToValueAtTime(80, t0 + dur);
+    g.gain.setValueAtTime(vol, t0); g.gain.exponentialRampToValueAtTime(0.001, t0 + dur);
+    src.connect(f).connect(g).connect(actx.destination); src.start(t0); src.stop(t0 + dur);
+  }
+  const sfx = {
+    good: (v) => { const f = 330 + v * 90; tone(f, 0.09); tone(f * 1.5, 0.12, 'square', 0.04, 0.06); },
+    bad: () => { noise(0.5, 0.4, 1200); tone(110, 0.35, 'sine', 0.3, 0, 40); },
+    meh: () => tone(180, 0.18, 'square', 0.05, 0, 90),
+    beep: () => tone(1200, 0.04, 'square', 0.025),
+    start: () => [523, 659, 784].forEach((f, i) => tone(f, 0.1, 'square', 0.05, i * 0.08)),
+    win: () => [523, 659, 784, 1047, 784, 1047].forEach((f, i) => tone(f, 0.12, 'square', 0.05, i * 0.09)),
+    end: () => [784, 659, 523].forEach((f, i) => tone(f, 0.14, 'square', 0.05, i * 0.1)),
+  };
+
+  /* ---------- what the cart "sees": the nearest ore, the next ore, and the most dangerous TNT ---------- */
+  // slots are by material, not by points, so after the rules flip an old brain still chases ore
+  const FAR = 1.5;
+  function senses(x) {
+    let o1 = null, o2 = null, t1 = null, r1 = 9, r2 = 9, rt = 9;
+    for (const b of S.blocks) {
+      if (b.dead || b.y > ground) continue;
+      const dx = Math.max(-1, Math.min(1, (b.x - x) / W)), dy = (ground - b.y) / H;
+      if (b.type === 'tnt') {
+        // TNT only counts when it is a threat: low and close. A calm moment and a dangerous one then look very different.
+        if (dy > 0.5 || Math.abs(dx) > 0.25) continue;
+        // the lowest threatening TNT: stable from one moment to the next, so the robot does not twitch between two
+        if (dy < rt) { rt = dy; t1 = { b, dx, dy }; }
+      } else {
+        const r = dy + 0.5 * Math.abs(dx);
+        if (r < r1) { r2 = r1; o2 = o1; r1 = r; o1 = { b, dx, dy }; }
+        else if (r < r2) { r2 = r; o2 = { b, dx, dy }; }
+      }
+    }
+    const slot = (o) => (o ? [o.dx, o.dy] : [0, FAR]);
+    const f = [x / W, ...slot(o1), ...slot(t1), ...slot(o2)];
+    return { f, seen: [o1, t1, o2].filter(Boolean).map((o) => o.b) };
+  }
+  // how different two moments are. Calm: where the ore is matters. Danger: where the TNT is matters, ore barely.
+  //               [cart x, ore dx, ore dy, tnt dx, tnt dy, ore2 dx, ore2 dy]
+  const W_CALM =   [0.3,    3,      1,      0,      0,      0.6,     0.3];
+  const W_DANGER = [0.2,    1,      0.3,    6,      2,      0.2,     0.1];
+  function dist(a, b, w) {
+    let d = 0;
+    for (let i = 0; i < w.length; i++) d += w[i] * (a[i] - b[i]) ** 2;
+    return d;
+  }
+  // k-nearest neighbours: find the 5 most similar remembered moments and copy their average move
+  function decide(f, memory) {
+    if (!memory.length) return { action: 0, best: null };
+    // danger moments are compared only with remembered danger moments, calm with calm
+    const danger = f[4] < FAR;
+    let pool = memory.filter((m) => (m[4] < FAR) === danger);
+    if (pool.length < 3) pool = memory;
+    const K = Math.min(5, pool.length), top = [], w = danger ? W_DANGER : W_CALM;
+    for (const m of pool) {
+      const d = dist(f, m, w);
+      if (top.length < K) { top.push([d, m]); top.sort((a, b) => a[0] - b[0]); }
+      else if (d < top[K - 1][0]) { top[K - 1] = [d, m]; top.sort((a, b) => a[0] - b[0]); }
+    }
+    let sw = 0, sm = 0;
+    for (const [d, m] of top) { const wt = 1 / (Math.sqrt(d) + 0.02); sw += wt; sm += wt * m[m.length - 1]; }
+    const move = Math.max(-MOVE_CLIP, Math.min(MOVE_CLIP, sm / sw));
+    if (DEBUG) DEBUG.push({ t: S.simT, f, danger, pool: pool.length, move });
+    return { move, best: top[0][1], danger };
+  }
+
+  /* ---------- rounds ---------- */
+  // a smooth finger drag shows up as small moves (about 0.005-0.02 of the screen per moment), so "still" must be tiny
+  const STEP = 1 / 60, SAMPLE = 0.1, MOVE_CLIP = 0.25, STILL = 0.003;
+  const DEBUG = location.hash === '#test' ? [] : null;
+  const L = () => LEVELS[S.level];
+  const speedMax = () => W * 1.5;
+
+  function startRound(phase) {
+    ensureAudio();
+    S.phase = phase; S.mode = 'play';
+    S.score = 0; S.blocks.length = 0; S.parts.length = 0; S.floats.length = 0; S.caughtOre = 0; S.caughtTnt = 0;
+    S.dirShown = 0;
+    S.simT = 0; S.acc = 0; S.spawned = 0; S.nextSpawn = 0.6; S.sampleT = 0; S.rec = []; S.decision = 0; S.sense = null;
+    // the robot's test always uses the level's own sequence; your first lesson uses it too (a fair comparison),
+    // later lessons bring new sequences, so "Teach more" really adds new examples
+    const lessonNo = phase === 'train' ? S.trains++ : 0;
+    S.r = rng(1000 + S.level * 77 + lessonNo * 7919);
+    cartS.x = cartS.target = W / 2;
+    ['menuOv', 'introOv', 'resultOv'].forEach((id) => { $(id).hidden = true; });
+    $('hud').hidden = false;
+    $('whoImg').src = phase === 'train' ? KID_URL : ROBOT_URL;
+    const ph = $('phase');
+    ph.className = 'phase' + (phase === 'test' ? ' robot' : '');
+    ph.innerHTML = phase === 'train' ? `<span class="eye"></span>${T().phaseTrain}` : T().phaseTest;
+    $('recall').hidden = phase !== 'test';
+    clearRecall();
+    hud();
+    sfx.start();
+  }
+
+  function spawnBlock() {
+    const lv = L(), r = S.r;
+    let type;
+    if (r() < lv.tnt) type = 'tnt';
+    else { const q = r(); type = q < 0.08 ? 'diamond' : q < 0.25 ? 'gold' : q < 0.55 ? 'iron' : 'coal'; }
+    const x = B / 2 + 10 + r() * (W - B - 20);
+    const vy = lv.speed * k * (0.85 + r() * 0.3);
+    S.blocks.push({ type, x, y: -B, vy, b: B, dead: false });
+    S.spawned++;
+    S.nextSpawn += lv.every * (0.75 + r() * 0.5);
+  }
+
+  function cartBox() {
+    const p = heroW / 22;
+    return { x: cartS.x, half: 11 * p, top: ground - B * 0.1 - 22 * p, bottom: ground - B * 0.1 - 4 * p };
+  }
+  function touches(b) {
+    const h = cartBox();
+    return b.y + b.b / 2 > h.top + 2 && b.y - b.b / 2 < h.bottom && Math.abs(b.x - h.x) < h.half + b.b * 0.3;
+  }
+
+  function step(dt) {
+    const lv = L();
+    S.simT += dt;
+    if (S.spawned < lv.n && S.simT >= S.nextSpawn) spawnBlock();
+
+    // who drives: the kid's finger, or the robot's decision
+    if (S.phase === 'train') {
+      if (keys.l || keys.r) cartS.target = cartS.x + ((keys.r ? 1 : 0) - (keys.l ? 1 : 0)) * W * 0.12;
+    }
+    S.sampleT += dt;
+    if (S.sampleT >= SAMPLE) {
+      S.sampleT -= SAMPLE;
+      const sn = senses(cartS.x);
+      S.sense = sn;
+      if (S.phase === 'train') {
+        // what the kid wanted: how far and which way they were steering, as a share of the screen width
+        const a = Math.max(-MOVE_CLIP, Math.min(MOVE_CLIP, (cartS.target - cartS.x) / W));
+        S.rec.push(sn.f.concat(a).map((v) => Math.round(v * 1000) / 1000));
+      } else {
+        const { move, best } = decide(sn.f, mem(S.level));
+        const dirNow = Math.abs(move) < STILL ? 0 : Math.sign(move);
+        if (dirNow !== S.dirShown) { S.dirShown = dirNow; sfx.beep(); }
+        S.decision = move;
+        if (best) drawRecall(best);
+      }
+    }
+    if (S.phase === 'test') cartS.target = cartS.x + S.decision * W;
+    cartS.target = Math.max(heroW / 2, Math.min(W - heroW / 2, cartS.target));
+    const move = Math.max(-speedMax() * dt, Math.min(speedMax() * dt, cartS.target - cartS.x));
+    cartS.x += move; cartS.dist += Math.abs(move);
+    if (Math.abs(move) > 0.2) cartS.dir = move > 0 ? 1 : -1;
+
+    for (const b of S.blocks) {
+      if (b.dead) continue;
+      b.y += b.vy * dt;
+      if (touches(b)) { b.dead = true; caught(b); continue; }
+      if (b.y + b.b / 2 >= ground - B * 0.1) { b.dead = true; crumble(b); }
+    }
+    S.blocks = S.blocks.filter((b) => !b.dead);
+    if (S.spawned >= lv.n && !S.blocks.length) endRound();
+  }
+
+  function caught(b) {
+    const v = valueOf(b.type, L());
+    S.score += v;
+    if (b.type === 'tnt') S.caughtTnt++; else S.caughtOre++;
+    if (DEBUG && b.type === 'tnt') DEBUG.push({ t: S.simT, HIT: true, phase: S.phase });
+    cartS.bounce = 1;
+    if (v > 0) {
+      const col = b.type === 'tnt' ? ['#ff8a1e', '#ffd34a', '#fff6c4'] : [ORES[b.type].main, ORES[b.type].hi, STONE[0]];
+      debris(b.x, b.y, col, 14, 1);
+      floatText('+' + v, b.x, b.y - 10, b.type === 'diamond' || b.type === 'tnt' ? '#4de8d6' : '#ffcc33', 30);
+      sfx.good(v);
+    } else if (b.type === 'tnt') {
+      debris(b.x, b.y, ['#ff8a1e', '#ffd34a', '#fff6c4', '#e0402e', '#3a3a3a'], 30, 1.4);
+      floatText(String(v), b.x, b.y - 10, '#ff6b5a', 34);
+      S.shake = 1; S.flash = 1; sfx.bad();
+    } else {
+      debris(b.x, b.y, ['#5a5f6a', '#3a3a3a'], 10, 0.7);
+      floatText(String(v), b.x, b.y - 10, '#ff6b5a', 30);
+      sfx.meh();
+    }
+    hud();
+  }
+  function crumble(b) { debris(b.x, ground - b.b * 0.3, [STONE[0], STONE[2]], 6, 0.5); }
+
+  function debris(x, y, colors, n, power) {
+    if (reduce) n = Math.ceil(n / 3);
+    for (let i = 0; i < n; i++) {
+      const a = Math.random() * TAU, sp = (60 + Math.random() * 240) * k * power;
+      S.parts.push({ x, y, vx: Math.cos(a) * sp, vy: Math.sin(a) * sp - 120 * power, life: 0.6 + Math.random() * 0.5, max: 1.1,
+                     size: (B / 10) * (0.6 + Math.random() * 0.9), color: colors[i % colors.length] });
+    }
+  }
+  function floatText(txt, x, y, color, size) { S.floats.push({ txt, x, y, color, size: size * k, life: 1 }); }
+
+  function endRound() {
+    S.mode = 'pause';
+    $('recall').hidden = true;
+    if (S.phase === 'train') {
+      const m = mem(S.level);
+      m.push(...S.rec);
+      if (m.length > 2400) m.splice(0, m.length - 2400);
+      saveMem();
+      S.lastKid = S.score;
+      S.kidStats = [S.caughtOre, S.caughtTnt];
+      sfx.end();
+      showIntro('test');
+    } else {
+      showResult();
+    }
+  }
+
+  /* ---------- screens ---------- */
+  function hud() {
+    $('score').textContent = S.score;
+    $('left').textContent = Math.max(0, L().n - S.spawned) + S.blocks.length;
+    $('mem').textContent = mem(S.level).length + (S.phase === 'train' ? S.rec.length : 0);
+  }
+
+  function renderLevels() {
+    const box = $('levels');
+    box.innerHTML = '';
+    LEVELS.forEach((lv, i) => {
+      const st = progress.stars[i] || 0;
+      const open = i === 0 || (progress.stars[i - 1] || 0) > 0;
+      const b = document.createElement('button');
+      b.type = 'button'; b.className = 'btn lvl'; b.disabled = !open;
+      b.innerHTML = `<b>${i + 1}</b><span>${T().names[i]}</span><span class="stars">${[0, 1, 2].map((s) => `<i class="${s < st ? 'on' : ''}">&#9733;</i>`).join('')}</span>`;
+      b.addEventListener('click', () => openLevel(i));
+      box.appendChild(b);
+    });
+  }
+  function openMenu() {
+    S.mode = 'menu';
+    S.blocks.length = 0;
+    $('hud').hidden = true; $('recall').hidden = true;
+    ['introOv', 'resultOv'].forEach((id) => { $(id).hidden = true; });
+    renderLevels();
+    $('menuOv').hidden = false;
+  }
+
+  function openLevel(i) {
+    ensureAudio();
+    S.level = i; S.lastKid = null; S.kidStats = null; S.trains = 0;
+    const lv = LEVELS[i];
+    // the flipped level starts with the robot's old brain, so kids see it fail under new rules
+    if (lv.flip && !mem(i).length) {
+      const old = mem(2).length ? mem(2) : mem(1);
+      if (old.length) { MEM[i] = old.slice(); saveMem(); showIntro('test', true); return; }
+    }
+    showIntro(mem(i).length ? 'test' : 'train');
+  }
+
+  let introPhase = 'train';
+  function showIntro(phase, flipped) {
+    S.mode = 'pause';
+    introPhase = phase;
+    $('hud').hidden = true;
+    ['menuOv', 'resultOv'].forEach((id) => { $(id).hidden = true; });
+    const lv = L();
+    $('introImg').src = phase === 'train' ? KID_URL : ROBOT_URL;
+    $('introTitle').textContent = `${S.level + 1}. ${T().names[S.level]}: ${phase === 'train' ? T().trainTitle : T().testTitle}`;
+    $('introText').textContent = phase === 'train' ? T().trainText(lv) : flipped ? lv.flipTest[lang] : T().testText;
+    $('introGo').textContent = phase === 'train' ? T().go : T().watch;
+    const alt = $('introAlt');
+    alt.hidden = phase !== 'test' || S.lastKid !== null;
+    alt.textContent = T().teachFirst;
+    $('introOv').hidden = false;
+    setTimeout(() => $('introGo').focus({ preventScroll: true }), 30);
+  }
+
+  function showResult() {
+    S.mode = 'pause';
+    $('hud').hidden = true;
+    const lv = L(), ai = S.score, kid = S.lastKid;
+    const ref = kid === null ? lv.min * 1.5 : kid;
+    let stars = 0;
+    if (ai > 0) stars = 1;
+    if (ai >= lv.min && ai >= ref * 0.5) stars = 2;
+    if (ai >= lv.min && ai >= ref * 0.8) stars = 3;
+    const prev = progress.stars[S.level] || 0;
+    progress.stars[S.level] = Math.max(prev, stars);
+    saveProgress();
+    if (ZM) {
+      const total = Object.values(progress.stars).reduce((a, b) => a + b, 0);
+      ZM.report('robo-mokinys', { score: total, xp: (prev ? 0 : 10) + 20 * Math.max(0, stars - prev) });
+    }
+    $('rKid').textContent = kid === null ? '?' : kid;
+    $('rAi').textContent = ai;
+    const line = (st) => (st ? `${T().oreN}: ${st[0]} \u00b7 TNT: ${st[1]}` : '');
+    $('cKid').textContent = line(S.kidStats);
+    $('cAi').textContent = line([S.caughtOre, S.caughtTnt]);
+    const allIdle = mem(S.level).every((m) => Math.abs(m[m.length - 1]) < STILL);
+    $('verdict').textContent = allIdle ? T().idle : kid !== null && ai > kid ? T().beat : stars >= 2 ? T().close : T().weak;
+    document.querySelectorAll('#rStars i').forEach((s, i) => s.classList.toggle('on', i < stars));
+    $('rStars').setAttribute('aria-label', stars + ' / 3');
+    $('lesson').textContent = lv.lesson[lang];
+    $('rMem').textContent = mem(S.level).length;
+    $('nextLvl').hidden = S.level >= LEVELS.length - 1 || stars < 1;
+    $('resultOv').hidden = false;
+    if (stars >= 2) sfx.win(); else sfx.end();
+  }
+
+  /* ---------- robot memory card: the remembered moment the robot is copying ---------- */
+  const rcv = $('recallCv'), rctx = rcv.getContext('2d');
+  function clearRecall() { rctx.fillStyle = '#0d0b14'; rctx.fillRect(0, 0, rcv.width, rcv.height); }
+  function drawRecall(m) {
+    const w = rcv.width, h = rcv.height, gy = h - 26;
+    clearRecall();
+    rctx.fillStyle = '#3c3946'; rctx.fillRect(0, gy, w, 3);
+    const cx = m[0] * w;
+    [[1, '#ffcc33'], [3, '#e0402e'], [5, '#ffcc33']].forEach(([j, col]) => {
+      if (m[j + 1] >= FAR) return;
+      const ox = (m[0] + m[j]) * w, oy = gy - m[j + 1] * (gy - 6) - 10;
+      rctx.fillStyle = col; rctx.fillRect(ox - 13, oy - 13, 26, 26);
+      rctx.fillStyle = 'rgba(0,0,0,0.35)'; rctx.fillRect(ox - 13, oy + 8, 26, 5);
+    });
+    rctx.imageSmoothingEnabled = false;
+    rctx.drawImage(KID[0], cx - 30, gy - 56, 60, 60);
+    const lab = m[m.length - 1], a = Math.abs(lab) < STILL ? 0 : Math.sign(lab);
+    rctx.fillStyle = '#4de8d6';
+    if (a === 0) { rctx.fillRect(cx - 8, gy + 10, 16, 10); }
+    else {
+      const tx = cx + a * 34;
+      rctx.beginPath(); rctx.moveTo(tx, gy + 15); rctx.lineTo(tx - a * 14, gy + 6); rctx.lineTo(tx - a * 14, gy + 24); rctx.closePath(); rctx.fill();
+      rctx.fillRect(Math.min(cx, tx - a * 14), gy + 12, Math.abs(tx - a * 14 - cx), 6);
+    }
+  }
+
+  /* ---------- draw ---------- */
+  let shaking = false, flashShown = 0;
+  function draw(t) {
+    if (S.shake > 0 && !reduce) {
+      const m = S.shake * B * 0.22;
+      stage.style.transform = `translate(${Math.round((Math.random() - 0.5) * m)}px,${Math.round((Math.random() - 0.5) * m)}px)`;
+      shaking = true;
+    } else if (shaking) { stage.style.transform = ''; shaking = false; }
+    const fl = reduce ? 0 : Math.round(S.flash * 0.4 * 100) / 100;
+    if (fl !== flashShown) { flashEl.style.opacity = fl; flashShown = fl; }
+
+    ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+    ctx.clearRect(0, 0, W, H);
+    ctx.imageSmoothingEnabled = false;
+    for (const tc of torches) {
+      ctx.globalAlpha = reduce ? 0.8 : 0.6 + Math.sin(t * 9 + tc.p) * 0.25 + Math.sin(t * 23 + tc.p) * 0.15;
+      blit('torch', tc.x, tc.y - B / 5);
+    }
+    ctx.globalAlpha = 1;
+
+    const robot = S.phase === 'test' || S.mode === 'menu';
+    const p = heroW / 22, headY = ground - B * 0.1 - 17 * p;
+    // the robot's view: lines to the blocks it is looking at
+    if (S.mode === 'play' && S.phase === 'test' && S.sense) {
+      ctx.save();
+      ctx.strokeStyle = 'rgba(77,232,214,0.75)'; ctx.lineWidth = 2; ctx.setLineDash([6, 6]);
+      ctx.lineDashOffset = -t * 30;
+      for (const b of S.sense.seen) {
+        if (b.dead) continue;
+        ctx.beginPath(); ctx.moveTo(cartS.x, headY); ctx.lineTo(b.x, b.y); ctx.stroke();
+      }
+      ctx.restore();
+    }
+    // landing shadows
+    for (const b of S.blocks) {
+      const prog = Math.max(0, Math.min(1, b.y / ground));
+      ctx.fillStyle = b.type === 'tnt' ? `rgba(255,60,40,${0.12 + prog * 0.4})` : `rgba(0,0,0,${0.1 + prog * 0.3})`;
+      const w = b.b * (0.4 + prog * 0.6);
+      ctx.fillRect(b.x - w / 2, ground - B * 0.12, w, B * 0.08);
+    }
+    // cart
+    const sq = cartS.bounce;
+    ctx.save();
+    ctx.translate(cartS.x, ground - B * 0.1);
+    ctx.scale(cartS.dir * (1 + sq * 0.08), 1 - sq * 0.1);
+    blit((robot ? 'robot' : 'kid') + (Math.floor(cartS.dist / (p * 3)) % 2), 0, -11 * p);
+    ctx.restore();
+    blit(robot ? 'eyes' : 'lamp', cartS.x + (robot ? 0 : cartS.dir * 5.5 * p), ground - B * 0.1 - (robot ? 17 : 20) * p);
+    // the robot's decision arrow above its head
+    if (S.mode === 'play' && S.phase === 'test') {
+      const ay = ground - B * 0.1 - 25 * p, s = Math.max(4, p * 0.75);
+      ctx.fillStyle = '#000'; ctx.fillRect(cartS.x - s * 4.5, ay - s * 2.5, s * 9, s * 5);
+      ctx.fillStyle = '#4de8d6';
+      if (!S.dirShown) ctx.fillRect(cartS.x - s, ay - s, s * 2, s * 2);
+      else {
+        const d = S.dirShown;
+        ctx.fillRect(cartS.x - d * s * 3, ay - s * 0.6, d * s * 4.5, s * 1.2);
+        ctx.beginPath(); ctx.moveTo(cartS.x + d * s * 3.4, ay); ctx.lineTo(cartS.x + d * s * 1.2, ay - s * 1.8); ctx.lineTo(cartS.x + d * s * 1.2, ay + s * 1.8); ctx.closePath(); ctx.fill();
+      }
+    }
+    // blocks
+    for (const b of S.blocks) {
+      if (b.type === 'tnt') {
+        const prog = Math.max(0, Math.min(1, b.y / ground));
+        const lit = !L().flip && Math.sin(t * (8 + prog * 22)) > 0.35;
+        blit(lit ? 'cube:tntLit' : 'cube:tnt', b.x, b.y);
+      } else blit('cube:' + b.type, b.x, b.y);
+    }
+    for (const q of S.parts) {
+      ctx.globalAlpha = Math.min(1, (q.life / q.max) * 2);
+      ctx.fillStyle = q.color; ctx.fillRect(q.x - q.size / 2, q.y - q.size / 2, q.size, q.size);
+    }
+    ctx.globalAlpha = 1;
+    ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+    for (const f of S.floats) {
+      ctx.globalAlpha = Math.min(1, f.life * 2);
+      ctx.font = `900 ${f.size}px ${WORDF}`;
+      ctx.fillStyle = '#000'; ctx.fillText(f.txt, f.x + 3, f.y + 3);
+      ctx.fillStyle = f.color; ctx.fillText(f.txt, f.x, f.y);
+    }
+    ctx.globalAlpha = 1;
+  }
+
+  /* ---------- menu background: the robot catching ore on its own ---------- */
+  function demoStep(dt) {
+    S.demoT -= dt;
+    if (S.demoT <= 0 && S.blocks.length < 4) {
+      S.demoT = 0.9;
+      const ore = ['coal', 'iron', 'gold', 'diamond'][(Math.random() * 4) | 0];
+      S.blocks.push({ type: ore, x: B + Math.random() * (W - 2 * B), y: -B, vy: 120 * k, b: B, dead: false });
+    }
+    let tgt = null;
+    for (const b of S.blocks) if (!tgt || b.y > tgt.y) tgt = b;
+    if (tgt) cartS.target = tgt.x;
+    cartS.target = Math.max(heroW / 2, Math.min(W - heroW / 2, cartS.target));
+    const move = Math.max(-W * 0.6 * dt, Math.min(W * 0.6 * dt, cartS.target - cartS.x));
+    cartS.x += move; cartS.dist += Math.abs(move);
+    if (Math.abs(move) > 0.2) cartS.dir = move > 0 ? 1 : -1;
+    for (const b of S.blocks) {
+      b.y += b.vy * dt;
+      if (touches(b)) { b.dead = true; debris(b.x, b.y, [ORES[b.type].main, ORES[b.type].hi], 10, 0.8); cartS.bounce = 1; }
+      else if (b.y > ground) b.dead = true;
+    }
+    S.blocks = S.blocks.filter((b) => !b.dead);
+  }
+
+  let last = performance.now(), clock = 0;
+  function frame(now) {
+    const dt = Math.min(0.05, (now - last) / 1000);
+    last = now; clock += dt;
+    if (S.mode === 'play') {
+      S.acc += dt;
+      while (S.acc >= STEP && S.mode === 'play') { S.acc -= STEP; step(STEP); }
+      hud();
+    } else if (S.mode === 'menu') demoStep(dt);
+    for (let i = S.parts.length - 1; i >= 0; i--) {
+      const q = S.parts[i];
+      q.life -= dt;
+      if (q.life <= 0) { S.parts.splice(i, 1); continue; }
+      q.x += q.vx * dt; q.y += q.vy * dt; q.vy += 700 * dt;
+      if (q.y > ground && q.vy > 0) { q.y = ground; q.vy *= -0.3; q.vx *= 0.6; }
+    }
+    for (let i = S.floats.length - 1; i >= 0; i--) {
+      const f = S.floats[i];
+      f.life -= dt * 0.9; f.y -= 46 * dt;
+      if (f.life <= 0) S.floats.splice(i, 1);
+    }
+    S.shake = Math.max(0, S.shake - dt * 3);
+    S.flash = Math.max(0, S.flash - dt * 4);
+    cartS.bounce = Math.max(0, cartS.bounce - dt * 6);
+    draw(clock);
+    requestAnimationFrame(frame);
+  }
+
+  /* ---------- input ---------- */
+  let dragging = false;
+  cvs.addEventListener('pointerdown', (e) => {
+    dragging = true;
+    if (S.mode === 'play' && S.phase === 'train') cartS.target = e.clientX;
+    try { cvs.setPointerCapture(e.pointerId); } catch (err) {}
+  });
+  window.addEventListener('pointermove', (e) => {
+    if (S.mode !== 'play' || S.phase !== 'train') return;
+    if (dragging || e.pointerType === 'mouse') cartS.target = e.clientX;
+  });
+  window.addEventListener('pointerup', () => { dragging = false; });
+  window.addEventListener('pointercancel', () => { dragging = false; });
+  const isL = (e) => e.key === 'ArrowLeft' || e.key === 'a' || e.key === 'A';
+  const isR = (e) => e.key === 'ArrowRight' || e.key === 'd' || e.key === 'D';
+  window.addEventListener('keydown', (e) => { if (isL(e)) { keys.l = true; e.preventDefault(); } if (isR(e)) { keys.r = true; e.preventDefault(); } });
+  window.addEventListener('keyup', (e) => {
+    if (isL(e)) { keys.l = false; if (S.phase === 'train') cartS.target = cartS.x; }
+    if (isR(e)) { keys.r = false; if (S.phase === 'train') cartS.target = cartS.x; }
+  });
+
+  $('introGo').addEventListener('click', () => startRound(introPhase));
+  $('introAlt').addEventListener('click', () => showIntro('train'));
+  $('introLevels').addEventListener('click', openMenu);
+  $('teachMore').addEventListener('click', () => showIntro('train'));
+  $('wipe').addEventListener('click', () => { MEM[S.level] = []; saveMem(); S.lastKid = null; S.kidStats = null; S.trains = 0; showIntro('train'); });
+  $('nextLvl').addEventListener('click', () => openLevel(S.level + 1));
+  $('toLevels').addEventListener('click', openMenu);
+
+  function applyLang() {
+    document.documentElement.lang = lang;
+    document.querySelectorAll('[data-t]').forEach((el) => { el.textContent = T()[el.dataset.t]; });
+    document.querySelector('.lead[data-t="lead"]').innerHTML = T().lead;
+    document.querySelectorAll('[data-lang]').forEach((b) => b.setAttribute('aria-pressed', String(b.dataset.lang === lang)));
+    renderLevels();
+    try { localStorage.setItem('robo-lang', lang); } catch (e) {}
+  }
+  document.querySelectorAll('[data-lang]').forEach((b) => b.addEventListener('click', () => { lang = b.dataset.lang; applyLang(); }));
+  function setMuted(v) {
+    muted = v;
+    $('mute').setAttribute('aria-pressed', String(muted));
+    try { localStorage.setItem('robo-muted', muted ? '1' : '0'); } catch (e) {}
+  }
+  $('mute').addEventListener('click', () => { setMuted(!muted); if (!muted) ensureAudio(); });
+  setMuted(muted);
+
+  window.addEventListener('resize', resize);
+  loadSaved();
+  resize();
+  applyLang();
+  openMenu();
+  // test hook: only with #test in the address, read-only
+  if (location.hash === '#test') window.__robo = { get S() { return S; }, get cart() { return cartS; }, get W() { return W; }, mem, DEBUG };
+  requestAnimationFrame(frame);
+})();
+</script>
+
+</html>

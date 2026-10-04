@@ -179,24 +179,12 @@ h1 {
       </a>
     </li>
     <li>
-      <a class="card" href="teach-ai/" data-game="teach-ai">
-        <img src="img/teach-ai.jpg" alt="Monstras ir mygtukai Piktas arba Draugiškas" width="640" height="480">
+      <a class="card" href="robo-mokinys/" data-game="robo-mokinys">
+        <img src="img/robo-mokinys.jpg" alt="Robotas vagonėlyje pats gaudo rūdą ir mato blokus" width="640" height="480">
         <div class="body">
-          <h2>Išmokyk AI</h2>
-          <span class="tag">KAIP MOKOSI AI</span>
-          <p>Parodyk pavyzdžių ir išmokyk robotą.</p>
-          <p class="mine" data-best></p>
-          <span class="go">Žaisti</span>
-        </div>
-      </a>
-    </li>
-    <li>
-      <a class="card" href="ai-detective/" data-game="ai-detective">
-        <img src="img/ai-detective.jpg" alt="Piešinys su paslėpta AI klaida" width="640" height="480">
-        <div class="body">
-          <h2>AI detektyvas</h2>
-          <span class="tag">AR TIKĖTI AI?</span>
-          <p>Rask AI klaidas ir išsigalvojimus.</p>
+          <h2>Robo Mokinys</h2>
+          <span class="tag">TAIP MOKOSI AI</span>
+          <p>Tu žaidi, robotas mokosi. Tada jis žaidžia vienas.</p>
           <p class="mine" data-best></p>
           <span class="go">Žaisti</span>
         </div>
@@ -297,8 +285,7 @@ h1 {
     'bug-hunt': (n) => `Tavo žvaigždės: ${n} / 30`,
     'sorting-factory': (n) => `Tavo žvaigždės: ${n} / 30`,
     'binary-picture': (n) => `Tavo žvaigždės: ${n} / 30`,
-    'teach-ai': (n) => `Tavo žvaigždės: ${n} / 24`,
-    'ai-detective': (n) => `Tavo rekordas: ${n} / 32`,
+    'robo-mokinys': (n) => `Tavo žvaigždės: ${n} / 12`,
   };
   let delId = null;
   const esc = (t) => String(t).replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));

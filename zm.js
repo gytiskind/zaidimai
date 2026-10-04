@@ -96,7 +96,7 @@
       'background:rgba(31,28,39,0.9);border:2px solid #000;padding:3px 10px 3px 4px;white-space:nowrap;text-decoration:none}' +
     '.zm-chip i{display:inline-grid;place-items:center;width:22px;height:22px;font-style:normal;font-weight:900;color:#fff;box-shadow:inset -3px -3px 0 rgba(0,0,0,.3)}' +
     '.zm-chip b{font-weight:900}.zm-chip small{font-size:.75rem;font-weight:800;opacity:.85}' +
-    '.zm-toast{position:fixed;left:50%;top:calc(env(safe-area-inset-top,0px) + 70px);transform:translateX(-50%);z-index:9999;pointer-events:none;display:grid;gap:4px;justify-items:center;' +
+    '.zm-toast{position:fixed;left:50%;top:calc(env(safe-area-inset-top,0px) + 8px);transform:translateX(-50%);z-index:9999;pointer-events:none;display:grid;gap:4px;justify-items:center;' +
       'font:900 1.25rem "Nunito","Arial Rounded MT Bold",system-ui,sans-serif;color:#2a1d00;animation:zmIn 2.8s ease-out forwards}' +
     '.zm-toast span{background:#ffcc33;padding:6px 16px;border:3px solid #000;box-shadow:4px 4px 0 #000}' +
     '.zm-toast span.up{background:#4de8d6;color:#0d2a27}' +
