@@ -60,9 +60,9 @@ canvas { image-rendering: pixelated; }
   background: var(--gold); color: #2a1d00; display: inline-flex; align-items: center; gap: 8px; white-space: nowrap;
 }
 .phase.robot { background: var(--cyan); color: #0d2a27; }
-.eye { width: 18px; height: 12px; background: #fff; border: 2px solid #000; border-radius: 50%; display: inline-grid; place-items: center; animation: look 1.6s steps(2) infinite; }
+.eye { width: 18px; height: 12px; background: #fff; border: 2px solid #000; border-radius: 50%; display: inline-grid; place-items: center; }
+.eye.shut { transform: scaleY(0.2); }
 .eye::after { content: ""; width: 6px; height: 6px; background: #000; border-radius: 50%; }
-@keyframes look { 50% { transform: scaleY(0.2); } }
 .stats { font-weight: 800; font-size: 0.9rem; color: var(--ink); text-shadow: 2px 2px 0 #000; display: flex; gap: 12px; }
 .stats b { color: var(--cyan); font-variant-numeric: tabular-nums; }
 .right { display: grid; justify-items: end; gap: 6px; }
@@ -141,7 +141,7 @@ h2 { margin: 0; font-weight: 900; font-size: clamp(1.7rem, 7vw, 2.2rem); line-he
 .lesson { margin: 0; font-weight: 800; font-size: 1rem; color: var(--cyan); max-width: 36ch; line-height: 1.35; }
 .memline { margin: 0; font-weight: 800; font-size: 0.9rem; color: var(--ink-dim); }
 .memline b { color: var(--ink); font-variant-numeric: tabular-nums; }
-@media (prefers-reduced-motion: reduce) { .eye { animation: none; } .btn:active { transform: none; } }
+@media (prefers-reduced-motion: reduce) { .btn:active { transform: none; } }
 </style>
 
 <div id="stage">
@@ -636,6 +636,9 @@ h2 { margin: 0; font-weight: 900; font-size: clamp(1.7rem, 7vw, 2.2rem); line-he
     const ph = $('phase');
     ph.className = 'phase' + (phase === 'test' ? ' robot' : '');
     ph.innerHTML = phase === 'train' ? `<span class="eye"></span>${T().phaseTrain}` : T().phaseTest;
+    // blink with a slow timer: an endless CSS animation restyled the page every frame (tablet lag)
+    clearInterval(S.blink);
+    if (phase === 'train' && !reduce) { const eye = ph.querySelector('.eye'); S.blink = setInterval(() => eye.classList.toggle('shut'), 800); }
     $('recall').hidden = phase !== 'test';
     clearRecall();
     hud();
@@ -741,6 +744,7 @@ h2 { margin: 0; font-weight: 900; font-size: clamp(1.7rem, 7vw, 2.2rem); line-he
 
   function endRound() {
     S.mode = 'pause';
+    clearInterval(S.blink);
     $('recall').hidden = true;
     if (S.phase === 'train') {
       const m = mem(S.level);
@@ -757,10 +761,13 @@ h2 { margin: 0; font-weight: 900; font-size: clamp(1.7rem, 7vw, 2.2rem); line-he
   }
 
   /* ---------- screens ---------- */
+  // write HUD text only when a number changes: rewriting it every frame forced a layout pass 60 times a second (tablet lag)
+  const hudEls = { score: $('score'), left: $('left'), mem: $('mem') }, hudLast = {};
+  function setHud(k, v) { if (hudLast[k] !== v) { hudLast[k] = v; hudEls[k].textContent = v; } }
   function hud() {
-    $('score').textContent = S.score;
-    $('left').textContent = Math.max(0, L().n - S.spawned) + S.blocks.length;
-    $('mem').textContent = mem(S.level).length + (S.phase === 'train' ? S.rec.length : 0);
+    setHud('score', S.score);
+    setHud('left', Math.max(0, L().n - S.spawned) + S.blocks.length);
+    setHud('mem', mem(S.level).length + (S.phase === 'train' ? S.rec.length : 0));
   }
 
   function renderLevels() {
