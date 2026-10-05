@@ -58,6 +58,7 @@ input:focus { outline: none; border-color: var(--gem); }
 .endbig { font-weight: 900; font-size: clamp(2rem, 8vw, 3.4rem); margin: 0; text-align: center; }
 .endbig b { color: var(--gem); }
 .links { display: flex; gap: 12px; flex-wrap: wrap; justify-content: center; }
+.place { display: block; font-weight: 900; font-size: 2.4rem; color: var(--gold); margin-bottom: 8px; }
 .host-link { justify-self: center; color: var(--ink-dim); font-weight: 800; font-size: 0.95rem; }
 </style>
 </head>
@@ -202,7 +203,9 @@ input:focus { outline: none; border-color: var(--gem); }
     } else if (st.phase === 'end') {
       view('v-end');
       $('endbig').innerHTML = `Atspėjai <b>${score}</b> iš ${st.n}!`;
-      $('endmsg').textContent = st.classMax ? `Visa klasė kartu: ${st.classPts} iš ${st.classMax}.` : '';
+      const place = st.podium && st.podium[pid];
+      $('endmsg').innerHTML = place ? `<span class="place">${['', '🥇', '🥈', '🥉'][place]} ${place} vieta!</span>` : '';
+      if (st.classMax) $('endmsg').insertAdjacentText('beforeend', `Visa klasė kartu: ${st.classPts} iš ${st.classMax}.`);
       // one report per finished game, even if the page reloads
       const tag = code + ':' + Object.keys(st.players).length + ':' + st.classMax;
       if (window.ZM && reported !== tag) { reported = tag; LS.set('tai-reported', tag); ZM.report('tikra-ar-ai', { score, xp: score * 10 }); }
