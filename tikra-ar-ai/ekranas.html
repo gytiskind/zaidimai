@@ -62,11 +62,25 @@ body { height: 100vh; overflow: hidden; }
 .guessed { font-weight: 900; font-size: 3.2vh; color: var(--gold); margin: 0; }
 
 #end { place-items: center; padding: 4vh 4vw; overflow: auto; }
-.end-box { display: grid; gap: 3vh; justify-items: center; text-align: center; }
-.end-box h1 { font-size: 9vh; }
-.big { font-weight: 900; font-size: 7vh; margin: 0; }
+.end-box { display: grid; gap: 2vh; justify-items: center; text-align: center; }
+.end-box h1 { font-size: 7vh; }
+.big { font-weight: 900; font-size: 5.6vh; margin: 0; }
 .big b { color: var(--gem); }
 .verdict { font-weight: 900; font-size: 4vh; color: var(--gold); margin: 0; }
+/* podium: 2nd, 1st, 3rd; places appear one by one, 3rd first */
+.podium { display: grid; grid-template-columns: repeat(3, 22vw); gap: 1.4vw; align-items: end; margin-top: 2vh; }
+.step { display: grid; gap: 1vh; justify-items: center; align-content: end; }
+.step .who { font-weight: 900; font-size: 4.6vh; min-height: 6vh; overflow-wrap: anywhere; text-shadow: 3px 3px 0 #000; }
+.step .pts { font-weight: 800; font-size: 2.6vh; color: var(--ink-dim); min-height: 3vh; }
+.step .block { width: 100%; display: grid; place-items: center; font-weight: 900; font-size: 9vh; color: rgba(0,0,0,.55);
+  border: 5px solid #000; box-shadow: 6px 6px 0 #000; }
+.step.p1 .block { height: 26vh; background: #f8d838; }
+.step.p2 .block { height: 19vh; background: #c9ccd6; }
+.step.p3 .block { height: 13vh; background: #d9945a; }
+.step.hidden .who, .step.hidden .pts { visibility: hidden; }
+.step.hidden .block { filter: grayscale(1) brightness(.45); }
+.step.shown .who { animation: pop .45s cubic-bezier(.2,1.6,.4,1); }
+.step.none { visibility: hidden; }
 #credits { place-items: start center; overflow: auto; padding: 4vh 4vw; }
 .cred { max-width: 1100px; display: grid; gap: 1.6vh; }
 .cred h1 { font-size: 6vh; }
@@ -128,7 +142,13 @@ body { height: 100vh; overflow: hidden; }
     <h1>Pabaiga!</h1>
     <p class="big" id="endbig"></p>
     <p class="verdict" id="verdict"></p>
+    <div class="podium" id="podium">
+      <div class="step p2"><div class="who"></div><div class="pts"></div><div class="block">2</div></div>
+      <div class="step p1"><div class="who"></div><div class="pts"></div><div class="block">1</div></div>
+      <div class="step p3"><div class="who"></div><div class="pts"></div><div class="block">3</div></div>
+    </div>
     <div class="btns">
+      <button class="wbtn go" id="podnext"></button>
       <button class="wbtn" id="showcred">Kas sukūrė paveikslėlius</button>
       <button class="wbtn" id="again">Žaisti iš naujo</button>
     </div>
@@ -153,10 +173,11 @@ body { height: 100vh; overflow: hidden; }
   const esc = (t) => String(t).replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
   const newCode = () => String(1000 + Math.floor(Math.random() * 9000));
 
-  // phase: lobby | q | reveal | end. players: pid -> {name, score}. answers: pid -> 'real'|'ai' for the current item.
+  // phase: lobby | q | reveal | end. players: pid -> {name, score, time}. answers: pid -> 'real'|'ai' for the current item.
+  // time = total ms to answer the ones they got right; it only breaks ties on the podium.
   function fresh(code) {
     return { code: code || newCode(), phase: 'lobby', idx: 0, offline: false, players: {}, answers: {}, res: {},
-             classPts: 0, classMax: 0, lastGot: 0 };
+             classPts: 0, classMax: 0, lastGot: 0, qStart: 0, atime: {}, podium: [], podStep: 0 };
   }
   let S;
   try { S = JSON.parse(localStorage.getItem(KEY) || 'null'); } catch (e) {}
@@ -180,7 +201,12 @@ body { height: 100vh; overflow: hidden; }
     const st = { t: 'state', seq: Date.now(), phase: S.phase, idx: S.idx, n: N, players, score,
                  got: Object.keys(S.answers), offline: S.offline };
     if (S.phase === 'reveal') { st.answer = ITEMS[S.idx].answer; st.res = S.res; }
-    if (S.phase === 'end') { st.classPts = S.classPts; st.classMax = S.classMax; }
+    if (S.phase === 'end') {
+      st.classPts = S.classPts; st.classMax = S.classMax;
+      // only the places already shown on the screen; 4th and 5th are never sent
+      st.podium = {};
+      (S.podium || []).forEach((pid, i) => { if (i >= (S.podium.length - S.podStep)) st.podium[pid] = i + 1; });
+    }
     return st;
   }
   let pubTimer = null;
@@ -204,7 +230,9 @@ body { height: 100vh; overflow: hidden; }
       else S.players[m.pid].name = name;
     } else if (m.t === 'ans') {
       if (!S.players[m.pid] && name) S.players[m.pid] = { name, score: 0 };
-      if (S.phase === 'q' && m.idx === S.idx && (m.a === 'real' || m.a === 'ai') && S.players[m.pid]) S.answers[m.pid] = m.a;
+      if (S.phase === 'q' && m.idx === S.idx && (m.a === 'real' || m.a === 'ai') && S.players[m.pid]) {
+        if (S.answers[m.pid] !== m.a) { S.answers[m.pid] = m.a; (S.atime || (S.atime = {}))[m.pid] = Date.now() - (S.qStart || Date.now()); }
+      }
     } else return;
     save(); render(); publish();
   }
@@ -212,7 +240,8 @@ body { height: 100vh; overflow: hidden; }
   // ---- flow ----
   function start(offline) {
     S.offline = !!offline; S.phase = 'q'; S.idx = 0; S.answers = {}; S.res = {}; S.classPts = 0; S.classMax = 0;
-    for (const p of Object.values(S.players)) p.score = 0;
+    for (const p of Object.values(S.players)) { p.score = 0; p.time = 0; }
+    S.qStart = Date.now(); S.atime = {}; S.podium = []; S.podStep = 0;
     save(); render(true); publish();
   }
   function reveal() {
@@ -223,19 +252,26 @@ body { height: 100vh; overflow: hidden; }
       if (!S.players[pid]) continue;
       all++;
       S.res[pid] = a === ans;
-      if (a === ans) { ok++; S.players[pid].score++; }
+      if (a === ans) { ok++; S.players[pid].score++; S.players[pid].time = (S.players[pid].time || 0) + ((S.atime || {})[pid] || 0); }
     }
     S.classPts += ok; S.classMax += all; S.lastGot = ok; S.lastAll = all;
     S.phase = 'reveal'; save(); render(); publish();
   }
   function next() {
-    if (S.idx + 1 >= N) { S.phase = 'end'; save(); render(); publish(); return; }
-    S.idx++; S.answers = {}; S.res = {}; S.phase = 'q'; save(); render(true); publish();
+    if (S.idx + 1 >= N) {
+      // top 3 by score, faster total answer time wins a tie
+      S.podium = Object.keys(S.players).filter((pid) => S.players[pid].score > 0)
+        .sort((a, b) => (S.players[b].score - S.players[a].score) || ((S.players[a].time || 0) - (S.players[b].time || 0)))
+        .slice(0, 3);
+      S.podStep = 0; S.phase = 'end'; save(); render(); publish(); return;
+    }
+    S.idx++; S.answers = {}; S.res = {}; S.atime = {}; S.qStart = Date.now(); S.phase = 'q'; save(); render(true); publish();
   }
   function advance() {
     if (S.phase === 'lobby') start(false);
     else if (S.phase === 'q') reveal();
     else if (S.phase === 'reveal') next();
+    else if (S.phase === 'end' && S.podStep < (S.podium || []).length) { S.podStep++; save(); render(); publish(); }
   }
 
   // ---- drawing ----
@@ -286,6 +322,7 @@ body { height: 100vh; overflow: hidden; }
         $('endbig').innerHTML = `Kartu atspėjote <b>${S.classPts}</b> iš ${S.classMax}`;
         $('verdict').textContent = pct >= 0.8 ? 'Tikri AI detektyvai!' : pct >= 0.6 ? 'Puikiai! AI jūsų beveik neapgauna.' : 'AI moka apgauti. Net suaugusius!';
       }
+      renderPodium();
       return;
     }
     $('play').classList.add('on');
@@ -312,6 +349,27 @@ body { height: 100vh; overflow: hidden; }
     }
   }
 
+  function renderPodium() {
+    const pod = S.offline ? [] : (S.podium || []).filter((pid) => S.players[pid]);
+    $('podium').style.display = pod.length ? '' : 'none';
+    const shownFrom = pod.length - S.podStep;   // places are revealed from the last one up
+    [1, 2, 3].forEach((place) => {
+      const el = document.querySelector('.step.p' + place);
+      const pid = pod[place - 1];
+      el.classList.toggle('none', !pid);
+      const shown = !!pid && place - 1 >= shownFrom;
+      el.classList.toggle('hidden', !shown);
+      el.classList.toggle('shown', shown);
+      el.querySelector('.who').textContent = shown ? S.players[pid].name : '?';
+      el.querySelector('.pts').textContent = shown ? `atspėjo ${S.players[pid].score}` : '';
+    });
+    const b = $('podnext');
+    if (S.podStep < pod.length) {
+      b.style.display = '';
+      b.textContent = ['', 'Kas pirmas?', 'Kas antras?', 'Kas trečias?'][pod.length - S.podStep] + ' ▶';
+    } else b.style.display = 'none';
+  }
+
   function renderCredits() {
     $('credlist').innerHTML = ITEMS.map((it) => {
       const lic = it.license_url ? `<a href="${esc(it.license_url)}" target="_blank" rel="noopener">${esc(it.license)}</a>` : esc(it.license);
@@ -329,7 +387,8 @@ body { height: 100vh; overflow: hidden; }
   $('offline').onclick = () => start(true);
   $('next').onclick = advance;
   $('newcode').onclick = () => { if (net) net.clearRetained(); S = fresh(); save(); connect(); drawQR(); render(); };
-  $('again').onclick = () => { S.phase = 'lobby'; S.idx = 0; S.answers = {}; S.res = {}; S.offline = false; save(); render(); publish(); };
+  $('again').onclick = () => { S.phase = 'lobby'; S.idx = 0; S.answers = {}; S.res = {}; S.offline = false; S.podium = []; S.podStep = 0; save(); render(); publish(); };
+  $('podnext').onclick = advance;
   $('showcred').onclick = () => { renderCredits(); document.querySelectorAll('.screen').forEach((s) => s.classList.remove('on')); $('credits').classList.add('on'); };
   $('credback').onclick = () => render();
   document.addEventListener('keydown', (e) => {
