@@ -190,6 +190,18 @@ h1 {
         </div>
       </a>
     </li>
+    <li>
+      <a class="card" href="tikra-ar-ai/" data-game="tikra-ar-ai">
+        <img src="img/tikra-ar-ai.jpg" alt="Mėlynas omaras ir AI sukurti mamutai sniege" width="640" height="480">
+        <div class="body">
+          <h2>Tikra ar AI?</h2>
+          <span class="tag">VISA KLASĖ KARTU</span>
+          <p>Žiūrėk į didelį ekraną ir spėk: tikras vaizdas ar sukūrė AI?</p>
+          <p class="mine" data-best></p>
+          <span class="go">Žaisti</span>
+        </div>
+      </a>
+    </li>
     </ul>
   </section>
   <section class="group">
@@ -286,6 +298,7 @@ h1 {
     'sorting-factory': (n) => `Tavo žvaigždės: ${n} / 30`,
     'binary-picture': (n) => `Tavo žvaigždės: ${n} / 30`,
     'robo-mokinys': (n) => `Tavo žvaigždės: ${n} / 12`,
+    'tikra-ar-ai': (n) => `Tavo rekordas: ${n} / 24`,
   };
   let delId = null;
   const esc = (t) => String(t).replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));

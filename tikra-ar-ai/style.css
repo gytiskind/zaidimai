@@ -1,0 +1,42 @@
+/* Shared look for the class screen and the tablet page: the site's blocky stone theme */
+:root {
+  --night: #141b3a;
+  --stone: #3b3846;
+  --stone-hi: #6e6a7c;
+  --stone-lo: #1f1c27;
+  --gold: #ffcc33;
+  --gem: #4de8d6;
+  --grass: #5cbf3a;
+  --grass-hi: #8ee35f;
+  --grass-lo: #2f7a1c;
+  --real: #7ee04f;
+  --ai: #c04ff0;
+  --good: #5cbf3a;
+  --bad: #e0402e;
+  --ink: #f3f0f7;
+  --ink-dim: #b7b1c2;
+  --word: "Nunito", "Arial Rounded MT Bold", system-ui, sans-serif;
+  color-scheme: dark;
+}
+* { box-sizing: border-box; }
+body {
+  margin: 0; min-height: 100vh; color: var(--ink); font-family: var(--word);
+  background: var(--night) linear-gradient(180deg, #141b3a 0%, #2c2a5c 60%, #3a3570 100%) fixed;
+}
+h1 {
+  margin: 0; font-weight: 900; line-height: 1; letter-spacing: 0.03em;
+  color: var(--gold); text-shadow: 4px 4px 0 #8a5a12, 8px 8px 0 #000;
+}
+.wbtn {
+  display: inline-flex; align-items: center; justify-content: center; gap: 8px;
+  font: 900 1.3rem var(--word); color: var(--ink); text-decoration: none; cursor: pointer; touch-action: manipulation;
+  min-height: 52px; padding: 8px 22px; background: var(--stone);
+  border: 4px solid; border-color: var(--stone-hi) var(--stone-lo) var(--stone-lo) var(--stone-hi);
+  box-shadow: 0 0 0 3px #000;
+}
+.wbtn:hover { filter: brightness(1.15); }
+.wbtn:focus-visible { outline: 4px solid var(--gem); outline-offset: 4px; }
+.wbtn.go { background: var(--grass); color: #fff; text-shadow: 2px 2px 0 var(--grass-lo);
+  border-color: var(--grass-hi) var(--grass-lo) var(--grass-lo) var(--grass-hi); }
+.wbtn.small { font-size: 0.95rem; min-height: 40px; padding: 4px 14px; }
+.wbtn:disabled { opacity: 0.5; cursor: default; }
