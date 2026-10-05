@@ -12,6 +12,8 @@
 <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
 <script src="net.js"></script>
 <script src="data.js"></script>
+<!-- extra rounds with clips that cannot be published; exists only on the Mac, so on GitHub Pages this 404s harmlessly -->
+<script src="local/local.js" onerror="this.remove()"></script>
 <style>
 /* The class screen on the Mac: one full-screen stage, keyboard driven (Space = next) */
 body { height: 100vh; overflow: hidden; }
@@ -59,6 +61,7 @@ body { height: 100vh; overflow: hidden; }
 .stamp.real { background: var(--real); color: #10300a; }
 .stamp.ai { background: var(--ai); color: #fff; }
 .tell { font-weight: 900; font-size: 4.2vh; max-width: 70ch; text-shadow: 2px 2px 0 #000; margin: 0; }
+.tell.long { font-size: 3.3vh; }
 .guessed { font-weight: 900; font-size: 3.2vh; color: var(--gold); margin: 0; }
 
 #end { place-items: center; padding: 4vh 4vw; overflow: auto; }
@@ -157,7 +160,7 @@ body { height: 100vh; overflow: hidden; }
 <section class="screen" id="credits">
   <div class="cred">
     <h1>Paveikslėlių autoriai</h1>
-    <p>Paveikslėliai ir vaizdo įrašai iš Wikimedia Commons ir OpenAI Sora pavyzdžių. Kai kurie apkarpyti, sumažinti arba sutrumpinti.</p>
+    <p>Paveikslėliai ir vaizdo įrašai iš Wikimedia Commons, OpenAI Sora pavyzdžių ir AI kūrėjų puslapių. Kai kurie apkarpyti, sumažinti arba sutrumpinti.</p>
     <ol id="credlist"></ol>
     <div class="btns"><button class="wbtn" id="credback">Atgal</button></div>
   </div>
@@ -166,7 +169,10 @@ body { height: 100vh; overflow: hidden; }
 <script>
 (() => {
   // the game has up to two rounds; the teacher picks one in the lobby
-  const ROUNDS = window.ROUNDS || [window.ITEMS];
+  const LOCAL = window.LOCAL_ROUNDS || [];
+  const ROUNDS = (window.ROUNDS || [window.ITEMS]).concat(LOCAL.map((r) => r.items));
+  const NAMES = ROUNDS.map((r, i) => (i >= ROUNDS.length - LOCAL.length ? LOCAL[i - (ROUNDS.length - LOCAL.length)].name : ''));
+  const ALL_ITEMS = ROUNDS.flat();
   let ITEMS = ROUNDS[0], N = ITEMS.length;
   function useRound(r) { S.round = Math.min(Math.max(1, r || 1), ROUNDS.length); ITEMS = ROUNDS[S.round - 1]; N = ITEMS.length; }
   const KEY = 'tai-host';
@@ -291,15 +297,16 @@ body { height: 100vh; overflow: hidden; }
     let el;
     if (it.kind === 'video') {
       el = document.createElement('video');
-      Object.assign(el, { src: it.file, autoplay: true, loop: true, muted: true, playsInline: true });
-      el.setAttribute('muted', ''); el.setAttribute('playsinline', '');
+      Object.assign(el, { src: it.file, autoplay: true, loop: true, muted: !it.has_audio, playsInline: true });
+      if (!it.has_audio) el.setAttribute('muted', '');
+      el.setAttribute('playsinline', '');
     } else {
       el = document.createElement('img');
       el.src = it.file; el.alt = '';
     }
     el.className = 'm';
     stage.prepend(el);
-    if (el.play) el.play().catch(() => {});
+    if (el.play) el.play().catch(() => { el.muted = true; el.play().catch(() => {}); });
     // warm the next item so it appears instantly
     const nx = ITEMS[S.idx + 1];
     if (nx) {
@@ -319,7 +326,7 @@ body { height: 100vh; overflow: hidden; }
         : '<span class="empty">Laukiam planšečių...</span>';
       const nr = nextRound();
       $('rounds').innerHTML = ROUNDS.map((r, i) =>
-        `<button class="wbtn ${i + 1 === nr ? 'go' : ''}" data-round="${i + 1}">${ROUNDS.length > 1 ? (i + 1) + ' raundas' : 'Pradėti'} ▶ <small>(${r.length})</small></button>`).join('');
+        `<button class="wbtn ${i + 1 === nr ? 'go' : ''}" data-round="${i + 1}">${ROUNDS.length > 1 ? (i + 1) + ' raundas' : 'Pradėti'}${NAMES[i] ? ': ' + esc(NAMES[i]) : ''} ▶ <small>(${r.length})</small></button>`).join('');
       $('offline').textContent = S.offlinePick ? '✓ Be planšečių (tik ekranas)' : 'Be planšečių';
       $('offline').classList.toggle('go', !!S.offlinePick);
       return;
@@ -341,7 +348,7 @@ body { height: 100vh; overflow: hidden; }
     }
     $('play').classList.add('on');
     $('count').textContent = `${S.idx + 1} / ${N}`;
-    $('qlabel').textContent = ROUNDS.length > 1 ? `${S.round} raundas` : 'Tikra ar AI?';
+    $('qlabel').textContent = ROUNDS.length > 1 ? `${S.round} raundas${NAMES[S.round - 1] ? ': ' + NAMES[S.round - 1] : ''}` : 'Tikra ar AI?';
     showMedia(newItem);
     const answered = Object.keys(S.answers);
     $('dots').innerHTML = S.offline ? '' : pids.map((pid) =>
@@ -354,6 +361,7 @@ body { height: 100vh; overflow: hidden; }
       st.className = 'stamp ' + it.answer;
       st.textContent = it.answer === 'real' ? 'TIKRA!' : 'AI!';
       $('tell').textContent = it.tell_lt;
+      $('tell').classList.toggle('long', it.tell_lt.length > 130);
       $('guessed').textContent = S.offline || !S.lastAll ? '' : `Atspėjo ${S.lastGot} iš ${S.lastAll}`;
       rv.classList.add('on');
       $('next').textContent = S.idx + 1 >= N ? 'Pabaiga ▶' : 'Toliau ▶';
@@ -386,7 +394,7 @@ body { height: 100vh; overflow: hidden; }
   }
 
   function renderCredits() {
-    $('credlist').innerHTML = window.ITEMS.map((it) => {
+    $('credlist').innerHTML = ALL_ITEMS.map((it) => {
       const lic = it.license_url ? `<a href="${esc(it.license_url)}" target="_blank" rel="noopener">${esc(it.license)}</a>` : esc(it.license);
       return `<li>${esc(it.author)}, ${lic}, <a href="${esc(it.source_url)}" target="_blank" rel="noopener">šaltinis</a>${it.answer === 'ai' ? ' (sukurta AI)' : ''}</li>`;
     }).join('');
@@ -414,7 +422,7 @@ body { height: 100vh; overflow: hidden; }
   });
 
   function drawQR() {
-    const url = new URL('./?k=' + S.code, location.href).href;
+    const url = (location.hostname.endsWith('github.io') ? new URL('./', location.href).href : 'https://gytiskind.github.io/zaidimai/tikra-ar-ai/') + '?k=' + S.code;
     $('qr').innerHTML = '';
     try { new QRCode($('qr'), { text: url, width: 360, height: 360, correctLevel: QRCode.CorrectLevel.M }); } catch (e) {}
     $('qr').title = url;
