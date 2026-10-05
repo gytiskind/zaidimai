@@ -28,6 +28,32 @@ window.ROUNDS = [
    "has_audio": ""
   },
   {
+   "file": "media/v3-03-korgis-vlogeris.mp4",
+   "answer": "ai",
+   "kind": "video",
+   "tell_lt": "Šuo nemoka laikyti asmenukių lazdos! Šį filmuką Sora sukūrė iš vieno sakinio apie šunį tinklaraštininką.",
+   "author": "OpenAI Sora",
+   "license": "Public domain (PD-algorithm)",
+   "license_url": "",
+   "source_url": "https://web.archive.org/web/20240216001508/https://openai.com/sora",
+   "generator": "OpenAI Sora (2024)",
+   "note": "Official Sora showcase, prompt \"A corgi vlogging itself in tropical Maui.\" File: https://cdn.openai.com/sora/videos/vlogger-corgi.mp4. First 10 s. Edges cropped 12% to remove the SORA watermark.",
+   "has_audio": ""
+  },
+  {
+   "file": "media/v3-02-futbolas-gulomis.jpg",
+   "answer": "real",
+   "kind": "image",
+   "tell_lt": "Tikra! Tai laisvojo stiliaus futbolas. Žaidėjas žongliruoja kamuoliu net gulėdamas ant nugaros.",
+   "author": "Marie-Lan Nguyen",
+   "license": "CC BY 2.5",
+   "license_url": "https://creativecommons.org/licenses/by/2.5",
+   "source_url": "https://commons.wikimedia.org/wiki/File:Football_freestyle_2013_Masters_epee_t171023.jpg",
+   "generator": "",
+   "note": "Nikon D800E EXIF 2013-12-01. Small Nike logos on ball and shoes, not the focus.",
+   "has_audio": ""
+  },
+  {
    "file": "media/v2-05-robotu-futbolas.mp4",
    "answer": "real",
    "kind": "video",
@@ -132,6 +158,32 @@ window.ROUNDS = [
    "has_audio": ""
   },
   {
+   "file": "media/v3-09-motociklininkas-supermenas.jpg",
+   "answer": "real",
+   "kind": "image",
+   "tell_lt": "Tikra! Motociklininkas ore paleidžia motociklą ir skrenda kaip supermenas. Po akimirkos jis vėl sugriebia vairą.",
+   "author": "Stefan Krause, Germany",
+   "license": "CC BY-SA 3.0",
+   "license_url": "https://creativecommons.org/licenses/by-sa/3.0",
+   "source_url": "https://commons.wikimedia.org/wiki/File:Freestyle_Motocross_1.jpg",
+   "generator": "",
+   "note": "Nikon D80 EXIF 2008-04-27. Trick: Superman seat grab. KTM stickers on the bike, not the focus.",
+   "has_audio": ""
+  },
+  {
+   "file": "media/v3-11-suo-prie-kompiuterio.jpg",
+   "answer": "ai",
+   "kind": "image",
+   "tell_lt": "Pažiūrėk į šuns kaklą: antkaklis keistai susipynęs su kailiu. O ekrane raidės neįskaitomos.",
+   "author": "Lwneal",
+   "license": "CC BY-SA 4.0",
+   "license_url": "https://creativecommons.org/licenses/by-sa/4.0",
+   "source_url": "https://commons.wikimedia.org/wiki/File:Example-dog-on-the-internet.png",
+   "generator": "Stable Diffusion",
+   "note": "Prompt: \"Cinematic photo of a dog on the Internet editing Wikipedia\", seed 3219238372.",
+   "has_audio": ""
+  },
+  {
    "file": "media/v2-14-bezdziones-pirtyje.mp4",
    "answer": "real",
    "kind": "video",
@@ -158,29 +210,16 @@ window.ROUNDS = [
    "has_audio": ""
   },
   {
-   "file": "media/v2-17-drambliu-polo.jpg",
-   "answer": "real",
-   "kind": "image",
-   "tell_lt": "Tikra! Nepale žaidžiamas dramblių polo. Žaidėjai sėdi ant dramblių ir muša kamuolį ilga lazda.",
-   "author": "Pratap Baniya",
-   "license": "CC BY-SA 4.0",
-   "license_url": "https://creativecommons.org/licenses/by-sa/4.0",
-   "source_url": "https://commons.wikimedia.org/wiki/File:Elephant_Polo_Sauraha_Chitwan_2018_(1).jpg",
-   "generator": "",
-   "note": "Nikon D7000 EXIF 2018-12-28. Sauraha, Chitwan, Nepal.",
-   "has_audio": ""
-  },
-  {
-   "file": "media/v2-21-dalmatinas-palangeje.mp4",
+   "file": "media/v3-08-zebrazirafe.jpg",
    "answer": "ai",
-   "kind": "video",
-   "tell_lt": "Labai sunku! Šį filmuką sukūrė Sora. Stebėk, kaip šuo pereina nuo vieno lango prie kito: ar ten iš viso yra kur pastatyti kojas?",
-   "author": "Sora / OpenAI",
-   "license": "Public domain",
+   "kind": "image",
+   "tell_lt": "Zebražirafių nėra! Pažiūrėk į ausis: jos spalvotos lyg plastikinės.",
+   "author": "OpenAI DALL-E 2",
+   "license": "Public domain (PD-algorithm)",
    "license_url": "",
-   "source_url": "https://commons.wikimedia.org/wiki/File:Open_AI_Sora_in_Action-_Italian_Pup.webm",
-   "generator": "OpenAI Sora (2024)",
-   "note": "Original from openai.com/sora (Feb 2024). Edges cropped 5% to remove the Sora watermark.",
+   "source_url": "https://commons.wikimedia.org/wiki/File:A_new_hybrid_species_%22Zebra-Giraffe%22_spotted_in_African_Safari_during_golden_hour.jpg",
+   "generator": "DALL-E 2",
+   "note": "Prompt: \"A new hybrid species Zebra-Giraffe spotted in African Safari during golden hour\". Bottom strip with the DALL-E colour bar cropped.",
    "has_audio": ""
   },
   {
@@ -225,6 +264,32 @@ window.ROUNDS = [
    "has_audio": ""
   },
   {
+   "file": "media/v2-21-dalmatinas-palangeje.mp4",
+   "answer": "ai",
+   "kind": "video",
+   "tell_lt": "Labai sunku! Šį filmuką sukūrė Sora. Stebėk, kaip šuo pereina nuo vieno lango prie kito: ar ten iš viso yra kur pastatyti kojas?",
+   "author": "Sora / OpenAI",
+   "license": "Public domain",
+   "license_url": "",
+   "source_url": "https://commons.wikimedia.org/wiki/File:Open_AI_Sora_in_Action-_Italian_Pup.webm",
+   "generator": "OpenAI Sora (2024)",
+   "note": "Original from openai.com/sora (Feb 2024). Edges cropped 5% to remove the Sora watermark.",
+   "has_audio": ""
+  },
+  {
+   "file": "media/v3-15-zmogus-ant-vandens-sroves.jpg",
+   "answer": "real",
+   "kind": "image",
+   "tell_lt": "Tikra! Vyras stovi ant lentos, kurią aukštyn kelia vandens srovės. Tai vadinama flyboard.",
+   "author": "Monmar Comunicació from Vic",
+   "license": "CC BY-SA 2.0",
+   "license_url": "https://creativecommons.org/licenses/by-sa/2.0",
+   "source_url": "https://commons.wikimedia.org/wiki/File:Flyboard_during_Sal%C3%B3_N%C3%A0utic_Internacional_de_Barcelona_2012_(36329436412).jpg",
+   "generator": "",
+   "note": "Canon EOS 5D Mark II EXIF 2012-09-26, Barcelona boat show. Cropped around the rider.",
+   "has_audio": ""
+  },
+  {
    "file": "media/v2-10-kaciukas-ir-anciukai.jpg",
    "answer": "ai",
    "kind": "image",
@@ -238,16 +303,16 @@ window.ROUNDS = [
    "has_audio": ""
   },
   {
-   "file": "media/v2-24-bezdziones-asmenuke.jpg",
+   "file": "media/v2-17-drambliu-polo.jpg",
    "answer": "real",
    "kind": "image",
-   "tell_lt": "Tikra! Šią asmenukę padarė pati beždžionė, paspaudusi fotografo kamerą. Teismai net ginčijosi, kam priklauso nuotrauka.",
-   "author": "Pati beždžionė (Macaca nigra), fotografo Davido Slaterio kamera",
-   "license": "Public domain",
-   "license_url": "",
-   "source_url": "https://commons.wikimedia.org/wiki/File:Macaca_nigra_self-portrait_large.jpg",
+   "tell_lt": "Tikra! Nepale žaidžiamas dramblių polo. Žaidėjai sėdi ant dramblių ir muša kamuolį ilga lazda.",
+   "author": "Pratap Baniya",
+   "license": "CC BY-SA 4.0",
+   "license_url": "https://creativecommons.org/licenses/by-sa/4.0",
+   "source_url": "https://commons.wikimedia.org/wiki/File:Elephant_Polo_Sauraha_Chitwan_2018_(1).jpg",
    "generator": "",
-   "note": "PD-animal on Commons. EXIF DateTimeOriginal 2011-07-04. Famous 'monkey selfie' copyright dispute.",
+   "note": "Nikon D7000 EXIF 2018-12-28. Sauraha, Chitwan, Nepal.",
    "has_audio": ""
   },
   {
@@ -264,16 +329,16 @@ window.ROUNDS = [
    "has_audio": ""
   },
   {
-   "file": "media/v1-03-rozinis-ezeras.jpg",
+   "file": "media/v2-24-bezdziones-asmenuke.jpg",
    "answer": "real",
    "kind": "image",
-   "tell_lt": "Tikras! Šis ežeras Australijoje rožinis dėl mažyčių dumblių ir druskos.",
-   "author": "Aussie Oc",
-   "license": "CC BY-SA 4.0",
-   "license_url": "https://creativecommons.org/licenses/by-sa/4.0",
-   "source_url": "https://commons.wikimedia.org/wiki/File:Lake_Hillier_2_Middle_Island_Recherche_Archipelago_NR_IV-2011.JPG",
+   "tell_lt": "Tikra! Šią asmenukę padarė pati beždžionė, paspaudusi fotografo kamerą. Teismai net ginčijosi, kam priklauso nuotrauka.",
+   "author": "Pati beždžionė (Macaca nigra), fotografo Davido Slaterio kamera",
+   "license": "Public domain",
+   "license_url": "",
+   "source_url": "https://commons.wikimedia.org/wiki/File:Macaca_nigra_self-portrait_large.jpg",
    "generator": "",
-   "note": "",
+   "note": "PD-animal on Commons. EXIF DateTimeOriginal 2011-07-04. Famous 'monkey selfie' copyright dispute.",
    "has_audio": ""
   },
   {
@@ -287,6 +352,32 @@ window.ROUNDS = [
    "source_url": "https://commons.wikimedia.org/wiki/File:Victoria-crowned-pigeon.webm",
    "generator": "OpenAI Sora (2024)",
    "note": "Original from openai.com/sora (Feb 2024). Edges cropped slightly.",
+   "has_audio": ""
+  },
+  {
+   "file": "media/v1-03-rozinis-ezeras.jpg",
+   "answer": "real",
+   "kind": "image",
+   "tell_lt": "Tikras! Šis ežeras Australijoje rožinis dėl mažyčių dumblių ir druskos.",
+   "author": "Aussie Oc",
+   "license": "CC BY-SA 4.0",
+   "license_url": "https://creativecommons.org/licenses/by-sa/4.0",
+   "source_url": "https://commons.wikimedia.org/wiki/File:Lake_Hillier_2_Middle_Island_Recherche_Archipelago_NR_IV-2011.JPG",
+   "generator": "",
+   "note": "",
+   "has_audio": ""
+  },
+  {
+   "file": "media/v3-21-tetis-ir-sunus.jpg",
+   "answer": "ai",
+   "kind": "image",
+   "tell_lt": "Labai sunku! Viskas per švaru ir per tvarkinga, lyg reklamoje. Tokius veidus dirbtinis intelektas jau piešia labai gerai.",
+   "author": "U3260357",
+   "license": "CC BY-SA 4.0",
+   "license_url": "https://creativecommons.org/licenses/by-sa/4.0",
+   "source_url": "https://commons.wikimedia.org/wiki/File:Boy_and_dad.png",
+   "generator": "nenurodyta (Commons kategorija: AI-generated facial expressions)",
+   "note": "Labelled AI only by the Commons category; generator not named. Fictional people.",
    "has_audio": ""
   },
   {
