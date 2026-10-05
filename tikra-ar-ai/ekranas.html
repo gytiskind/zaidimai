@@ -1,0 +1,359 @@
+<!doctype html>
+<html lang="lt">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Tikra ar AI? Ekranas</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Nunito:wght@700;800;900&display=swap">
+<link rel="stylesheet" href="style.css">
+<script src="https://unpkg.com/mqtt@5.16.0/dist/mqtt.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
+<script src="net.js"></script>
+<script src="data.js"></script>
+<style>
+/* The class screen on the Mac: one full-screen stage, keyboard driven (Space = next) */
+body { height: 100vh; overflow: hidden; }
+.screen { position: fixed; inset: 0; display: none; }
+.screen.on { display: grid; }
+
+#lobby { grid-template-columns: 1fr 1fr; gap: 4vw; padding: 5vh 5vw; align-items: center; }
+.join-box { display: grid; gap: 2.2vh; justify-items: start; }
+.join-box h1 { font-size: 8vh; }
+.code-label { font-weight: 900; font-size: 3vh; color: var(--ink-dim); margin: 0; }
+.code { font-weight: 900; font-size: 17vh; line-height: 0.9; letter-spacing: 0.08em; color: var(--gem); text-shadow: 6px 6px 0 #000; }
+.qr-row { display: flex; gap: 2vw; align-items: center; }
+#qr { background: #fff; padding: 12px; border: 4px solid #000; }
+#qr img, #qr canvas { display: block; width: 22vh !important; height: 22vh !important; }
+.url { font-weight: 900; font-size: 3vh; overflow-wrap: anywhere; }
+.url small { display: block; color: var(--ink-dim); font-size: 2.2vh; font-weight: 800; }
+.who-box { display: grid; gap: 2vh; align-content: center; }
+.who-box h2 { margin: 0; font-size: 4vh; color: var(--gold); text-shadow: 3px 3px 0 #000; }
+.names { display: flex; flex-wrap: wrap; gap: 1.2vh; min-height: 9vh; align-content: flex-start; }
+.name-chip { font: 900 3.6vh var(--word); color: var(--ink); cursor: pointer; padding: 0.6vh 1.6vh; background: var(--stone); border: 3px solid #000; box-shadow: 4px 4px 0 #000; animation: pop .35s ease-out; }
+.empty { color: var(--ink-dim); font-weight: 800; font-size: 3vh; }
+.btns { display: flex; gap: 1.4vw; flex-wrap: wrap; align-items: center; }
+.net { font-weight: 800; font-size: 2vh; color: var(--ink-dim); display: flex; align-items: center; gap: 8px; }
+.net i { width: 14px; height: 14px; border: 2px solid #000; background: var(--bad); display: inline-block; }
+.net.ok i { background: var(--good); }
+
+#play { grid-template-rows: auto 1fr; }
+.top { display: flex; align-items: center; gap: 2vw; padding: 1.4vh 2vw; background: rgba(15,13,22,0.85); border-bottom: 4px solid #000; min-width: 0; }
+.count { font-weight: 900; font-size: 3.4vh; white-space: nowrap; }
+.q { font-weight: 900; font-size: 3.4vh; color: var(--gold); white-space: nowrap; }
+.dots { display: flex; gap: 0.8vw; flex-wrap: wrap; flex: 1; min-width: 0; }
+.dot { font-weight: 900; font-size: 2.2vh; padding: 0.3vh 1vh; border: 3px solid #000; background: #2a2734; color: var(--ink-dim); transition: background .2s; }
+.dot.got { background: var(--gem); color: #0d2a27; }
+.class { font-weight: 900; font-size: 3vh; white-space: nowrap; }
+.class b { color: var(--gem); }
+/* the picture shrinks to make room for the answer, so nothing gets covered */
+.stage { position: relative; min-height: 0; display: grid; grid-template-rows: minmax(0, 1fr) auto; background: #000; overflow: hidden; }
+.stage img, .stage video { grid-row: 1; width: 100%; height: 100%; min-height: 0; object-fit: contain; display: block; }
+.hint { position: absolute; right: 2vw; bottom: 2vh; font-weight: 900; font-size: 2.4vh; z-index: 2; }
+.reveal { grid-row: 2; display: none; justify-items: center; gap: 1.2vh; padding: 2.2vh 12vw 2.6vh;
+  background: #0f0d16; border-top: 4px solid #000; text-align: center; }
+.reveal.on { display: grid; }
+.stamp { font-weight: 900; font-size: 10vh; line-height: 1; padding: 0.5vh 4vh; border: 6px solid #000; box-shadow: 8px 8px 0 #000;
+  transform: rotate(-4deg); animation: stamp .45s cubic-bezier(.2,1.6,.4,1); }
+.stamp.real { background: var(--real); color: #10300a; }
+.stamp.ai { background: var(--ai); color: #fff; }
+.tell { font-weight: 900; font-size: 4.2vh; max-width: 70ch; text-shadow: 2px 2px 0 #000; margin: 0; }
+.guessed { font-weight: 900; font-size: 3.2vh; color: var(--gold); margin: 0; }
+
+#end { place-items: center; padding: 4vh 4vw; overflow: auto; }
+.end-box { display: grid; gap: 3vh; justify-items: center; text-align: center; }
+.end-box h1 { font-size: 9vh; }
+.big { font-weight: 900; font-size: 7vh; margin: 0; }
+.big b { color: var(--gem); }
+.verdict { font-weight: 900; font-size: 4vh; color: var(--gold); margin: 0; }
+#credits { place-items: start center; overflow: auto; padding: 4vh 4vw; }
+.cred { max-width: 1100px; display: grid; gap: 1.6vh; }
+.cred h1 { font-size: 6vh; }
+.cred ol { margin: 0; padding-left: 1.6em; display: grid; gap: 0.6vh; font-weight: 700; font-size: 1.05rem; }
+.cred a { color: var(--gem); }
+.cred p { color: var(--ink-dim); font-weight: 700; margin: 0; }
+
+@keyframes pop { from { transform: scale(.4); opacity: 0; } to { transform: none; opacity: 1; } }
+@keyframes stamp { from { transform: rotate(-4deg) scale(2.4); opacity: 0; } to { transform: rotate(-4deg) scale(1); opacity: 1; } }
+@media (prefers-reduced-motion: reduce) { .stamp, .name-chip { animation: none; } }
+</style>
+</head>
+<body>
+
+<section class="screen" id="lobby">
+  <div class="join-box">
+    <h1>Tikra ar AI?</h1>
+    <p class="code-label">Kodas</p>
+    <div class="code" id="code">····</div>
+    <div class="qr-row">
+      <div id="qr" aria-label="QR kodas prisijungti"></div>
+      <div class="url">gytiskind.github.io/zaidimai<small>→ Tikra ar AI? → įvesk kodą</small></div>
+    </div>
+  </div>
+  <div class="who-box">
+    <h2>Prisijungė</h2>
+    <div class="names" id="names"><span class="empty">Laukiam planšečių...</span></div>
+    <div class="btns">
+      <button class="wbtn go" id="start">Pradėti ▶</button>
+      <button class="wbtn" id="offline">Be planšečių</button>
+    </div>
+    <div class="net" id="net"><i></i><span>Jungiamasi...</span></div>
+    <div class="btns">
+      <button class="wbtn small" id="newcode">Naujas kodas</button>
+      <a class="wbtn small" href="../">← Meniu</a>
+    </div>
+  </div>
+</section>
+
+<section class="screen" id="play">
+  <div class="top">
+    <span class="count" id="count">1 / 24</span>
+    <span class="q">Tikra ar AI?</span>
+    <div class="dots" id="dots"></div>
+    <span class="class" id="class"></span>
+  </div>
+  <div class="stage" id="stage">
+    <div class="reveal" id="reveal">
+      <div class="stamp" id="stamp"></div>
+      <p class="tell" id="tell"></p>
+      <p class="guessed" id="guessed"></p>
+    </div>
+    <button class="wbtn go hint" id="next">Atskleisti</button>
+  </div>
+</section>
+
+<section class="screen" id="end">
+  <div class="end-box">
+    <h1>Pabaiga!</h1>
+    <p class="big" id="endbig"></p>
+    <p class="verdict" id="verdict"></p>
+    <div class="btns">
+      <button class="wbtn" id="showcred">Kas sukūrė paveikslėlius</button>
+      <button class="wbtn" id="again">Žaisti iš naujo</button>
+    </div>
+  </div>
+</section>
+
+<section class="screen" id="credits">
+  <div class="cred">
+    <h1>Paveikslėlių autoriai</h1>
+    <p>Visi paveikslėliai ir vaizdo įrašai iš Wikimedia Commons. Kai kurie apkarpyti, sumažinti arba sutrumpinti.</p>
+    <ol id="credlist"></ol>
+    <div class="btns"><button class="wbtn" id="credback">Atgal</button></div>
+  </div>
+</section>
+
+<script>
+(() => {
+  const ITEMS = window.ITEMS;
+  const N = ITEMS.length;
+  const KEY = 'tai-host';
+  const $ = (id) => document.getElementById(id);
+  const esc = (t) => String(t).replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
+  const newCode = () => String(1000 + Math.floor(Math.random() * 9000));
+
+  // phase: lobby | q | reveal | end. players: pid -> {name, score}. answers: pid -> 'real'|'ai' for the current item.
+  function fresh(code) {
+    return { code: code || newCode(), phase: 'lobby', idx: 0, offline: false, players: {}, answers: {}, res: {},
+             classPts: 0, classMax: 0, lastGot: 0 };
+  }
+  let S;
+  try { S = JSON.parse(localStorage.getItem(KEY) || 'null'); } catch (e) {}
+  if (!S || !S.code) S = fresh();
+  const save = () => { try { localStorage.setItem(KEY, JSON.stringify(S)); } catch (e) {} };
+
+  let net = null;
+  function connect() {
+    if (net) { net.close(); net = null; }
+    net = Net(S.code, onMsg, (on, all) => {
+      const el = $('net');
+      el.classList.toggle('ok', on > 0);
+      el.querySelector('span').textContent = on > 0 ? `Ryšys veikia (${on} iš ${all})` : 'Nėra ryšio. Galima žaisti be planšečių.';
+    });
+    publish();
+  }
+
+  function publicState() {
+    const players = {}, score = {};
+    for (const [pid, p] of Object.entries(S.players)) { players[pid] = p.name; score[pid] = p.score; }
+    const st = { t: 'state', seq: Date.now(), phase: S.phase, idx: S.idx, n: N, players, score,
+                 got: Object.keys(S.answers), offline: S.offline };
+    if (S.phase === 'reveal') { st.answer = ITEMS[S.idx].answer; st.res = S.res; }
+    if (S.phase === 'end') { st.classPts = S.classPts; st.classMax = S.classMax; }
+    return st;
+  }
+  let pubTimer = null;
+  function publish() {
+    if (!net) return;
+    clearTimeout(pubTimer);
+    net.send('state', publicState(), true);
+    // re-send now and then so a tablet that missed a message catches up
+    pubTimer = setTimeout(publish, 4000);
+  }
+
+  function onMsg(sub, m) {
+    if (sub !== 'up' || !m.pid) return;
+    const name = String(m.name || '').trim().slice(0, 14);
+    if (m.t === 'join' && name) {
+      // same name from a reloaded tablet keeps its score
+      for (const [pid, p] of Object.entries(S.players)) {
+        if (pid !== m.pid && p.name.toLowerCase() === name.toLowerCase()) { S.players[m.pid] = p; delete S.players[pid]; break; }
+      }
+      if (!S.players[m.pid]) S.players[m.pid] = { name, score: 0 };
+      else S.players[m.pid].name = name;
+    } else if (m.t === 'ans') {
+      if (!S.players[m.pid] && name) S.players[m.pid] = { name, score: 0 };
+      if (S.phase === 'q' && m.idx === S.idx && (m.a === 'real' || m.a === 'ai') && S.players[m.pid]) S.answers[m.pid] = m.a;
+    } else return;
+    save(); render(); publish();
+  }
+
+  // ---- flow ----
+  function start(offline) {
+    S.offline = !!offline; S.phase = 'q'; S.idx = 0; S.answers = {}; S.res = {}; S.classPts = 0; S.classMax = 0;
+    for (const p of Object.values(S.players)) p.score = 0;
+    save(); render(true); publish();
+  }
+  function reveal() {
+    const ans = ITEMS[S.idx].answer;
+    S.res = {};
+    let ok = 0, all = 0;
+    for (const [pid, a] of Object.entries(S.answers)) {
+      if (!S.players[pid]) continue;
+      all++;
+      S.res[pid] = a === ans;
+      if (a === ans) { ok++; S.players[pid].score++; }
+    }
+    S.classPts += ok; S.classMax += all; S.lastGot = ok; S.lastAll = all;
+    S.phase = 'reveal'; save(); render(); publish();
+  }
+  function next() {
+    if (S.idx + 1 >= N) { S.phase = 'end'; save(); render(); publish(); return; }
+    S.idx++; S.answers = {}; S.res = {}; S.phase = 'q'; save(); render(true); publish();
+  }
+  function advance() {
+    if (S.phase === 'lobby') start(false);
+    else if (S.phase === 'q') reveal();
+    else if (S.phase === 'reveal') next();
+  }
+
+  // ---- drawing ----
+  let shownIdx = -1;
+  const warmVideo = Object.assign(document.createElement('video'), { preload: 'auto', muted: true });
+  function showMedia(force) {
+    const it = ITEMS[S.idx];
+    if (!force && shownIdx === S.idx) return;
+    shownIdx = S.idx;
+    const stage = $('stage');
+    stage.querySelectorAll('img.m, video.m').forEach((el) => el.remove());
+    let el;
+    if (it.kind === 'video') {
+      el = document.createElement('video');
+      Object.assign(el, { src: it.file, autoplay: true, loop: true, muted: true, playsInline: true });
+      el.setAttribute('muted', ''); el.setAttribute('playsinline', '');
+    } else {
+      el = document.createElement('img');
+      el.src = it.file; el.alt = '';
+    }
+    el.className = 'm';
+    stage.prepend(el);
+    if (el.play) el.play().catch(() => {});
+    // warm the next item so it appears instantly
+    const nx = ITEMS[S.idx + 1];
+    if (nx) {
+      if (nx.kind === 'video') { warmVideo.src = nx.file; warmVideo.load(); }
+      else { warmVideo.removeAttribute('src'); warmVideo.load(); new Image().src = nx.file; }
+    }
+  }
+
+  function render(newItem) {
+    document.querySelectorAll('.screen').forEach((s) => s.classList.remove('on'));
+    const pids = Object.keys(S.players);
+    if (S.phase === 'lobby') {
+      $('lobby').classList.add('on');
+      $('code').textContent = S.code;
+      $('names').innerHTML = pids.length
+        ? pids.map((pid) => `<button class="name-chip" data-pid="${esc(pid)}" title="Spustelėk, kad pašalintum">${esc(S.players[pid].name)}</button>`).join('')
+        : '<span class="empty">Laukiam planšečių...</span>';
+      return;
+    }
+    if (S.phase === 'end') {
+      $('end').classList.add('on');
+      if (S.offline || !S.classMax) { $('endbig').innerHTML = `Peržiūrėjote visus <b>${N}</b>!`; $('verdict').textContent = 'Dabar jūs žinot, kad AI gali apgauti akis.'; }
+      else {
+        const pct = S.classPts / S.classMax;
+        $('endbig').innerHTML = `Kartu atspėjote <b>${S.classPts}</b> iš ${S.classMax}`;
+        $('verdict').textContent = pct >= 0.8 ? 'Tikri AI detektyvai!' : pct >= 0.6 ? 'Puikiai! AI jūsų beveik neapgauna.' : 'AI moka apgauti. Net suaugusius!';
+      }
+      return;
+    }
+    $('play').classList.add('on');
+    $('count').textContent = `${S.idx + 1} / ${N}`;
+    showMedia(newItem);
+    const answered = Object.keys(S.answers);
+    $('dots').innerHTML = S.offline ? '' : pids.map((pid) =>
+      `<span class="dot ${answered.includes(pid) ? 'got' : ''}">${esc(S.players[pid].name)}</span>`).join('');
+    $('class').innerHTML = S.offline ? '' : `Klasė: <b>${S.classPts}</b> ✓`;
+    const rv = $('reveal');
+    if (S.phase === 'reveal') {
+      const it = ITEMS[S.idx];
+      const st = $('stamp');
+      st.className = 'stamp ' + it.answer;
+      st.textContent = it.answer === 'real' ? 'TIKRA!' : 'AI!';
+      $('tell').textContent = it.tell_lt;
+      $('guessed').textContent = S.offline || !S.lastAll ? '' : `Atspėjo ${S.lastGot} iš ${S.lastAll}`;
+      rv.classList.add('on');
+      $('next').textContent = S.idx + 1 >= N ? 'Pabaiga ▶' : 'Toliau ▶';
+    } else {
+      rv.classList.remove('on');
+      const all = !S.offline && pids.length > 0 && answered.length >= pids.length;
+      $('next').textContent = all ? 'Visi atsakė! Atskleisti' : 'Atskleisti';
+    }
+  }
+
+  function renderCredits() {
+    $('credlist').innerHTML = ITEMS.map((it) => {
+      const lic = it.license_url ? `<a href="${esc(it.license_url)}" target="_blank" rel="noopener">${esc(it.license)}</a>` : esc(it.license);
+      return `<li>${esc(it.author)}, ${lic}, <a href="${esc(it.source_url)}" target="_blank" rel="noopener">šaltinis</a>${it.answer === 'ai' ? ' (sukurta AI)' : ''}</li>`;
+    }).join('');
+  }
+
+  // ---- controls ----
+  // a tablet that left (or a typo name) can be removed in the lobby by clicking its name
+  $('names').addEventListener('click', (e) => {
+    const b = e.target.closest('.name-chip'); if (!b) return;
+    delete S.players[b.dataset.pid]; save(); render(); publish();
+  });
+  $('start').onclick = () => start(false);
+  $('offline').onclick = () => start(true);
+  $('next').onclick = advance;
+  $('newcode').onclick = () => { if (net) net.clearRetained(); S = fresh(); save(); connect(); drawQR(); render(); };
+  $('again').onclick = () => { S.phase = 'lobby'; S.idx = 0; S.answers = {}; S.res = {}; S.offline = false; save(); render(); publish(); };
+  $('showcred').onclick = () => { renderCredits(); document.querySelectorAll('.screen').forEach((s) => s.classList.remove('on')); $('credits').classList.add('on'); };
+  $('credback').onclick = () => render();
+  document.addEventListener('keydown', (e) => {
+    if (e.target.closest && e.target.closest('input')) return;
+    if (e.key === ' ' || e.key === 'Enter' || e.key === 'ArrowRight') { e.preventDefault(); if (e.target.blur) e.target.blur(); advance(); }
+    else if (e.key === 'f' || e.key === 'F') { document.fullscreenElement ? document.exitFullscreen() : document.documentElement.requestFullscreen().catch(() => {}); }
+  });
+
+  function drawQR() {
+    const url = new URL('./?k=' + S.code, location.href).href;
+    $('qr').innerHTML = '';
+    try { new QRCode($('qr'), { text: url, width: 360, height: 360, correctLevel: QRCode.CorrectLevel.M }); } catch (e) {}
+    $('qr').title = url;
+  }
+
+  // keep the Mac screen awake during the lesson
+  async function wake() { try { await navigator.wakeLock.request('screen'); } catch (e) {} }
+  document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'visible') wake(); });
+  wake();
+
+  drawQR();
+  connect();
+  render(true);
+})();
+</script>
+</body>
+</html>
