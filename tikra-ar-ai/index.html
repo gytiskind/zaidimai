@@ -185,7 +185,7 @@ input:focus { outline: none; border-color: var(--gem); }
     } else if (st.phase === 'q') {
       view('v-q');
       const a = myAns[st.idx];
-      $('qn').textContent = `${st.idx + 1} / ${st.n}  ·  Žiūrėk į ekraną!`;
+      $('qn').textContent = `${st.rounds > 1 ? st.round + ' raundas · ' : ''}${st.idx + 1} / ${st.n}  ·  Žiūrėk į ekraną!`;
       document.querySelectorAll('.pick').forEach((b) => {
         b.classList.toggle('chosen', a === b.dataset.a);
         b.classList.toggle('dim', !!a && a !== b.dataset.a);
@@ -207,7 +207,7 @@ input:focus { outline: none; border-color: var(--gem); }
       $('endmsg').innerHTML = place ? `<span class="place">${['', '🥇', '🥈', '🥉'][place]} ${place} vieta!</span>` : '';
       if (st.classMax) $('endmsg').insertAdjacentText('beforeend', `Visa klasė kartu: ${st.classPts} iš ${st.classMax}.`);
       // one report per finished game, even if the page reloads
-      const tag = code + ':' + Object.keys(st.players).length + ':' + st.classMax;
+      const tag = code + ':' + st.round + ':' + Object.keys(st.players).length + ':' + st.classMax;
       if (window.ZM && reported !== tag) { reported = tag; LS.set('tai-reported', tag); ZM.report('tikra-ar-ai', { score, xp: score * 10 }); }
     }
   }
