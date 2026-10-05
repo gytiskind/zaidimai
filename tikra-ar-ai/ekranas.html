@@ -108,10 +108,8 @@ body { height: 100vh; overflow: hidden; }
   <div class="who-box">
     <h2>Prisijungė</h2>
     <div class="names" id="names"><span class="empty">Laukiam planšečių...</span></div>
-    <div class="btns">
-      <button class="wbtn go" id="start">Pradėti ▶</button>
-      <button class="wbtn" id="offline">Be planšečių</button>
-    </div>
+    <div class="btns" id="rounds"></div>
+    <div class="btns"><button class="wbtn small" id="offline"></button></div>
     <div class="net" id="net"><i></i><span>Jungiamasi...</span></div>
     <div class="btns">
       <button class="wbtn small" id="newcode">Naujas kodas</button>
@@ -122,8 +120,8 @@ body { height: 100vh; overflow: hidden; }
 
 <section class="screen" id="play">
   <div class="top">
-    <span class="count" id="count">1 / 24</span>
-    <span class="q">Tikra ar AI?</span>
+    <span class="count" id="count"></span>
+    <span class="q" id="qlabel">Tikra ar AI?</span>
     <div class="dots" id="dots"></div>
     <span class="class" id="class"></span>
   </div>
@@ -139,7 +137,7 @@ body { height: 100vh; overflow: hidden; }
 
 <section class="screen" id="end">
   <div class="end-box">
-    <h1>Pabaiga!</h1>
+    <h1 id="endtitle">Pabaiga!</h1>
     <p class="big" id="endbig"></p>
     <p class="verdict" id="verdict"></p>
     <div class="podium" id="podium">
@@ -149,8 +147,9 @@ body { height: 100vh; overflow: hidden; }
     </div>
     <div class="btns">
       <button class="wbtn go" id="podnext"></button>
+      <button class="wbtn go" id="nextround"></button>
       <button class="wbtn" id="showcred">Kas sukūrė paveikslėlius</button>
-      <button class="wbtn" id="again">Žaisti iš naujo</button>
+      <button class="wbtn" id="again">Į pradžią</button>
     </div>
   </div>
 </section>
@@ -166,8 +165,10 @@ body { height: 100vh; overflow: hidden; }
 
 <script>
 (() => {
-  const ITEMS = window.ITEMS;
-  const N = ITEMS.length;
+  // the game has up to two rounds; the teacher picks one in the lobby
+  const ROUNDS = window.ROUNDS || [window.ITEMS];
+  let ITEMS = ROUNDS[0], N = ITEMS.length;
+  function useRound(r) { S.round = Math.min(Math.max(1, r || 1), ROUNDS.length); ITEMS = ROUNDS[S.round - 1]; N = ITEMS.length; }
   const KEY = 'tai-host';
   const $ = (id) => document.getElementById(id);
   const esc = (t) => String(t).replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
@@ -182,6 +183,8 @@ body { height: 100vh; overflow: hidden; }
   let S;
   try { S = JSON.parse(localStorage.getItem(KEY) || 'null'); } catch (e) {}
   if (!S || !S.code) S = fresh();
+  useRound(S.round);
+  if (S.idx >= N) { S.phase = 'lobby'; S.idx = 0; }
   const save = () => { try { localStorage.setItem(KEY, JSON.stringify(S)); } catch (e) {} };
 
   let net = null;
@@ -198,7 +201,7 @@ body { height: 100vh; overflow: hidden; }
   function publicState() {
     const players = {}, score = {};
     for (const [pid, p] of Object.entries(S.players)) { players[pid] = p.name; score[pid] = p.score; }
-    const st = { t: 'state', seq: Date.now(), phase: S.phase, idx: S.idx, n: N, players, score,
+    const st = { t: 'state', seq: Date.now(), phase: S.phase, idx: S.idx, n: N, round: S.round, rounds: ROUNDS.length, players, score,
                  got: Object.keys(S.answers), offline: S.offline };
     if (S.phase === 'reveal') { st.answer = ITEMS[S.idx].answer; st.res = S.res; }
     if (S.phase === 'end') {
@@ -238,8 +241,10 @@ body { height: 100vh; overflow: hidden; }
   }
 
   // ---- flow ----
-  function start(offline) {
-    S.offline = !!offline; S.phase = 'q'; S.idx = 0; S.answers = {}; S.res = {}; S.classPts = 0; S.classMax = 0;
+  const nextRound = () => (S.lastDone ? (S.lastDone % ROUNDS.length) + 1 : 1);
+  function start(round) {
+    useRound(round);
+    S.offline = !!S.offlinePick; S.phase = 'q'; S.idx = 0; S.answers = {}; S.res = {}; S.classPts = 0; S.classMax = 0;
     for (const p of Object.values(S.players)) { p.score = 0; p.time = 0; }
     S.qStart = Date.now(); S.atime = {}; S.podium = []; S.podStep = 0;
     save(); render(true); publish();
@@ -263,12 +268,12 @@ body { height: 100vh; overflow: hidden; }
       S.podium = Object.keys(S.players).filter((pid) => S.players[pid].score > 0)
         .sort((a, b) => (S.players[b].score - S.players[a].score) || ((S.players[a].time || 0) - (S.players[b].time || 0)))
         .slice(0, 3);
-      S.podStep = 0; S.phase = 'end'; save(); render(); publish(); return;
+      S.podStep = 0; S.lastDone = S.round; S.phase = 'end'; save(); render(); publish(); return;
     }
     S.idx++; S.answers = {}; S.res = {}; S.atime = {}; S.qStart = Date.now(); S.phase = 'q'; save(); render(true); publish();
   }
   function advance() {
-    if (S.phase === 'lobby') start(false);
+    if (S.phase === 'lobby') start(nextRound());
     else if (S.phase === 'q') reveal();
     else if (S.phase === 'reveal') next();
     else if (S.phase === 'end' && S.podStep < (S.podium || []).length) { S.podStep++; save(); render(); publish(); }
@@ -312,6 +317,11 @@ body { height: 100vh; overflow: hidden; }
       $('names').innerHTML = pids.length
         ? pids.map((pid) => `<button class="name-chip" data-pid="${esc(pid)}" title="Spustelėk, kad pašalintum">${esc(S.players[pid].name)}</button>`).join('')
         : '<span class="empty">Laukiam planšečių...</span>';
+      const nr = nextRound();
+      $('rounds').innerHTML = ROUNDS.map((r, i) =>
+        `<button class="wbtn ${i + 1 === nr ? 'go' : ''}" data-round="${i + 1}">${ROUNDS.length > 1 ? (i + 1) + ' raundas' : 'Pradėti'} ▶ <small>(${r.length})</small></button>`).join('');
+      $('offline').textContent = S.offlinePick ? '✓ Be planšečių (tik ekranas)' : 'Be planšečių';
+      $('offline').classList.toggle('go', !!S.offlinePick);
       return;
     }
     if (S.phase === 'end') {
@@ -322,11 +332,16 @@ body { height: 100vh; overflow: hidden; }
         $('endbig').innerHTML = `Kartu atspėjote <b>${S.classPts}</b> iš ${S.classMax}`;
         $('verdict').textContent = pct >= 0.8 ? 'Tikri AI detektyvai!' : pct >= 0.6 ? 'Puikiai! AI jūsų beveik neapgauna.' : 'AI moka apgauti. Net suaugusius!';
       }
+      const more = S.round < ROUNDS.length;
+      $('endtitle').textContent = ROUNDS.length > 1 ? `${S.round} raundas baigtas!` : 'Pabaiga!';
+      $('nextround').style.display = more ? '' : 'none';
+      $('nextround').textContent = `${S.round + 1} raundas ▶`;
       renderPodium();
       return;
     }
     $('play').classList.add('on');
     $('count').textContent = `${S.idx + 1} / ${N}`;
+    $('qlabel').textContent = ROUNDS.length > 1 ? `${S.round} raundas` : 'Tikra ar AI?';
     showMedia(newItem);
     const answered = Object.keys(S.answers);
     $('dots').innerHTML = S.offline ? '' : pids.map((pid) =>
@@ -371,7 +386,7 @@ body { height: 100vh; overflow: hidden; }
   }
 
   function renderCredits() {
-    $('credlist').innerHTML = ITEMS.map((it) => {
+    $('credlist').innerHTML = window.ITEMS.map((it) => {
       const lic = it.license_url ? `<a href="${esc(it.license_url)}" target="_blank" rel="noopener">${esc(it.license)}</a>` : esc(it.license);
       return `<li>${esc(it.author)}, ${lic}, <a href="${esc(it.source_url)}" target="_blank" rel="noopener">šaltinis</a>${it.answer === 'ai' ? ' (sukurta AI)' : ''}</li>`;
     }).join('');
@@ -383,8 +398,9 @@ body { height: 100vh; overflow: hidden; }
     const b = e.target.closest('.name-chip'); if (!b) return;
     delete S.players[b.dataset.pid]; save(); render(); publish();
   });
-  $('start').onclick = () => start(false);
-  $('offline').onclick = () => start(true);
+  $('rounds').addEventListener('click', (e) => { const b = e.target.closest('[data-round]'); if (b) start(+b.dataset.round); });
+  $('offline').onclick = () => { S.offlinePick = !S.offlinePick; save(); render(); };
+  $('nextround').onclick = () => start(S.round + 1);
   $('next').onclick = advance;
   $('newcode').onclick = () => { if (net) net.clearRetained(); S = fresh(); save(); connect(); drawQR(); render(); };
   $('again').onclick = () => { S.phase = 'lobby'; S.idx = 0; S.answers = {}; S.res = {}; S.offline = false; S.podium = []; S.podStep = 0; save(); render(); publish(); };
