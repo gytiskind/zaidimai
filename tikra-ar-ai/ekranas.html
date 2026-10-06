@@ -12,7 +12,7 @@
 <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
 <script src="net.js"></script>
 <script src="data.js"></script>
-<!-- extra rounds with clips that cannot be published; exists only on the Mac, so on GitHub Pages this 404s harmlessly -->
+<!-- full rounds incl. clips that cannot be published; exists only on the Mac, so on GitHub Pages this 404s harmlessly -->
 <script src="local/local.js" onerror="this.remove()"></script>
 <style>
 /* The class screen on the Mac: one full-screen stage, keyboard driven (Space = next) */
@@ -114,6 +114,7 @@ body { height: 100vh; overflow: hidden; }
     <div class="btns" id="rounds"></div>
     <div class="btns"><button class="wbtn small" id="offline"></button></div>
     <div class="net" id="net"><i></i><span>Jungiamasi...</span></div>
+    <div class="net ver" id="ver"></div>
     <div class="btns">
       <button class="wbtn small" id="newcode">Naujas kodas</button>
       <a class="wbtn small" href="../">← Meniu</a>
@@ -169,9 +170,8 @@ body { height: 100vh; overflow: hidden; }
 <script>
 (() => {
   // the game has up to two rounds; the teacher picks one in the lobby
-  const LOCAL = window.LOCAL_ROUNDS || [];
-  const ROUNDS = (window.ROUNDS || [window.ITEMS]).concat(LOCAL.map((r) => r.items));
-  const NAMES = ROUNDS.map((r, i) => (i >= ROUNDS.length - LOCAL.length ? LOCAL[i - (ROUNDS.length - LOCAL.length)].name : ''));
+  const FULL = !!window.ROUNDS_FULL;   // opened from the Mac with the newest AI clips
+  const ROUNDS = window.ROUNDS_FULL || window.ROUNDS || [window.ITEMS];
   const ALL_ITEMS = ROUNDS.flat();
   let ITEMS = ROUNDS[0], N = ITEMS.length;
   function useRound(r) { S.round = Math.min(Math.max(1, r || 1), ROUNDS.length); ITEMS = ROUNDS[S.round - 1]; N = ITEMS.length; }
@@ -326,7 +326,7 @@ body { height: 100vh; overflow: hidden; }
         : '<span class="empty">Laukiam planšečių...</span>';
       const nr = nextRound();
       $('rounds').innerHTML = ROUNDS.map((r, i) =>
-        `<button class="wbtn ${i + 1 === nr ? 'go' : ''}" data-round="${i + 1}">${ROUNDS.length > 1 ? (i + 1) + ' raundas' : 'Pradėti'}${NAMES[i] ? ': ' + esc(NAMES[i]) : ''} ▶ <small>(${r.length})</small></button>`).join('');
+        `<button class="wbtn ${i + 1 === nr ? 'go' : ''}" data-round="${i + 1}">${ROUNDS.length > 1 ? (i + 1) + ' raundas' : 'Pradėti'} ▶ <small>(${r.length})</small></button>`).join('');
       $('offline').textContent = S.offlinePick ? '✓ Be planšečių (tik ekranas)' : 'Be planšečių';
       $('offline').classList.toggle('go', !!S.offlinePick);
       return;
@@ -348,7 +348,7 @@ body { height: 100vh; overflow: hidden; }
     }
     $('play').classList.add('on');
     $('count').textContent = `${S.idx + 1} / ${N}`;
-    $('qlabel').textContent = ROUNDS.length > 1 ? `${S.round} raundas${NAMES[S.round - 1] ? ': ' + NAMES[S.round - 1] : ''}` : 'Tikra ar AI?';
+    $('qlabel').textContent = ROUNDS.length > 1 ? `${S.round} raundas` : 'Tikra ar AI?';
     showMedia(newItem);
     const answered = Object.keys(S.answers);
     $('dots').innerHTML = S.offline ? '' : pids.map((pid) =>
@@ -433,6 +433,7 @@ body { height: 100vh; overflow: hidden; }
   document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'visible') wake(); });
   wake();
 
+  $('ver').textContent = FULL ? '✓ Mac versija: su naujausiais AI ir Will Smith' : 'Viešoji versija: be naujausių AI klipų. Pilnai: paleisk "Tikra ar AI ekranas" Mac\'e.';
   drawQR();
   connect();
   render(true);

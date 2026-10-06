@@ -1,4 +1,4 @@
-// Rounds built from the teacher's picks by pamokos-vaikams/tikra-ar-ai-select/build_game.py
+// Public rounds (without Mac-only clips), built from the teacher's picks by pamokos-vaikams/tikra-ar-ai-select/build_game.py
 window.ROUNDS = [
  [
   {
@@ -28,29 +28,16 @@ window.ROUNDS = [
    "has_audio": ""
   },
   {
-   "file": "media/v3-03-korgis-vlogeris.mp4",
+   "file": "media/v2-03-mamutai.mp4",
    "answer": "ai",
    "kind": "video",
-   "tell_lt": "Šuo nemoka laikyti asmenukių lazdos! Šį filmuką Sora sukūrė iš vieno sakinio apie šunį tinklaraštininką.",
-   "author": "OpenAI Sora",
-   "license": "Public domain (PD-algorithm)",
+   "tell_lt": "Mamutai išnyko prieš tūkstančius metų. Niekas negalėjo jų nufilmuoti.",
+   "author": "Sora / OpenAI",
+   "license": "Public domain",
    "license_url": "",
-   "source_url": "https://web.archive.org/web/20240216001508/https://openai.com/sora",
+   "source_url": "https://commons.wikimedia.org/wiki/File:Wooly_Mammoth_by_OpenAI_Sora.webm",
    "generator": "OpenAI Sora (2024)",
-   "note": "Official Sora showcase, prompt \"A corgi vlogging itself in tropical Maui.\" File: https://cdn.openai.com/sora/videos/vlogger-corgi.mp4. First 10 s. Edges cropped 12% to remove the SORA watermark.",
-   "has_audio": ""
-  },
-  {
-   "file": "media/v3-02-futbolas-gulomis.jpg",
-   "answer": "real",
-   "kind": "image",
-   "tell_lt": "Tikra! Tai laisvojo stiliaus futbolas. Žaidėjas žongliruoja kamuoliu net gulėdamas ant nugaros.",
-   "author": "Marie-Lan Nguyen",
-   "license": "CC BY 2.5",
-   "license_url": "https://creativecommons.org/licenses/by/2.5",
-   "source_url": "https://commons.wikimedia.org/wiki/File:Football_freestyle_2013_Masters_epee_t171023.jpg",
-   "generator": "",
-   "note": "Nikon D800E EXIF 2013-12-01. Small Nike logos on ball and shoes, not the focus.",
+   "note": "Original from openai.com/sora (Feb 2024). Edges cropped slightly. Kept from v1 (item 04).",
    "has_audio": ""
   },
   {
@@ -93,19 +80,6 @@ window.ROUNDS = [
    "has_audio": ""
   },
   {
-   "file": "media/v2-09-vaikai-prie-kompiuterio.jpg",
-   "answer": "ai",
-   "kind": "image",
-   "tell_lt": "Pažiūrėk į dešinį kompiuterį: vietoj obuoliuko ten keistas vabalas. O visi trys vaikai spokso į tave vienodu žvilgsniu.",
-   "author": "Ziko",
-   "license": "CC0",
-   "license_url": "https://creativecommons.org/publicdomain/zero/1.0/",
-   "source_url": "https://commons.wikimedia.org/wiki/File:2024-07_SD_ZvD_three_children_at_a_computer.png",
-   "generator": "Nenurodytas (failo pavadinime SD, tikriausiai Stable Diffusion)",
-   "note": "File page description: 'Three children at a computer, AI image'.",
-   "has_audio": ""
-  },
-  {
    "file": "media/v2-08-kiauliu-lenktynes.jpg",
    "answer": "real",
    "kind": "image",
@@ -116,6 +90,19 @@ window.ROUNDS = [
    "source_url": "https://commons.wikimedia.org/wiki/File:Pig_racing_at_Pennywell_Farm.jpg",
    "generator": "",
    "note": "Nikon D90 EXIF 2012-04-02. Pennywell Farm, Devon.",
+   "has_audio": ""
+  },
+  {
+   "file": "media/v2-15-vaiku-futbolo-treniruote.jpg",
+   "answer": "ai",
+   "kind": "image",
+   "tell_lt": "Pažiūrėk į berniuką kairėje: jo ranka išlenda tiesiai pro marškinėlius. O vaikų pirštai keistai susilieję.",
+   "author": "CANVA (uploaded by Commons user)",
+   "license": "Public domain",
+   "license_url": "",
+   "source_url": "https://commons.wikimedia.org/wiki/File:%D9%85%D8%AF%D8%B1%D8%A8_%D9%83%D8%B1%D8%A9_%D8%A7%D9%84%D9%82%D8%AF%D9%85_%D9%8A%D9%82%D9%88%D9%85_%D8%A8%D8%AA%D8%AF%D8%B1%D9%8A%D8%A8_%D8%A7%D9%84%D9%84%D8%A7%D8%B9%D8%A8%D9%8A%D9%86_%D8%B7%D8%B1%D9%8A%D9%82%D8%A9_%D8%A7%D9%84%D8%AA%D8%B3%D8%AF%D9%8A%D8%AF.jpg",
+   "generator": "Canva AI (modelis nenurodytas)",
+   "note": "File page marks it AI (Restrictions: ai; categories AI-generated association football, AI misgeneration). EXIF Software: Canva.",
    "has_audio": ""
   },
   {
@@ -145,42 +132,16 @@ window.ROUNDS = [
    "has_audio": ""
   },
   {
-   "file": "media/v2-15-vaiku-futbolo-treniruote.jpg",
+   "file": "media/v2-09-vaikai-prie-kompiuterio.jpg",
    "answer": "ai",
    "kind": "image",
-   "tell_lt": "Pažiūrėk į berniuką kairėje: jo ranka išlenda tiesiai pro marškinėlius. O vaikų pirštai keistai susilieję.",
-   "author": "CANVA (uploaded by Commons user)",
-   "license": "Public domain",
-   "license_url": "",
-   "source_url": "https://commons.wikimedia.org/wiki/File:%D9%85%D8%AF%D8%B1%D8%A8_%D9%83%D8%B1%D8%A9_%D8%A7%D9%84%D9%82%D8%AF%D9%85_%D9%8A%D9%82%D9%88%D9%85_%D8%A8%D8%AA%D8%AF%D8%B1%D9%8A%D8%A8_%D8%A7%D9%84%D9%84%D8%A7%D8%B9%D8%A8%D9%8A%D9%86_%D8%B7%D8%B1%D9%8A%D9%82%D8%A9_%D8%A7%D9%84%D8%AA%D8%B3%D8%AF%D9%8A%D8%AF.jpg",
-   "generator": "Canva AI (modelis nenurodytas)",
-   "note": "File page marks it AI (Restrictions: ai; categories AI-generated association football, AI misgeneration). EXIF Software: Canva.",
-   "has_audio": ""
-  },
-  {
-   "file": "media/v3-09-motociklininkas-supermenas.jpg",
-   "answer": "real",
-   "kind": "image",
-   "tell_lt": "Tikra! Motociklininkas ore paleidžia motociklą ir skrenda kaip supermenas. Po akimirkos jis vėl sugriebia vairą.",
-   "author": "Stefan Krause, Germany",
-   "license": "CC BY-SA 3.0",
-   "license_url": "https://creativecommons.org/licenses/by-sa/3.0",
-   "source_url": "https://commons.wikimedia.org/wiki/File:Freestyle_Motocross_1.jpg",
-   "generator": "",
-   "note": "Nikon D80 EXIF 2008-04-27. Trick: Superman seat grab. KTM stickers on the bike, not the focus.",
-   "has_audio": ""
-  },
-  {
-   "file": "media/v3-11-suo-prie-kompiuterio.jpg",
-   "answer": "ai",
-   "kind": "image",
-   "tell_lt": "Pažiūrėk į šuns kaklą: antkaklis keistai susipynęs su kailiu. O ekrane raidės neįskaitomos.",
-   "author": "Lwneal",
-   "license": "CC BY-SA 4.0",
-   "license_url": "https://creativecommons.org/licenses/by-sa/4.0",
-   "source_url": "https://commons.wikimedia.org/wiki/File:Example-dog-on-the-internet.png",
-   "generator": "Stable Diffusion",
-   "note": "Prompt: \"Cinematic photo of a dog on the Internet editing Wikipedia\", seed 3219238372.",
+   "tell_lt": "Pažiūrėk į dešinį kompiuterį: vietoj obuoliuko ten keistas vabalas. O visi trys vaikai spokso į tave vienodu žvilgsniu.",
+   "author": "Ziko",
+   "license": "CC0",
+   "license_url": "https://creativecommons.org/publicdomain/zero/1.0/",
+   "source_url": "https://commons.wikimedia.org/wiki/File:2024-07_SD_ZvD_three_children_at_a_computer.png",
+   "generator": "Nenurodytas (failo pavadinime SD, tikriausiai Stable Diffusion)",
+   "note": "File page description: 'Three children at a computer, AI image'.",
    "has_audio": ""
   },
   {
@@ -195,100 +156,9 @@ window.ROUNDS = [
    "generator": "",
    "note": "Original is 4.97 s; slowed to 0.9x speed (5.5 s) to meet the 5 s minimum.",
    "has_audio": ""
-  },
-  {
-   "file": "media/v2-18-triusiai.jpg",
-   "answer": "ai",
-   "kind": "image",
-   "tell_lt": "Failas vadinasi „Trys triušiai“, o jų keturi! Ir visi kaip nukopijuoti: tos pačios ausys, tas pats snukutis.",
-   "author": "Fooocus, prompted by Commons user",
-   "license": "CC BY-SA 4.0",
-   "license_url": "https://creativecommons.org/licenses/by-sa/4.0",
-   "source_url": "https://commons.wikimedia.org/wiki/File:SD_-_Three_Rabbits.png",
-   "generator": "Stable Diffusion XL (Fooocus)",
-   "note": "Uploaded to show AI limitations (AI Art Generation Handbook, Wikibooks).",
-   "has_audio": ""
-  },
-  {
-   "file": "media/v3-08-zebrazirafe.jpg",
-   "answer": "ai",
-   "kind": "image",
-   "tell_lt": "Zebražirafių nėra! Pažiūrėk į ausis: jos spalvotos lyg plastikinės.",
-   "author": "OpenAI DALL-E 2",
-   "license": "Public domain (PD-algorithm)",
-   "license_url": "",
-   "source_url": "https://commons.wikimedia.org/wiki/File:A_new_hybrid_species_%22Zebra-Giraffe%22_spotted_in_African_Safari_during_golden_hour.jpg",
-   "generator": "DALL-E 2",
-   "note": "Prompt: \"A new hybrid species Zebra-Giraffe spotted in African Safari during golden hour\". Bottom strip with the DALL-E colour bar cropped.",
-   "has_audio": ""
-  },
-  {
-   "file": "media/v2-19-kates-suolis.mp4",
-   "answer": "real",
-   "kind": "video",
-   "tell_lt": "Tikra! Katės kūnas lankstus kaip spyruoklė, todėl ji nušoka taip toli. Filmukas sulėtintas, kad matytum visą skrydį.",
-   "author": "Record 124 (Vimeo)",
-   "license": "CC BY 3.0",
-   "license_url": "https://creativecommons.org/licenses/by/3.0",
-   "source_url": "https://commons.wikimedia.org/wiki/File:Salto_-_Cat_Jump.webm",
-   "generator": "",
-   "note": "Imported from Vimeo (2017), license reviewed by bot. No camera EXIF; 2017 predates AI video generators. Cut 1.0-9.5 s.",
-   "has_audio": ""
   }
  ],
  [
-  {
-   "file": "media/v2-03-mamutai.mp4",
-   "answer": "ai",
-   "kind": "video",
-   "tell_lt": "Mamutai išnyko prieš tūkstančius metų. Niekas negalėjo jų nufilmuoti.",
-   "author": "Sora / OpenAI",
-   "license": "Public domain",
-   "license_url": "",
-   "source_url": "https://commons.wikimedia.org/wiki/File:Wooly_Mammoth_by_OpenAI_Sora.webm",
-   "generator": "OpenAI Sora (2024)",
-   "note": "Original from openai.com/sora (Feb 2024). Edges cropped slightly. Kept from v1 (item 04).",
-   "has_audio": ""
-  },
-  {
-   "file": "media/v1-02-melynas-omaras.jpg",
-   "answer": "real",
-   "kind": "image",
-   "tell_lt": "Tikras! Maždaug vienas omaras iš dviejų milijonų gimsta mėlynas.",
-   "author": "EgorovaSvetlana",
-   "license": "CC BY-SA 4.0",
-   "license_url": "https://creativecommons.org/licenses/by-sa/4.0",
-   "source_url": "https://commons.wikimedia.org/wiki/File:Blue_Lobster_Woods_Hole_Science_Aquarium.jpg",
-   "generator": "",
-   "note": "",
-   "has_audio": ""
-  },
-  {
-   "file": "media/v2-21-dalmatinas-palangeje.mp4",
-   "answer": "ai",
-   "kind": "video",
-   "tell_lt": "Labai sunku! Šį filmuką sukūrė Sora. Stebėk, kaip šuo pereina nuo vieno lango prie kito: ar ten iš viso yra kur pastatyti kojas?",
-   "author": "Sora / OpenAI",
-   "license": "Public domain",
-   "license_url": "",
-   "source_url": "https://commons.wikimedia.org/wiki/File:Open_AI_Sora_in_Action-_Italian_Pup.webm",
-   "generator": "OpenAI Sora (2024)",
-   "note": "Original from openai.com/sora (Feb 2024). Edges cropped 5% to remove the Sora watermark.",
-   "has_audio": ""
-  },
-  {
-   "file": "media/v3-15-zmogus-ant-vandens-sroves.jpg",
-   "answer": "real",
-   "kind": "image",
-   "tell_lt": "Tikra! Vyras stovi ant lentos, kurią aukštyn kelia vandens srovės. Tai vadinama flyboard.",
-   "author": "Monmar Comunicació from Vic",
-   "license": "CC BY-SA 2.0",
-   "license_url": "https://creativecommons.org/licenses/by-sa/2.0",
-   "source_url": "https://commons.wikimedia.org/wiki/File:Flyboard_during_Sal%C3%B3_N%C3%A0utic_Internacional_de_Barcelona_2012_(36329436412).jpg",
-   "generator": "",
-   "note": "Canon EOS 5D Mark II EXIF 2012-09-26, Barcelona boat show. Cropped around the rider.",
-   "has_audio": ""
-  },
   {
    "file": "media/v2-10-kaciukas-ir-anciukai.jpg",
    "answer": "ai",
@@ -316,19 +186,6 @@ window.ROUNDS = [
    "has_audio": ""
   },
   {
-   "file": "media/v1-13-meska-geles.jpg",
-   "answer": "ai",
-   "kind": "image",
-   "tell_lt": "Gėlės aplink mešką sudėliotos per gražiai. Kailis atrodo lyg nupieštas teptuku.",
-   "author": "Kandukuru Nagarjun from Bangalore, India",
-   "license": "CC BY 2.0",
-   "license_url": "https://creativecommons.org/licenses/by/2.0",
-   "source_url": "https://commons.wikimedia.org/wiki/File:An_Asian_black_bear_amidst_mahua_flowers_(52842957476).png",
-   "generator": "Midjourney (2023)",
-   "note": "",
-   "has_audio": ""
-  },
-  {
    "file": "media/v2-24-bezdziones-asmenuke.jpg",
    "answer": "real",
    "kind": "image",
@@ -342,16 +199,16 @@ window.ROUNDS = [
    "has_audio": ""
   },
   {
-   "file": "media/v1-24-karunuotasis-balandis.mp4",
+   "file": "media/v2-18-triusiai.jpg",
    "answer": "ai",
-   "kind": "video",
-   "tell_lt": "Toks paukštis tikrai yra, tai karūnuotasis balandis. Bet šį filmuką sukūrė Sora.",
-   "author": "Sora/OpenAI",
-   "license": "Public domain",
-   "license_url": "",
-   "source_url": "https://commons.wikimedia.org/wiki/File:Victoria-crowned-pigeon.webm",
-   "generator": "OpenAI Sora (2024)",
-   "note": "Original from openai.com/sora (Feb 2024). Edges cropped slightly.",
+   "kind": "image",
+   "tell_lt": "Failas vadinasi „Trys triušiai“, o jų keturi! Ir visi kaip nukopijuoti: tos pačios ausys, tas pats snukutis.",
+   "author": "Fooocus, prompted by Commons user",
+   "license": "CC BY-SA 4.0",
+   "license_url": "https://creativecommons.org/licenses/by-sa/4.0",
+   "source_url": "https://commons.wikimedia.org/wiki/File:SD_-_Three_Rabbits.png",
+   "generator": "Stable Diffusion XL (Fooocus)",
+   "note": "Uploaded to show AI limitations (AI Art Generation Handbook, Wikibooks).",
    "has_audio": ""
   },
   {
@@ -368,16 +225,55 @@ window.ROUNDS = [
    "has_audio": ""
   },
   {
-   "file": "media/v3-21-tetis-ir-sunus.jpg",
+   "file": "media/v1-13-meska-geles.jpg",
    "answer": "ai",
    "kind": "image",
-   "tell_lt": "Labai sunku! Viskas per švaru ir per tvarkinga, lyg reklamoje. Tokius veidus dirbtinis intelektas jau piešia labai gerai.",
-   "author": "U3260357",
+   "tell_lt": "Gėlės aplink mešką sudėliotos per gražiai. Kailis atrodo lyg nupieštas teptuku.",
+   "author": "Kandukuru Nagarjun from Bangalore, India",
+   "license": "CC BY 2.0",
+   "license_url": "https://creativecommons.org/licenses/by/2.0",
+   "source_url": "https://commons.wikimedia.org/wiki/File:An_Asian_black_bear_amidst_mahua_flowers_(52842957476).png",
+   "generator": "Midjourney (2023)",
+   "note": "",
+   "has_audio": ""
+  },
+  {
+   "file": "media/v2-19-kates-suolis.mp4",
+   "answer": "real",
+   "kind": "video",
+   "tell_lt": "Tikra! Katės kūnas lankstus kaip spyruoklė, todėl ji nušoka taip toli. Filmukas sulėtintas, kad matytum visą skrydį.",
+   "author": "Record 124 (Vimeo)",
+   "license": "CC BY 3.0",
+   "license_url": "https://creativecommons.org/licenses/by/3.0",
+   "source_url": "https://commons.wikimedia.org/wiki/File:Salto_-_Cat_Jump.webm",
+   "generator": "",
+   "note": "Imported from Vimeo (2017), license reviewed by bot. No camera EXIF; 2017 predates AI video generators. Cut 1.0-9.5 s.",
+   "has_audio": ""
+  },
+  {
+   "file": "media/v2-21-dalmatinas-palangeje.mp4",
+   "answer": "ai",
+   "kind": "video",
+   "tell_lt": "Labai sunku! Šį filmuką sukūrė Sora. Stebėk, kaip šuo pereina nuo vieno lango prie kito: ar ten iš viso yra kur pastatyti kojas?",
+   "author": "Sora / OpenAI",
+   "license": "Public domain",
+   "license_url": "",
+   "source_url": "https://commons.wikimedia.org/wiki/File:Open_AI_Sora_in_Action-_Italian_Pup.webm",
+   "generator": "OpenAI Sora (2024)",
+   "note": "Original from openai.com/sora (Feb 2024). Edges cropped 5% to remove the Sora watermark.",
+   "has_audio": ""
+  },
+  {
+   "file": "media/v1-10-levandu-ledai.jpg",
+   "answer": "ai",
+   "kind": "image",
+   "tell_lt": "Viskas per tobula. Visi rutuliai vienodi, o žiedeliai išdėlioti lyg ranka.",
+   "author": "SNRTZ",
    "license": "CC BY-SA 4.0",
    "license_url": "https://creativecommons.org/licenses/by-sa/4.0",
-   "source_url": "https://commons.wikimedia.org/wiki/File:Boy_and_dad.png",
-   "generator": "nenurodyta (Commons kategorija: AI-generated facial expressions)",
-   "note": "Labelled AI only by the Commons category; generator not named. Fictional people.",
+   "source_url": "https://commons.wikimedia.org/wiki/File:Levendul%C3%A1s_fagylalt.png",
+   "generator": "nežinomas (įkėlėjas pažymėjo kaip AI)",
+   "note": "",
    "has_audio": ""
   },
   {
@@ -394,16 +290,16 @@ window.ROUNDS = [
    "has_audio": ""
   },
   {
-   "file": "media/v1-10-levandu-ledai.jpg",
+   "file": "media/v1-24-karunuotasis-balandis.mp4",
    "answer": "ai",
-   "kind": "image",
-   "tell_lt": "Viskas per tobula. Visi rutuliai vienodi, o žiedeliai išdėlioti lyg ranka.",
-   "author": "SNRTZ",
-   "license": "CC BY-SA 4.0",
-   "license_url": "https://creativecommons.org/licenses/by-sa/4.0",
-   "source_url": "https://commons.wikimedia.org/wiki/File:Levendul%C3%A1s_fagylalt.png",
-   "generator": "nežinomas (įkėlėjas pažymėjo kaip AI)",
-   "note": "",
+   "kind": "video",
+   "tell_lt": "Toks paukštis tikrai yra, tai karūnuotasis balandis. Bet šį filmuką sukūrė Sora.",
+   "author": "Sora/OpenAI",
+   "license": "Public domain",
+   "license_url": "",
+   "source_url": "https://commons.wikimedia.org/wiki/File:Victoria-crowned-pigeon.webm",
+   "generator": "OpenAI Sora (2024)",
+   "note": "Original from openai.com/sora (Feb 2024). Edges cropped slightly.",
    "has_audio": ""
   },
   {
@@ -456,19 +352,6 @@ window.ROUNDS = [
    "source_url": "https://commons.wikimedia.org/wiki/File:Illuminated_Valley_in_the_Afternoon_(Imagen_4.0).webp",
    "generator": "Google Imagen 4.0 (Gemini)",
    "note": "Bottom-right Gemini watermark cropped out.",
-   "has_audio": ""
-  },
-  {
-   "file": "media/v1-17-uolu-pakrante.mp4",
-   "answer": "ai",
-   "kind": "video",
-   "tell_lt": "Labai sunku! Šį vaizdą sukūrė Sora iš vieno sakinio, o ne dronas.",
-   "author": "Sora/OpenAI",
-   "license": "Public domain",
-   "license_url": "",
-   "source_url": "https://commons.wikimedia.org/wiki/File:Big-sur.webm",
-   "generator": "OpenAI Sora (2024)",
-   "note": "Original from openai.com/sora (Feb 2024). Edges cropped slightly.",
    "has_audio": ""
   }
  ]
