@@ -202,6 +202,18 @@ h1 {
         </div>
       </a>
     </li>
+    <li>
+      <a class="card" href="tikra-ar-ai/?g=saugu" data-game="saugu-ar-apgavyste">
+        <img src="img/saugu.jpg" alt="Žalia varnelė SAUGU ir raudonas šauktukas APGAVYSTĖ" width="640" height="480">
+        <div class="body">
+          <h2>Saugu ar apgavystė?</h2>
+          <span class="tag">VISA KLASĖ KARTU</span>
+          <p>Roblox žinutės ir puslapiai: ar čia saugu, ar tave nori apgauti?</p>
+          <p class="mine" data-best></p>
+          <span class="go">Žaisti</span>
+        </div>
+      </a>
+    </li>
     </ul>
   </section>
   <section class="group">
@@ -299,6 +311,7 @@ h1 {
     'binary-picture': (n) => `Tavo žvaigždės: ${n} / 30`,
     'robo-mokinys': (n) => `Tavo žvaigždės: ${n} / 12`,
     'tikra-ar-ai': (n) => `Tavo rekordas: ${n} atspėta`,
+    'saugu-ar-apgavyste': (n) => `Tavo rekordas: ${n} atspėta`,
   };
   let delId = null;
   const esc = (t) => String(t).replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));

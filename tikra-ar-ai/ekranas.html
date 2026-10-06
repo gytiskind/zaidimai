@@ -11,9 +11,14 @@
 <script src="https://unpkg.com/mqtt@5.16.0/dist/mqtt.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
 <script src="net.js"></script>
-<script src="data.js"></script>
-<!-- full rounds incl. clips that cannot be published; exists only on the Mac, so on GitHub Pages this 404s harmlessly -->
-<script src="local/local.js" onerror="this.remove()"></script>
+<script>
+// One engine, several class games: ?g=saugu loads g/saugu/data.js (no ?g = Tikra ar AI?).
+// local/local.js holds full rounds with media that cannot be published; it exists only on the Mac,
+// so on GitHub Pages it 404s harmlessly.
+window.GID = (new URLSearchParams(location.search).get('g') || '').replace(/[^a-z0-9-]/g, '');
+window.GBASE = window.GID ? 'g/' + window.GID + '/' : '';
+document.write('<script src="' + GBASE + 'data.js"><\/script><script src="' + GBASE + 'local/local.js" onerror="this.remove()"><\/script>');
+</script>
 <style>
 /* The class screen on the Mac: one full-screen stage, keyboard driven (Space = next) */
 body { height: 100vh; overflow: hidden; }
@@ -56,7 +61,7 @@ body { height: 100vh; overflow: hidden; }
 .reveal { grid-row: 2; display: none; justify-items: center; gap: 1.2vh; padding: 2.2vh 12vw 2.6vh;
   background: #0f0d16; border-top: 4px solid #000; text-align: center; }
 .reveal.on { display: grid; }
-.stamp { font-weight: 900; font-size: 10vh; line-height: 1; padding: 0.5vh 4vh; border: 6px solid #000; box-shadow: 8px 8px 0 #000;
+.stamp { margin-bottom: 1.6vh; font-weight: 900; font-size: 10vh; line-height: 1; padding: 0.5vh 4vh; border: 6px solid #000; box-shadow: 8px 8px 0 #000;
   transform: rotate(-4deg); animation: stamp .45s cubic-bezier(.2,1.6,.4,1); }
 .stamp.real { background: var(--real); color: #10300a; }
 .stamp.ai { background: var(--ai); color: #fff; }
@@ -100,12 +105,12 @@ body { height: 100vh; overflow: hidden; }
 
 <section class="screen" id="lobby">
   <div class="join-box">
-    <h1>Tikra ar AI?</h1>
+    <h1 data-title>Tikra ar AI?</h1>
     <p class="code-label">Kodas</p>
     <div class="code" id="code">····</div>
     <div class="qr-row">
       <div id="qr" aria-label="QR kodas prisijungti"></div>
-      <div class="url">gytiskind.github.io/zaidimai<small>→ Tikra ar AI? → įvesk kodą</small></div>
+      <div class="url">gytiskind.github.io/zaidimai<small id="urlhint">→ Tikra ar AI? → įvesk kodą</small></div>
     </div>
   </div>
   <div class="who-box">
@@ -161,7 +166,7 @@ body { height: 100vh; overflow: hidden; }
 <section class="screen" id="credits">
   <div class="cred">
     <h1>Paveikslėlių autoriai</h1>
-    <p>Paveikslėliai ir vaizdo įrašai iš Wikimedia Commons, OpenAI Sora pavyzdžių ir AI kūrėjų puslapių. Kai kurie apkarpyti, sumažinti arba sutrumpinti.</p>
+    <p id="crednote"></p>
     <ol id="credlist"></ol>
     <div class="btns"><button class="wbtn" id="credback">Atgal</button></div>
   </div>
@@ -175,7 +180,21 @@ body { height: 100vh; overflow: hidden; }
   const ALL_ITEMS = ROUNDS.flat();
   let ITEMS = ROUNDS[0], N = ITEMS.length;
   function useRound(r) { S.round = Math.min(Math.max(1, r || 1), ROUNDS.length); ITEMS = ROUNDS[S.round - 1]; N = ITEMS.length; }
-  const KEY = 'tai-host';
+  // labels, colors and texts of this game; data.js of another game overrides them
+  const GAME = Object.assign({
+    id: 'tikra-ar-ai', title: 'Tikra ar AI?',
+    a: { key: 'real', word: 'TIKRA', sub: '📷 tikras vaizdas', color: '#7ee04f', ink: '#10300a' },
+    b: { key: 'ai', word: 'AI', sub: '🤖 sukūrė kompiuteris', color: '#c04ff0', ink: '#ffffff' },
+    verdicts: ['Tikri AI detektyvai!', 'Puikiai! AI jūsų beveik neapgauna.', 'AI moka apgauti. Net suaugusius!'],
+    offlineEnd: 'Dabar jūs žinot, kad AI gali apgauti akis.',
+    creditTag: { ai: ' (sukurta AI)' },
+    creditsNote: 'Paveikslėliai ir vaizdo įrašai iš Wikimedia Commons, OpenAI Sora pavyzdžių ir AI kūrėjų puslapių. Kai kurie apkarpyti, sumažinti arba sutrumpinti.',
+    fullNote: '✓ Mac versija: su naujausiais AI ir Will Smith',
+    publicNote: 'Viešoji versija: be naujausių AI klipų. Pilnai: paleisk "Tikra ar AI ekranas" Mac\'e.',
+  }, window.GAME || {});
+  const CH = { [GAME.a.key]: GAME.a, [GAME.b.key]: GAME.b };
+  const BASE = window.GBASE || '';
+  const KEY = 'tai-host' + (window.GID ? '-' + window.GID : '');
   const $ = (id) => document.getElementById(id);
   const esc = (t) => String(t).replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
   const newCode = () => String(1000 + Math.floor(Math.random() * 9000));
@@ -208,6 +227,7 @@ body { height: 100vh; overflow: hidden; }
     const players = {}, score = {};
     for (const [pid, p] of Object.entries(S.players)) { players[pid] = p.name; score[pid] = p.score; }
     const st = { t: 'state', seq: Date.now(), phase: S.phase, idx: S.idx, n: N, round: S.round, rounds: ROUNDS.length, players, score,
+                 game: { id: GAME.id, title: GAME.title, a: GAME.a, b: GAME.b },
                  got: Object.keys(S.answers), offline: S.offline };
     if (S.phase === 'reveal') { st.answer = ITEMS[S.idx].answer; st.res = S.res; }
     if (S.phase === 'end') {
@@ -239,7 +259,7 @@ body { height: 100vh; overflow: hidden; }
       else S.players[m.pid].name = name;
     } else if (m.t === 'ans') {
       if (!S.players[m.pid] && name) S.players[m.pid] = { name, score: 0 };
-      if (S.phase === 'q' && m.idx === S.idx && (m.a === 'real' || m.a === 'ai') && S.players[m.pid]) {
+      if (S.phase === 'q' && m.idx === S.idx && CH[m.a] && S.players[m.pid]) {
         if (S.answers[m.pid] !== m.a) { S.answers[m.pid] = m.a; (S.atime || (S.atime = {}))[m.pid] = Date.now() - (S.qStart || Date.now()); }
       }
     } else return;
@@ -249,6 +269,7 @@ body { height: 100vh; overflow: hidden; }
   // ---- flow ----
   const nextRound = () => (S.lastDone ? (S.lastDone % ROUNDS.length) + 1 : 1);
   function start(round) {
+    if (!(ROUNDS[(round || 1) - 1] || []).length) return;   // public copy of a Mac-only game has no items
     useRound(round);
     S.offline = !!S.offlinePick; S.phase = 'q'; S.idx = 0; S.answers = {}; S.res = {}; S.classPts = 0; S.classMax = 0;
     for (const p of Object.values(S.players)) { p.score = 0; p.time = 0; }
@@ -297,12 +318,12 @@ body { height: 100vh; overflow: hidden; }
     let el;
     if (it.kind === 'video') {
       el = document.createElement('video');
-      Object.assign(el, { src: it.file, autoplay: true, loop: true, muted: !it.has_audio, playsInline: true });
+      Object.assign(el, { src: BASE + it.file, autoplay: true, loop: true, muted: !it.has_audio, playsInline: true });
       if (!it.has_audio) el.setAttribute('muted', '');
       el.setAttribute('playsinline', '');
     } else {
       el = document.createElement('img');
-      el.src = it.file; el.alt = '';
+      el.src = BASE + it.file; el.alt = '';
     }
     el.className = 'm';
     stage.prepend(el);
@@ -310,8 +331,8 @@ body { height: 100vh; overflow: hidden; }
     // warm the next item so it appears instantly
     const nx = ITEMS[S.idx + 1];
     if (nx) {
-      if (nx.kind === 'video') { warmVideo.src = nx.file; warmVideo.load(); }
-      else { warmVideo.removeAttribute('src'); warmVideo.load(); new Image().src = nx.file; }
+      if (nx.kind === 'video') { warmVideo.src = BASE + nx.file; warmVideo.load(); }
+      else { warmVideo.removeAttribute('src'); warmVideo.load(); new Image().src = BASE + nx.file; }
     }
   }
 
@@ -333,11 +354,11 @@ body { height: 100vh; overflow: hidden; }
     }
     if (S.phase === 'end') {
       $('end').classList.add('on');
-      if (S.offline || !S.classMax) { $('endbig').innerHTML = `Peržiūrėjote visus <b>${N}</b>!`; $('verdict').textContent = 'Dabar jūs žinot, kad AI gali apgauti akis.'; }
+      if (S.offline || !S.classMax) { $('endbig').innerHTML = `Peržiūrėjote visus <b>${N}</b>!`; $('verdict').textContent = GAME.offlineEnd; }
       else {
         const pct = S.classPts / S.classMax;
         $('endbig').innerHTML = `Kartu atspėjote <b>${S.classPts}</b> iš ${S.classMax}`;
-        $('verdict').textContent = pct >= 0.8 ? 'Tikri AI detektyvai!' : pct >= 0.6 ? 'Puikiai! AI jūsų beveik neapgauna.' : 'AI moka apgauti. Net suaugusius!';
+        $('verdict').textContent = GAME.verdicts[pct >= 0.8 ? 0 : pct >= 0.6 ? 1 : 2];
       }
       const more = S.round < ROUNDS.length;
       $('endtitle').textContent = ROUNDS.length > 1 ? `${S.round} raundas baigtas!` : 'Pabaiga!';
@@ -348,7 +369,7 @@ body { height: 100vh; overflow: hidden; }
     }
     $('play').classList.add('on');
     $('count').textContent = `${S.idx + 1} / ${N}`;
-    $('qlabel').textContent = ROUNDS.length > 1 ? `${S.round} raundas` : 'Tikra ar AI?';
+    $('qlabel').textContent = ROUNDS.length > 1 ? `${S.round} raundas` : GAME.title;
     showMedia(newItem);
     const answered = Object.keys(S.answers);
     $('dots').innerHTML = S.offline ? '' : pids.map((pid) =>
@@ -358,8 +379,10 @@ body { height: 100vh; overflow: hidden; }
     if (S.phase === 'reveal') {
       const it = ITEMS[S.idx];
       const st = $('stamp');
-      st.className = 'stamp ' + it.answer;
-      st.textContent = it.answer === 'real' ? 'TIKRA!' : 'AI!';
+      const ch = CH[it.answer] || GAME.a;
+      st.className = 'stamp';
+      st.style.background = ch.color; st.style.color = ch.ink;
+      st.textContent = ch.word + '!';
       $('tell').textContent = it.tell_lt;
       $('tell').classList.toggle('long', it.tell_lt.length > 130);
       $('guessed').textContent = S.offline || !S.lastAll ? '' : `Atspėjo ${S.lastGot} iš ${S.lastAll}`;
@@ -396,7 +419,7 @@ body { height: 100vh; overflow: hidden; }
   function renderCredits() {
     $('credlist').innerHTML = ALL_ITEMS.map((it) => {
       const lic = it.license_url ? `<a href="${esc(it.license_url)}" target="_blank" rel="noopener">${esc(it.license)}</a>` : esc(it.license);
-      return `<li>${esc(it.author)}, ${lic}, <a href="${esc(it.source_url)}" target="_blank" rel="noopener">šaltinis</a>${it.answer === 'ai' ? ' (sukurta AI)' : ''}</li>`;
+      return `<li>${esc(it.author)}, ${lic}, <a href="${esc(it.source_url)}" target="_blank" rel="noopener">šaltinis</a>${(GAME.creditTag || {})[it.answer] || ''}</li>`;
     }).join('');
   }
 
@@ -422,7 +445,7 @@ body { height: 100vh; overflow: hidden; }
   });
 
   function drawQR() {
-    const url = (location.hostname.endsWith('github.io') ? new URL('./', location.href).href : 'https://gytiskind.github.io/zaidimai/tikra-ar-ai/') + '?k=' + S.code;
+    const url = (location.hostname.endsWith('github.io') ? new URL('./', location.href).href : 'https://gytiskind.github.io/zaidimai/tikra-ar-ai/') + '?k=' + S.code + (window.GID ? '&g=' + window.GID : '');
     $('qr').innerHTML = '';
     try { new QRCode($('qr'), { text: url, width: 360, height: 360, correctLevel: QRCode.CorrectLevel.M }); } catch (e) {}
     $('qr').title = url;
@@ -433,7 +456,11 @@ body { height: 100vh; overflow: hidden; }
   document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'visible') wake(); });
   wake();
 
-  $('ver').textContent = FULL ? '✓ Mac versija: su naujausiais AI ir Will Smith' : 'Viešoji versija: be naujausių AI klipų. Pilnai: paleisk "Tikra ar AI ekranas" Mac\'e.';
+  $('ver').textContent = FULL ? GAME.fullNote : GAME.publicNote;
+  document.title = GAME.title + ' Ekranas';
+  document.querySelectorAll('[data-title]').forEach((el) => { el.textContent = GAME.title; });
+  $('urlhint').textContent = `→ ${GAME.title} → įvesk kodą`;
+  $('crednote').textContent = GAME.creditsNote;
   drawQR();
   connect();
   render(true);

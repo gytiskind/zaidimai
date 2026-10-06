@@ -70,7 +70,7 @@ input:focus { outline: none; border-color: var(--gem); }
   </div>
 
   <section class="view panel" id="v-join">
-    <h1>Tikra ar AI?</h1>
+    <h1 id="title">Tikra ar AI?</h1>
     <label>Tavo vardas
       <input id="name" maxlength="14" autocomplete="off" autocapitalize="words" enterkeyhint="next">
     </label>
@@ -79,7 +79,7 @@ input:focus { outline: none; border-color: var(--gem); }
     </label>
     <button class="wbtn go" id="join">Prisijungti</button>
     <p class="msg" id="jmsg"></p>
-    <a class="host-link" href="ekranas.html">Mokytojo ekranas</a>
+    <a class="host-link" id="hostlink" href="ekranas.html">Mokytojo ekranas</a>
   </section>
 
   <section class="view panel wait" id="v-wait">
@@ -90,8 +90,8 @@ input:focus { outline: none; border-color: var(--gem); }
   <section class="view" id="v-q">
     <p class="look" id="qn">Žiūrėk į ekraną!</p>
     <div class="choices">
-      <button class="pick real" data-a="real">TIKRA<span>📷 tikras vaizdas</span></button>
-      <button class="pick ai" data-a="ai">AI<span>🤖 sukūrė kompiuteris</span></button>
+      <button class="pick real" id="pickA" data-a="real">TIKRA<span>📷 tikras vaizdas</span></button>
+      <button class="pick ai" id="pickB" data-a="ai">AI<span>🤖 sukūrė kompiuteris</span></button>
     </div>
     <p class="msg" id="qmsg"></p>
   </section>
@@ -117,6 +117,28 @@ input:focus { outline: none; border-color: var(--gem); }
   if (!pid) { pid = 'k' + Math.random().toString(36).slice(2, 10); LS.set('tai-pid', pid); }
 
   const params = new URLSearchParams(location.search);
+  // the same tablet page serves every class game; the screen sends the buttons in its state
+  const GID = (params.get('g') || '').replace(/[^a-z0-9-]/g, '');
+  const TITLES = { saugu: 'Saugu ar apgavystė?' };
+  const setTitle = (t) => { $('title').textContent = t; document.title = t; };
+  setTitle(TITLES[GID] || 'Tikra ar AI?');
+  if (GID) $('hostlink').href = 'ekranas.html?g=' + GID;
+  let gameSig = '';
+  function applyGame(g) {
+    if (!g) return;
+    const sig = JSON.stringify(g);
+    if (sig === gameSig) return;
+    gameSig = sig;
+    setTitle(g.title);
+    [[$('pickA'), g.a], [$('pickB'), g.b]].forEach(([b, c]) => {
+      b.dataset.a = c.key;
+      b.style.background = c.color; b.style.color = c.ink;
+      b.style.fontSize = c.word.length > 6 ? 'clamp(1.6rem, 6vw, 3rem)' : '';
+      b.innerHTML = '';
+      b.append(c.word);
+      const sp = document.createElement('span'); sp.textContent = c.sub; b.append(sp);
+    });
+  }
   const zmName = window.ZM && ZM.player() ? ZM.player().name : '';
   $('name').value = LS.get('tai-name') || zmName || '';
   $('k').value = params.get('k') || '';
@@ -136,7 +158,7 @@ input:focus { outline: none; border-color: var(--gem); }
     $('join').disabled = true;
     net = Net(code, onMsg, onStatus);
     net.send('up', { t: 'join', pid, name });
-    history.replaceState(null, '', '?k=' + code);
+    history.replaceState(null, '', '?k=' + code + (GID ? '&g=' + GID : ''));
     // no answer from the screen within a while means a wrong code
     setTimeout(() => { if (!st && code === k) { $('join').disabled = false; $('jmsg').className = 'msg bad';
       $('jmsg').textContent = 'Ekranas neatsako. Patikrink kodą ir bandyk dar kartą.'; } }, 9000);
@@ -155,6 +177,7 @@ input:focus { outline: none; border-color: var(--gem); }
   function onMsg(sub, m) {
     if (sub !== 'state' || m.t !== 'state' || m.seq < lastSeq) return;
     lastSeq = m.seq; st = m;
+    applyGame(m.game);
     joined = !!(m.players && m.players[pid]);
     render();
   }
@@ -194,7 +217,8 @@ input:focus { outline: none; border-color: var(--gem); }
     } else if (st.phase === 'reveal') {
       view('v-r');
       const ok = st.res ? st.res[pid] : undefined;
-      const word = st.answer === 'real' ? 'TIKRA' : 'AI';
+      const g = st.game || { a: { key: 'real', word: 'TIKRA' }, b: { key: 'ai', word: 'AI' } };
+      const word = st.answer === g.b.key ? g.b.word : g.a.word;
       const box = $('res');
       if (ok === true) { box.className = 'result good'; $('r1').textContent = 'Teisingai!'; $('r2').textContent = 'Tai ' + word + '.'; }
       else if (ok === false) { box.className = 'result bad'; $('r1').textContent = 'Oi, ne!'; $('r2').textContent = 'Tai buvo ' + word + '.'; }
@@ -208,7 +232,7 @@ input:focus { outline: none; border-color: var(--gem); }
       if (st.classMax) $('endmsg').insertAdjacentText('beforeend', `Visa klasė kartu: ${st.classPts} iš ${st.classMax}.`);
       // one report per finished game, even if the page reloads
       const tag = code + ':' + st.round + ':' + Object.keys(st.players).length + ':' + st.classMax;
-      if (window.ZM && reported !== tag) { reported = tag; LS.set('tai-reported', tag); ZM.report('tikra-ar-ai', { score, xp: score * 10 }); }
+      if (window.ZM && reported !== tag) { reported = tag; LS.set('tai-reported', tag); ZM.report((st.game && st.game.id) || 'tikra-ar-ai', { score, xp: score * 10 }); }
     }
   }
 
