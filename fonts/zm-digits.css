@@ -1,0 +1,11 @@
+/* Digits only: Press Start 2P (SIL OFL, Google Fonts) for 0-9, because Pixelify Sans digits are hard to read
+   (4 and 7 look odd, 1 looks like 7). Letters stay in Pixelify Sans. size-adjust matches the digit height
+   to Pixelify's capitals, so a score like "2 iš 4" reads as one line. Use as the first family in --pixel. */
+@font-face {
+  font-family: "ZM Digits";
+  src: url("press-start-2p-latin.woff2") format("woff2");
+  unicode-range: U+0030-0039;
+  size-adjust: 64%;
+  font-weight: 100 900;
+  font-display: swap;
+}
