@@ -1,0 +1,479 @@
+<!doctype html>
+<html lang="lt">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Paieškos detektyvas</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Nunito:wght@700;800;900&family=Pixelify+Sans:wght@400;700&display=swap">
+<link rel="stylesheet" href="../fonts/zm-digits.css">
+<script src="../zm.js"></script>
+<style>
+/* Paieškos detektyvas: a simulated search engine inside the game (no real web requests).
+   Each case: pick search words, pick a result (not the ad, not the trap site), find the answer
+   on the page, answer, and in some cases compare two sources. Detective note on the left (landscape)
+   or on top (portrait), a fake browser beside or below it. */
+:root {
+  --night: #141b3a; --stone: #3b3846; --stone-hi: #6e6a7c; --stone-lo: #1f1c27;
+  --gold: #ffcc33; --gem: #4de8d6; --red: #e0402e; --grass: #5cbf3a; --grass-hi: #8ee35f; --grass-lo: #2f7a1c;
+  --ink: #f3f0f7; --ink-dim: #b7b1c2; --ad: #f2a23c;
+  --pixel: "ZM Digits", "Pixelify Sans", "Courier New", ui-monospace, monospace;
+  --word: "Nunito", "Arial Rounded MT Bold", system-ui, sans-serif;
+  color-scheme: dark;
+}
+* { box-sizing: border-box; }
+[hidden] { display: none !important; }
+html, body { height: 100%; margin: 0; }
+body { background: var(--night) linear-gradient(180deg, #141b3a 0%, #2c2a5c 60%, #3a3570 100%) fixed; color: var(--ink);
+  font-family: var(--word); overflow: hidden; touch-action: manipulation; user-select: none; -webkit-user-select: none;
+  -webkit-tap-highlight-color: transparent; }
+#app { position: fixed; inset: 0; height: 100dvh; display: grid; grid-template-rows: auto minmax(0, 1fr);
+  padding: calc(env(safe-area-inset-top, 0px) + 8px) 10px calc(env(safe-area-inset-bottom, 0px) + 8px); gap: 8px; }
+
+.btn { font: 900 1.05rem var(--word); color: var(--ink); cursor: pointer; touch-action: manipulation; min-height: 46px; padding: 6px 16px;
+  background: var(--stone); border: 3px solid; border-color: var(--stone-hi) var(--stone-lo) var(--stone-lo) var(--stone-hi);
+  box-shadow: 0 0 0 2px #000; text-decoration: none; display: inline-flex; align-items: center; justify-content: center; gap: 6px; }
+.btn:focus-visible { outline: 3px solid var(--gem); outline-offset: 3px; }
+.btn:active { border-color: var(--stone-lo) var(--stone-hi) var(--stone-hi) var(--stone-lo); }
+.btn.go { background: var(--grass); color: #fff; text-shadow: 2px 2px 0 var(--grass-lo); border-color: var(--grass-hi) var(--grass-lo) var(--grass-lo) var(--grass-hi); }
+.btn.small { min-height: 38px; font-size: .9rem; padding: 4px 10px; }
+.panel { background: var(--stone-lo); border: 4px solid; border-color: var(--stone-hi) #000 #000 var(--stone-hi);
+  box-shadow: 0 0 0 3px #000; }
+
+/* viršus */
+.top { display: flex; align-items: center; gap: 8px; min-width: 0; }
+.top h1 { margin: 0; flex: 1; min-width: 0; font: 700 clamp(1.1rem, 3.4vw, 1.8rem) var(--pixel); color: var(--gold);
+  text-shadow: 2px 2px 0 #8a5a12, 4px 4px 0 #000; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.score { font: 700 1.1rem var(--pixel); background: #0f0d16; border: 3px solid; border-color: var(--stone-hi) #000 #000 var(--stone-hi);
+  padding: 4px 10px; white-space: nowrap; }
+.score b { color: var(--gold); }
+
+/* bylų sąrašas */
+#vCases { min-height: 0; display: grid; grid-template-rows: auto minmax(0, 1fr); gap: 10px; }
+#vCases .intro { padding: 12px 14px; display: grid; gap: 4px; }
+#vCases .intro p { margin: 0; font-weight: 800; color: var(--ink-dim); font-size: clamp(.9rem, 2.4vmin, 1.1rem); }
+#vCases .intro p b { color: var(--ink); }
+.cases { min-height: 0; display: grid; gap: 10px; grid-template-columns: repeat(4, minmax(0, 1fr)); grid-auto-rows: minmax(0, 1fr); }
+.case { display: grid; align-content: center; justify-items: center; gap: 2px; padding: 6px; text-align: center; min-height: 0; }
+.case .n { font: 700 clamp(1.1rem, 4vmin, 1.8rem) var(--pixel); color: var(--gold); }
+.case .q { font-size: clamp(.72rem, 2vmin, .95rem); font-weight: 800; color: var(--ink-dim); line-height: 1.15;
+  display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
+.case .st { font-size: clamp(.8rem, 2.4vmin, 1.1rem); letter-spacing: 2px; color: var(--gold); }
+.case.locked { opacity: .45; }
+.case.done { border-color: var(--grass-hi) var(--grass-lo) var(--grass-lo) var(--grass-hi); }
+@media (orientation: portrait) { .cases { grid-template-columns: repeat(3, minmax(0, 1fr)); } }
+@media (max-width: 520px) { .cases { grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 6px; } .case .q { -webkit-line-clamp: 3; } }
+
+/* byla */
+#vCase { min-height: 0; display: grid; gap: 10px; grid-template-columns: minmax(0, 1fr); grid-template-rows: auto minmax(0, 1fr); }
+@media (min-width: 700px) and (min-aspect-ratio: 1/1) {
+  #vCase { grid-template-columns: minmax(240px, 32%) minmax(0, 1fr); grid-template-rows: minmax(0, 1fr); }
+}
+.note { padding: 12px 14px; display: grid; gap: 8px; align-content: start; min-height: 0; overflow: hidden; }
+.note .who { font: 700 1rem var(--pixel); color: var(--gem); }
+.note .story { margin: 0; font-weight: 800; font-size: clamp(.85rem, 2.2vmin, 1rem); color: var(--ink-dim); }
+.note .ask { margin: 0; font-weight: 900; font-size: clamp(1.1rem, 3.2vmin, 1.5rem); line-height: 1.2; }
+.steps { display: flex; gap: 6px; flex-wrap: wrap; }
+.steps span { font: 800 .8rem var(--word); padding: 3px 8px; background: #0f0d16; border: 2px solid #000; color: var(--ink-dim); }
+.steps span.on { background: var(--gold); color: #2a1d00; }
+.steps span.ok { background: var(--grass); color: #fff; }
+.meter { display: grid; grid-template-columns: auto 1fr; gap: 8px; align-items: center; font-weight: 900; font-size: .9rem; }
+.meter .bar { height: 16px; background: #0f0d16; border: 2px solid #000; display: flex; }
+.meter .bar i { flex: 1; border-right: 2px solid #000; }
+.meter .bar i:last-child { border-right: 0; }
+.meter .bar i.on { background: var(--gem); }
+.say { margin: 0; font-weight: 800; font-size: clamp(.9rem, 2.4vmin, 1.05rem); color: var(--ink-dim); min-height: 2.6em; }
+.say.good { color: var(--grass-hi); }
+.say.bad { color: #ff8a7a; }
+.tip { margin: 0; font-size: .85rem; font-weight: 800; color: var(--ink-dim); border-left: 4px solid var(--gold); padding-left: 8px; }
+@media (max-height: 600px), (orientation: portrait) { .tip { display: none; } }
+@media (orientation: portrait) {
+  .note { padding: 8px 10px; gap: 6px; }
+  .note .who, .steps { display: none; }
+  .say { min-height: 0; }
+}
+
+/* netikra naršyklė */
+.browser { min-height: 0; display: grid; grid-template-rows: auto minmax(0, 1fr); background: #f6f6f8; color: #1d1d24;
+  border: 4px solid #000; box-shadow: 0 0 0 3px var(--stone-hi); }
+.chrome { display: flex; align-items: center; gap: 8px; padding: 6px 8px; background: #dcdce4; border-bottom: 2px solid #b5b5c0; }
+.dots { display: flex; gap: 5px; } .dots i { width: 11px; height: 11px; border-radius: 50%; background: #e0402e; }
+.dots i:nth-child(2) { background: #f2a23c; } .dots i:nth-child(3) { background: #5cbf3a; }
+.url { flex: 1; min-width: 0; background: #fff; border: 2px solid #b5b5c0; border-radius: 18px; padding: 4px 12px; font: 800 .9rem var(--word);
+  color: #44444f; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.url .lock { margin-right: 4px; }
+.page { min-height: 0; overflow-y: auto; overscroll-behavior: contain; padding: 12px 14px; display: grid; gap: 10px; align-content: start; }
+@media (max-height: 600px) { .page { padding: 8px 12px; gap: 6px; } .logo { margin: 0; } }
+.logo { font: 900 clamp(1.4rem, 4.4vmin, 2.2rem) var(--word); letter-spacing: -.02em; text-align: center; margin: 2px 0; }
+.logo b:nth-child(1) { color: #2f7de1; } .logo b:nth-child(2) { color: #e0402e; } .logo b:nth-child(3) { color: #f2a23c; }
+.logo b:nth-child(4) { color: #2f7de1; } .logo b:nth-child(5) { color: #5cbf3a; } .logo b:nth-child(6) { color: #e0402e; }
+.sbox { display: flex; align-items: center; gap: 8px; background: #fff; border: 2px solid #b5b5c0; border-radius: 24px; padding: 8px 14px;
+  font-weight: 800; font-size: 1.05rem; min-height: 46px; color: #1d1d24; }
+.sbox .ph { color: #9a9aa6; }
+.sbox .cursor { width: 2px; height: 1.2em; background: #1d1d24; animation: blink 1s steps(1) infinite; }
+@keyframes blink { 50% { opacity: 0; } }
+.choose { display: grid; gap: 8px; }
+.pick { font: 800 1.02rem var(--word); text-align: left; color: #1d1d24; background: #fff; border: 2px solid #b5b5c0; border-radius: 12px;
+  padding: 10px 14px; min-height: 50px; cursor: pointer; touch-action: manipulation; display: flex; gap: 10px; align-items: center; }
+.pick:active { background: #eef4ff; }
+.pick .ic { flex: none; font-size: 1.1rem; }
+.pick.wrong { border-color: var(--red); background: #ffe9e6; animation: shake .3s; }
+.pick.right { border-color: var(--grass); background: #e9f9e3; }
+@keyframes shake { 25% { transform: translateX(-5px); } 75% { transform: translateX(5px); } }
+.res { text-align: left; background: #fff; border: 2px solid #e2e2ea; border-radius: 12px; padding: 6px 12px; cursor: pointer; display: grid; gap: 2px;
+  font-family: var(--word); color: #1d1d24; touch-action: manipulation; }
+.res .site { font-weight: 800; font-size: .85rem; color: #1a7f3c; display: flex; gap: 6px; align-items: center; }
+.res .site .ad { background: var(--ad); color: #2a1d00; font-weight: 900; font-size: .72rem; padding: 1px 6px; border-radius: 4px; }
+.res .t { font-weight: 900; font-size: 1.05rem; color: #1a4fbf; }
+.res .s { font-weight: 700; font-size: .9rem; color: #55555f; }
+.res.wrong { border-color: var(--red); background: #ffe9e6; animation: shake .3s; }
+.res.right { border-color: var(--grass); background: #e9f9e3; }
+.art h2 { margin: 0 0 4px; font: 900 1.3rem var(--word); }
+.art .meta { font-size: .8rem; font-weight: 800; color: #77777f; margin-bottom: 6px; }
+.sent { display: inline; font-weight: 700; font-size: 1.02rem; line-height: 1.6; cursor: pointer; padding: 2px 1px; border-radius: 4px; }
+.sent:hover { background: #eef4ff; }
+.sent.wrong { background: #ffd9d3; }
+.sent.right { background: #c9f2bd; }
+mark { background: #ffe14d; padding: 0 2px; border-radius: 3px; }
+.findbar { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
+.findbar .btn { color: #1d1d24; background: #fff; box-shadow: none; border: 2px solid #b5b5c0; min-height: 40px; }
+.findbar .word { font-weight: 900; background: #ffe14d; padding: 2px 8px; border-radius: 4px; }
+.answers { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px; }
+.answers .pick { justify-content: center; text-align: center; font-size: 1.15rem; font-weight: 900; }
+@media (max-width: 520px) { .answers { grid-template-columns: 1fr; } }
+.two { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+.src { background: #fff; border: 2px solid #e2e2ea; border-radius: 12px; padding: 8px 12px; font-weight: 700; font-size: .95rem; }
+.src b { display: block; color: #1a7f3c; font-size: .85rem; }
+.q2 { margin: 0; font-weight: 900; }
+
+/* baigta */
+.done-card { text-align: center; display: grid; gap: 6px; justify-items: center; }
+.badge { font-size: clamp(2.4rem, 9vmin, 4rem); line-height: 1; }
+.stars { font-size: clamp(1.8rem, 6vmin, 2.6rem); letter-spacing: 6px; color: var(--gold); text-shadow: 2px 2px 0 #000; }
+.done-card h3 { margin: 0; font: 900 1.4rem var(--word); color: #1d1d24; }
+.done-card p { margin: 0; font-weight: 800; color: #44444f; }
+.row { display: flex; gap: 10px; flex-wrap: wrap; justify-content: center; }
+</style>
+</head>
+<body>
+<div id="app">
+  <div class="top">
+    <a class="btn small" id="menu" href="../">← Meniu</a>
+    <button class="btn small" id="back" hidden>◀ Bylos</button>
+    <h1 id="title">Paieškos detektyvas</h1>
+    <div class="score" id="scoreBox">⭐ <b id="totalStars">0</b></div>
+  </div>
+
+  <!-- BYLOS -->
+  <section id="vCases">
+    <div class="panel intro">
+      <p><b>Tu esi interneto detektyvas.</b> Kiekviena byla yra klausimas. Rask atsakymą paieškoje: gerai parink žodžius, aplenk reklamą ir spąstus, rask sakinį su atsakymu.</p>
+    </div>
+    <div class="cases" id="cases"></div>
+  </section>
+
+  <!-- BYLA -->
+  <section id="vCase" hidden>
+    <div class="panel note">
+      <div class="who" id="who">BYLA 1</div>
+      <p class="story" id="story"></p>
+      <p class="ask" id="ask"></p>
+      <div class="steps" id="steps"></div>
+      <div class="meter"><span>Įkalčiai</span><div class="bar" id="bar"></div></div>
+      <p class="say" id="say"></p>
+      <p class="tip" id="tip"></p>
+    </div>
+    <div class="browser">
+      <div class="chrome"><div class="dots"><i></i><i></i><i></i></div><div class="url" id="url"></div></div>
+      <div class="page" id="page"></div>
+    </div>
+  </section>
+</div>
+<script>
+(() => {
+const $ = (s) => document.querySelector(s);
+const esc = (s) => String(s).replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
+
+/* FACTS: only things we are sure about. Sources:
+   voras 8 kojos (Britannica "spider": arachnids, eight legs);
+   Apollo 11 nusileido 1969 m. liepos 20 d. (NASA "Apollo 11 Mission Overview");
+   suaugusio žmogaus 206 kaulai (Britannica "human skeleton");
+   Saulės sistemoje 8 planetos, Plutonas nuo 2006 m. nykštukinė planeta (IAU 2006 rezoliucija B5/B6, NASA "Pluto");
+   mėlynasis banginis didžiausias gyvūnas (NOAA Fisheries "Blue Whale");
+   Lietuvos Nepriklausomybės aktas 1918 m. vasario 16 d. (VLE "Lietuvos Nepriklausomybės Aktas");
+   ES vėliavoje 12 žvaigždžių (european-union.europa.eu "The European flag");
+   Aukštojas 293,84 m, aukščiausia Lietuvos vieta (VLE "Aukštojas");
+   sakalas keleivis greičiausias paukštis, smigdamas daugiau nei 300 km/h (Britannica "peregrine falcon");
+   Eifelio bokštas 330 m nuo 2022 m. kovo 15 d. (antena), anksčiau 324 m (Euronews 2022-03-16, CTBUH);
+   gepardas bėga apie 100-120 km/h, šaltiniai skiriasi (Cheetah Conservation Fund; Wikipedia "Fastest animals");
+   Everestas 8848,86 m pagal 2020 m. Nepalo ir Kinijos matavimą, anksčiau 8848 m (National Geographic, 2020-12-08).
+   Svetainės žaidime išgalvotos. */
+const AD = (t, s, site) => ({ k: 'ad', t, s, site });
+const TRAP = (t, s, site) => ({ k: 'trap', t, s, site });
+const MEH = (t, s, site) => ({ k: 'meh', t, s, site });
+const GOOD = (t, s, site) => ({ k: 'good', t, s, site });
+const CASES = [
+  { q: 'Kiek kojų turi voras?', story: 'Mažasis brolis tvirtina, kad voras turi 6 kojas. Ar jis teisus?',
+    words: ['voras kojų skaičius', 'kiek kojų turi tas mažas gyvūnas, kuris pina tinklą kampe', 'gyvūnai'], w: 0,
+    res: [AD('Vorų gaudyklė: tik šiandien -50 %!', 'Pirk dabar, nemokamas pristatymas.', 'pirk-dabar.lt'),
+          GOOD('Voras: kūnas ir kojos', 'Vorai yra voragyviai. Jų kūną sudaro dvi dalys, o kojų...', 'zinynas.lt'),
+          TRAP('Laimėk iPhone! Atsakyk į klausimą apie vorus', 'Spausk čia ir įvesk tėvų kortelės numerį.', 'laimek-iphone.lt'),
+          MEH('Mano kambaryje gyvena voras LOL', 'Vakar mačiau didelį vorą, buvo baisu...', 'pliurpalai-forumas.lt')],
+    art: { site: 'zinynas.lt/voras', h: 'Voras', s: ['Vorai yra voragyviai, ne vabzdžiai.', 'Voro kūną sudaro galvakrūtinė ir pilvelis.', 'Voras turi aštuonias kojas, o vabzdys turi šešias.', 'Dauguma vorų pina tinklus grobiui gaudyti.'], a: 2, find: 'kojas' },
+    ans: ['6', '8', '10'], an: 1 },
+  { q: 'Kuriais metais žmogus pirmą kartą nusileido Mėnulyje?', story: 'Seneliui atrodo, kad tai buvo 1975 metais. Patikrink.',
+    words: ['kaip ten buvo su tuo Mėnuliu seniai', 'Mėnulis', 'pirmas nusileidimas Mėnulyje metai'], w: 2,
+    res: [GOOD('Apollo 11: pirmieji žmonės Mėnulyje', 'Erdvėlaivis Apollo 11 nusileido Mėnulyje...', 'kosmoso-istorija.lt'),
+          AD('Teleskopai vaikams nuo 29 €', 'Žiūrėk į Mėnulį iš savo balkono!', 'zvaigzdziu-parduotuve.lt'),
+          TRAP('Mėnulis yra netikras! Tiesa, kurią slepia', 'Šokiruojantis vaizdo įrašas, kurį TURI pamatyti.', 'slapta-tiesa.xyz'),
+          MEH('Mėnulio fazės šį mėnesį', 'Pilnatis bus 15 dieną.', 'orai-ir-menulis.lt')],
+    art: { site: 'kosmoso-istorija.lt/apollo-11', h: 'Apollo 11', s: ['Apollo 11 buvo amerikiečių kosminė misija.', 'Erdvėlaivis su trimis astronautais pakilo nuo Žemės.', 'Žmonės pirmą kartą nusileido Mėnulyje 1969 metų liepos 20 dieną.', 'Pirmasis Mėnulyje žingsnį žengė Neilas Armstrongas.'], a: 2, find: '1969' },
+    ans: ['1969', '1975', '1957'], an: 0 },
+  { q: 'Kiek kaulų turi suaugęs žmogus?', story: 'Gydytojas sakė skaičių, bet visi pamiršo. Kiek gi?',
+    words: ['suaugusio žmogaus kaulų skaičius', 'kaulai', 'kiek kaulų turi žmogus kai jau užauga didelis'], w: 0,
+    res: [AD('Kalcis kaulams: pirk 3, mokėk už 2', 'Stiprūs kaulai visai šeimai.', 'vaistine-pigiau.lt'),
+          MEH('Šuo graužia kaulą (juokingas video)', 'Pažiūrėk, kaip Reksas slepia kaulą.', 'juokingi-video.lt'),
+          GOOD('Žmogaus skeletas', 'Suaugusio žmogaus skeletą sudaro...', 'zinynas.lt'),
+          TRAP('Atsisiųsk nemokamai! Kaulų žaidimas.exe', 'Spausk ATSISIŲSTI ir laimėk prizą.', 'nemokami-zaidimai-111.xyz')],
+    art: { site: 'zinynas.lt/skeletas', h: 'Žmogaus skeletas', s: ['Skeletas laiko kūną ir saugo vidaus organus.', 'Naujagimis turi daugiau kaulų, nes kai kurie vėliau suauga kartu.', 'Suaugęs žmogus turi 206 kaulus.', 'Mažiausias kaulas yra ausyje.'], a: 2, find: 'kaulus' },
+    ans: ['106', '206', '300'], an: 1 },
+  { q: 'Kiek planetų yra Saulės sistemoje?', story: 'Senoje knygoje parašyta „9 planetos“. O dabar?',
+    words: ['planetos', 'Saulės sistemos planetų skaičius', 'kiek yra tų planetų aplink Saulę danguje'], w: 1,
+    res: [MEH('Planetų žaislai ir lipdukai', 'Šviečia tamsoje!', 'zaislu-kampas.lt'),
+          GOOD('Saulės sistema', 'Saulės sistemą sudaro Saulė ir aplink ją skriejančios planetos...', 'astronomija-vaikams.lt'),
+          AD('Kelionė į kosmosą? Paskola per 5 min!', 'Greitoji paskola be klausimų.', 'greita-paskola.lt'),
+          MEH('Senas tinklaraštis: 9 planetos (2003 m.)', 'Merkurijus, Venera, Žemė... ir Plutonas.', 'senas-blogas.lt')],
+    art: { site: 'astronomija-vaikams.lt/saules-sistema', h: 'Saulės sistema', s: ['Saulė yra mūsų žvaigždė.', 'Aplink Saulę skrieja aštuonios planetos.', 'Nuo 2006 metų Plutonas vadinamas nykštukine planeta.', 'Didžiausia planeta yra Jupiteris.'], a: 1, find: 'planetos' },
+    ans: ['7', '8', '9'], an: 1, tip: 'Senas puslapis rašė 9. Žiūrėk, kada parašyta: žinios keičiasi.' },
+  { q: 'Koks didžiausias gyvūnas pasaulyje?', story: 'Draugas sako, kad dramblys. Ar tikrai?',
+    words: ['didžiausias gyvūnas pasaulyje', 'kuris gyvūnas yra pats pats didžiausias visame pasaulyje ir jūroje', 'didelis'], w: 0,
+    res: [GOOD('Mėlynasis banginis', 'Mėlynasis banginis yra didžiausias kada nors gyvenęs gyvūnas...', 'gamtos-zinynas.lt'),
+          TRAP('TOP 10 milžinų: Nr. 7 tave šokiruos!', 'Spausk, kol neištrynė!', 'klikinti-cia.xyz'),
+          AD('Pliušiniai drambliai 1 metro!', 'Dovana kiekvienam vaikui.', 'pliusiniai.lt'),
+          MEH('Dramblys zoologijos sode', 'Šeštadienį lankėmės zoologijos sode.', 'seimos-dienorastis.lt')],
+    art: { site: 'gamtos-zinynas.lt/melynasis-banginis', h: 'Mėlynasis banginis', s: ['Mėlynasis banginis gyvena vandenynuose.', 'Jis minta mažyčiais vėžiagyviais, vadinamais krilių.', 'Mėlynasis banginis yra didžiausias gyvūnas Žemėje, didesnis net už dinozaurus.', 'Jo širdis yra maždaug automobilio dydžio.'], a: 2, find: 'didžiausias' },
+    ans: ['Dramblys', 'Mėlynasis banginis', 'Žirafa'], an: 1 },
+  { q: 'Kurią dieną 1918 metais buvo pasirašytas Lietuvos Nepriklausomybės aktas?', story: 'Klasėje ruošiamės šventei. Kokia data?',
+    words: ['Lietuvos nepriklausomybės aktas 1918 data', 'Lietuva', 'kada ten buvo pasirašyta tas svarbus popierius apie Lietuvą seniai'], w: 0,
+    res: [AD('Trispalvės vėliavos: pirk dabar', 'Pristatymas per 1 dieną.', 'veliavos-pigiau.lt'),
+          GOOD('Lietuvos Nepriklausomybės aktas', '1918 metais Lietuvos Taryba pasirašė aktą...', 'lietuvos-istorija.lt'),
+          MEH('Šventinis koncertas mieste', 'Kviečiame į koncertą aikštėje.', 'renginiai-mieste.lt'),
+          TRAP('Laimėk kelionę! Atsakyk į 3 klausimus', 'Įvesk savo telefono numerį ir slaptažodį.', 'laimek-kelione.xyz')],
+    art: { site: 'lietuvos-istorija.lt/1918', h: 'Lietuvos Nepriklausomybės aktas', s: ['Lietuvos Taryba susirinko Vilniuje.', 'Aktą pasirašė dvidešimt Tarybos narių.', 'Aktas buvo pasirašytas 1918 metų vasario 16 dieną.', 'Dabar ši diena yra Lietuvos valstybės atkūrimo diena.'], a: 2, find: 'vasario' },
+    ans: ['Kovo 11', 'Vasario 16', 'Liepos 6'], an: 1 },
+  { q: 'Kiek žvaigždžių yra Europos Sąjungos vėliavoje?', story: 'Piešiame vėliavą, bet nežinome, kiek žvaigždžių.',
+    words: ['žvaigždės', 'Europos Sąjungos vėliava žvaigždžių skaičius', 'kiek ten yra tų geltonų žvaigždučių ant mėlynos vėliavos'], w: 1,
+    res: [GOOD('Europos vėliava', 'Mėlyname fone geltonų žvaigždžių ratas...', 'es-zinynas.lt'),
+          MEH('Žvaigždės danguje rugpjūtį', 'Krintančių žvaigždžių naktis.', 'astronomija-vaikams.lt'),
+          AD('Vėliavų lipdukai -30 %', 'Visų šalių vėliavos vienoje vietoje.', 'lipdukai-pigiau.lt'),
+          TRAP('Tavo kompiuteris užkrėstas! Spausk čia', 'Atsisiųsk valymo programą NEMOKAMAI.', 'valymas-dabar.xyz')],
+    art: { site: 'es-zinynas.lt/veliava', h: 'Europos vėliava', s: ['Europos vėliava yra mėlyna.', 'Ant jos ratu sudėliotos dvylika auksinių žvaigždžių.', 'Žvaigždžių skaičius nepriklauso nuo šalių skaičiaus.', 'Ratas reiškia vienybę.'], a: 1, find: 'žvaigždžių' },
+    ans: ['12', '27', '50'], an: 0, tip: 'ES šalių yra daugiau nei 12, bet žvaigždžių vis tiek 12. Atsakymas puslapyje, ne galvoje.' },
+  { q: 'Kokia aukščiausia vieta Lietuvoje ir koks jos aukštis?', story: 'Važiuosime į žygį. Kur aukščiausia?',
+    words: ['aukščiausia Lietuvos vieta aukštis', 'kalnai', 'kur Lietuvoje yra pats aukščiausias kalnas kurį galima užlipti'], w: 0,
+    res: [MEH('Kalnų slidinėjimas Alpėse', 'Kelionės į Austriją.', 'keliones-i-kalnus.lt'),
+          AD('Žygio batai -40 %', 'Tik šią savaitę!', 'zygio-reikmenys.lt'),
+          GOOD('Aukštojas: aukščiausia Lietuvos vieta', 'Aukštojo kalva yra Medininkų aukštumoje...', 'lietuvos-gamta.lt'),
+          TRAP('Šita kalva yra 1000 metrų! (TIKRAI)', 'Niekas netiki, kol nepamato.', 'neitiketina-tiesa.xyz')],
+    art: { site: 'lietuvos-gamta.lt/aukstojas', h: 'Aukštojas', s: ['Aukštojas yra Medininkų aukštumoje, netoli Vilniaus.', 'Ilgai aukščiausia vieta buvo laikoma Juozapinės kalva.', 'Aukštojo aukštis yra 293,84 metro virš jūros lygio.', 'Ant kalvos pastatytas akmuo su užrašu.'], a: 2, find: 'aukštis' },
+    ans: ['Aukštojas, 293,84 m', 'Gedimino kalnas, 48 m', 'Aukštojas, 1000 m'], an: 0 },
+  { q: 'Koks greičiausias paukštis?', story: 'Ginčijamės su draugu. Kas greitesnis: erelis ar sakalas?',
+    words: ['greičiausias paukštis', 'paukščiai', 'kuris paukštis skrenda pats greičiausiai iš visų paukščių'], w: 0,
+    res: [GOOD('Sakalas keleivis', 'Sakalas keleivis medžiodamas smenga žemyn...', 'pauksciu-zinynas.lt'),
+          AD('Lesyklos paukščiams nuo 9 €', 'Pirk dabar ir gauk dovaną.', 'lesyklos.lt'),
+          MEH('Papūga kalba! Žiūrėk video', 'Mūsų papūga sako „labas“.', 'juokingi-video.lt'),
+          TRAP('Šis paukštis skrenda 2000 km/h!', 'Mokslininkai tyli. Spausk.', 'klikinti-cia.xyz')],
+    art: { site: 'pauksciu-zinynas.lt/sakalas-keleivis', h: 'Sakalas keleivis', s: ['Sakalas keleivis gyvena beveik visuose žemynuose.', 'Jis gaudo kitus paukščius ore.', 'Smigdamas žemyn sakalas keleivis pasiekia daugiau nei 300 km/h greitį.', 'Tai greičiausias paukštis ir greičiausias gyvūnas pasaulyje.'], a: 2, find: 'greitį' },
+    ans: ['Erelis', 'Sakalas keleivis', 'Strutis'], an: 1 },
+  { q: 'Kiek metrų aukščio yra Eifelio bokštas?', story: 'Vienas puslapis rašo 324 m, kitas 330 m. Kuris teisus?',
+    words: ['Eifelio bokšto aukštis metrais', 'Paryžius', 'kiek aukščio yra tas didelis geležinis bokštas Prancūzijoje'], w: 0,
+    res: [AD('Kelionės į Paryžių nuo 99 €', 'Užsisakyk dabar!', 'pigios-keliones.lt'),
+          GOOD('Eifelio bokštas', 'Bokštas pastatytas 1889 metais. 2022 metais jis paaukštėjo...', 'pasaulio-zinynas.lt'),
+          MEH('Senas straipsnis: Eifelio bokštas (2015 m.)', 'Bokšto aukštis yra 324 metrai.', 'senas-blogas.lt'),
+          TRAP('Laimėk kelionę į Paryžių!', 'Įvesk banko kortelės duomenis.', 'laimek-kelione.xyz')],
+    art: { site: 'pasaulio-zinynas.lt/eifelio-bokstas', h: 'Eifelio bokštas', s: ['Eifelio bokštas pastatytas 1889 metais Paryžiuje.', 'Ilgą laiką jo aukštis buvo 324 metrai.', '2022 metais ant viršaus pritvirtinta antena, ir dabar bokšto aukštis yra 330 metrų.', 'Bokštas pagamintas iš geležies.'], a: 2, find: 'aukštis' },
+    ans: ['300 m', '324 m', '330 m'], an: 2,
+    two: { a: ['senas-blogas.lt, 2015 m.', 'Bokšto aukštis yra 324 metrai.'], b: ['pasaulio-zinynas.lt, 2022 m.', 'Su nauja antena bokšto aukštis yra 330 metrų.'],
+           q: 'Kodėl šaltiniai skiriasi?', o: ['Vienas meluoja', 'Senas puslapis parašytas prieš antenos pritvirtinimą', 'Bokštas kasdien auga'], c: 1,
+           why: 'Žiūrėk, kada parašyta. 2022 metais bokštas paaukštėjo 6 metrais.' } },
+  { q: 'Kaip greitai bėga gepardas?', story: 'Viena knyga rašo 100 km/h, kita 120 km/h. Ką daryti detektyvui?',
+    words: ['gepardas', 'gepardo greitis km/h', 'kaip greitai gali bėgti tas dėmėtas katinas Afrikoje'], w: 1,
+    res: [GOOD('Gepardas: greičiausias sausumos gyvūnas', 'Gepardas trumpai gali bėgti labai greitai...', 'gamtos-zinynas.lt'),
+          AD('Bėgimo bateliai GEPARDAS', 'Bėk greičiau už visus!', 'sporto-bateliai.lt'),
+          TRAP('Gepardas bėga 500 km/h!!!', 'Video, kurį ištrins rytoj.', 'neitiketina-tiesa.xyz'),
+          MEH('Mano katinas bėga labai greitai', 'Jis vejasi pelę.', 'pliurpalai-forumas.lt')],
+    art: { site: 'gamtos-zinynas.lt/gepardas', h: 'Gepardas', s: ['Gepardas gyvena Afrikos savanose.', 'Jis yra greičiausias sausumos gyvūnas.', 'Trumpą atstumą gepardas gali bėgti maždaug 100-120 km/h greičiu.', 'Ilgai taip bėgti jis negali, greitai pavargsta.'], a: 2, find: 'greičiu' },
+    ans: ['Apie 30 km/h', 'Apie 100-120 km/h', 'Apie 500 km/h'], an: 1,
+    two: { a: ['knyga A', 'Gepardas bėga 100 km/h.'], b: ['knyga B', 'Gepardas bėga 120 km/h.'],
+           q: 'Ką daro geras detektyvas?', o: ['Tiki pirmu puslapiu', 'Pasižiūri trečią šaltinį ir sako „apie 100-120 km/h“', 'Išsirenka didesnį skaičių'], c: 1,
+           why: 'Matuoti gyvūno greitį sunku, todėl šaltiniai skiriasi. Sakom intervalą ir tikrinam kelis šaltinius.' } },
+  { q: 'Koks Everesto kalno aukštis?', story: 'Paskutinė byla. Seni puslapiai rašo 8848 m, nauji kitaip.',
+    words: ['kalnai pasaulyje', 'kiek metrų yra tas didžiausias kalnas pasaulyje kuris Azijoje', 'Everesto aukštis metrais'], w: 2,
+    res: [TRAP('Laimėk kelionę į Everestą!', 'Įvesk slaptažodį ir laimėk.', 'laimek-kelione.xyz'),
+          MEH('Senas straipsnis: Everestas (2010 m.)', 'Everesto aukštis yra 8848 metrai.', 'senas-blogas.lt'),
+          GOOD('Everestas', '2020 metais Nepalas ir Kinija kartu išmatavo kalną iš naujo...', 'pasaulio-zinynas.lt'),
+          AD('Kalnų striukės -50 %', 'Šilta net Evereste!', 'zygio-reikmenys.lt')],
+    art: { site: 'pasaulio-zinynas.lt/everestas', h: 'Everestas', s: ['Everestas yra Himalajuose, tarp Nepalo ir Kinijos.', 'Ilgai buvo rašoma, kad jo aukštis yra 8848 metrai.', '2020 metais nustatytas naujas aukštis: 8848,86 metro.', 'Tai aukščiausias kalnas virš jūros lygio.'], a: 2, find: 'aukštis' },
+    ans: ['8848,86 m', '5000 m', '10 000 m'], an: 0,
+    two: { a: ['senas-blogas.lt, 2010 m.', 'Everesto aukštis yra 8848 metrai.'], b: ['pasaulio-zinynas.lt, 2020 m.', 'Naujas matavimas: 8848,86 metro.'],
+           q: 'Kuriuo šaltiniu labiau tikėti?', o: ['Senesniu, nes jis senas', 'Naujesniu, nes jame naujas matavimas', 'Nė vienu'], c: 1,
+           why: 'Abu beveik sutampa. Naujesnis turi tikslesnį matavimą. Tikrinti datą verta visada.' } },
+];
+
+/* ---------- progresas ---------- */
+const NS = (k) => (window.ZM ? ZM.ns(k) : k);
+let prog = { stars: {} };
+try { const p = JSON.parse(localStorage.getItem(NS('pd-progress')) || 'null'); if (p && p.stars) prog = p; } catch (e) {}
+const saveProg = () => { try { localStorage.setItem(NS('pd-progress'), JSON.stringify(prog)); } catch (e) {} };
+const unlockedUpTo = () => { let n = 0; while (n < CASES.length - 1 && prog.stars[n]) n++; return n; };
+const totalStars = () => Object.values(prog.stars).reduce((a, b) => a + b, 0);
+
+/* ---------- garsas ---------- */
+let actx = null;
+function tone(f, d, type = 'square', v = .05, delay = 0) {
+  try { actx = actx || new (window.AudioContext || window.webkitAudioContext)(); if (actx.state === 'suspended') actx.resume();
+    const t = actx.currentTime + delay, o = actx.createOscillator(), g = actx.createGain(); o.type = type; o.frequency.value = f;
+    g.gain.setValueAtTime(v, t); g.gain.exponentialRampToValueAtTime(.0008, t + d); o.connect(g).connect(actx.destination); o.start(t); o.stop(t + d + .05);
+  } catch (e) {}
+}
+const sfx = { ok: () => { tone(660, .08); tone(880, .1, 'square', .05, .07); }, bad: () => { tone(200, .18); tone(140, .22, 'square', .05, .12); },
+  win: () => [523, 659, 784, 1047, 784, 1047, 1319].forEach((f, i) => tone(f, .12, 'square', .05, i * .08)) };
+
+/* ---------- bylų sąrašas ---------- */
+function showCases() {
+  $('#vCase').hidden = true; $('#vCases').hidden = false; $('#back').hidden = true; $('#menu').hidden = false;
+  $('#title').textContent = 'Paieškos detektyvas'; $('#totalStars').textContent = totalStars();
+  const up = unlockedUpTo();
+  $('#cases').innerHTML = CASES.map((c, i) => {
+    const st = prog.stars[i] || 0, lock = i > up;
+    return `<button class="btn case panel ${lock ? 'locked' : ''} ${st ? 'done' : ''}" data-i="${i}" ${lock ? 'disabled' : ''}>
+      <span class="n">${lock ? '🔒' : 'BYLA ' + (i + 1)}</span><span class="q">${esc(c.q)}</span>
+      <span class="st">${'★'.repeat(st)}${'☆'.repeat(3 - st)}</span></button>`;
+  }).join('');
+  document.querySelectorAll('#cases [data-i]').forEach((b) => b.onclick = () => openCase(+b.dataset.i));
+}
+
+/* ---------- byla ---------- */
+let C = null, ci = 0, step = 0, mistakes = 0, points = 0, stepsList = [];
+function setUrl(u, lock = true) { $('#url').innerHTML = (lock ? '<span class="lock">🔒</span>' : '') + esc(u); }
+function say(t, cls = '') { const s = $('#say'); s.textContent = t; s.className = 'say ' + cls; }
+function renderSteps() {
+  $('#steps').innerHTML = stepsList.map((t, i) => `<span class="${i < step ? 'ok' : i === step ? 'on' : ''}">${i + 1}. ${t}</span>`).join('');
+  $('#bar').innerHTML = stepsList.map((_, i) => `<i class="${i < step ? 'on' : ''}"></i>`).join('');
+}
+function openCase(i) {
+  ci = i; C = CASES[i]; step = 0; mistakes = 0; points = 0;
+  stepsList = ['Žodžiai', 'Rezultatas', 'Sakinys', 'Atsakymas'].concat(C.two ? ['Du šaltiniai'] : []);
+  $('#vCases').hidden = true; $('#vCase').hidden = false; $('#back').hidden = false; $('#menu').hidden = true;
+  $('#title').textContent = 'Byla ' + (i + 1);
+  $('#who').textContent = 'BYLA ' + (i + 1); $('#story').textContent = C.story;
+  $('#ask').textContent = C.q;
+  $('#tip').textContent = 'Patarimas: trumpi raktažodžiai veikia geriau nei ilgas sakinys.';
+  renderSteps(); stepWords();
+}
+function next() { step++; renderSteps(); const f = [stepWords, stepResults, stepArticle, stepAnswer, stepTwo][step]; if (f) f(); else finish(); }
+function right(msg) { points += 10; sfx.ok(); say('✓ ' + msg, 'good'); }
+function wrong(el, msg) { mistakes++; sfx.bad(); el.classList.remove('wrong'); void el.offsetWidth; el.classList.add('wrong'); say('✗ ' + msg, 'bad'); }
+
+function stepWords() {
+  setUrl('paieska.lt', true);
+  say('1 žingsnis: kokius žodžius rašysi į paiešką?');
+  const opts = C.words.map((w, k) => `<button class="pick" data-k="${k}"><span class="ic">🔎</span>${esc(w)}</button>`).join('');
+  $('#page').innerHTML = `<div class="logo"><b>p</b><b>a</b><b>i</b><b>e</b><b>š</b><b>ka</b></div>
+    <div class="sbox"><span class="ph">Ką ieškosi?</span><span class="cursor"></span></div><div class="choose">${opts}</div>`;
+  $('#page').scrollTop = 0;
+  document.querySelectorAll('#page .pick').forEach((b) => b.onclick = () => {
+    const k = +b.dataset.k, w = C.words[k];
+    if (k === C.w) { b.classList.add('right'); $('#page .sbox').innerHTML = `🔎 <span>${esc(w)}</span>`; right('Puiku! Trumpai ir aiškiai.'); setTimeout(next, 900); }
+    else if (w.split(' ').length > 5) wrong(b, 'Per ilga. Paieškai užtenka kelių svarbiausių žodžių.');
+    else wrong(b, 'Per mažai. Toks žodis duos milijoną puslapių apie viską.');
+  });
+}
+function stepResults() {
+  const w = C.words[C.w];
+  setUrl('paieska.lt/?q=' + w.replace(/ /g, '+'), true);
+  say('2 žingsnis: kurį rezultatą atidarysi?');
+  $('#tip').textContent = 'Patarimas: „Remiama“ yra reklama. Laimėjimai ir šauktukai dažnai yra spąstai.';
+  $('#page').innerHTML = `<div class="sbox">🔎 <span>${esc(w)}</span></div>` + C.res.map((r, k) =>
+    `<button class="res" data-k="${k}"><span class="site">${r.k === 'ad' ? '<span class="ad">Remiama</span>' : ''}${esc(r.site)}</span>
+     <span class="t">${esc(r.t)}</span><span class="s">${esc(r.s)}</span></button>`).join('');
+  $('#page').scrollTop = 0;
+  document.querySelectorAll('#page .res').forEach((b) => b.onclick = () => {
+    const r = C.res[+b.dataset.k];
+    if (r.k === 'good') { b.classList.add('right'); right('Teisingai! Žinynas su faktais.'); setTimeout(next, 900); }
+    else if (r.k === 'ad') wrong(b, 'Tai reklama: žyma „Remiama“. Ji nori parduoti, o ne atsakyti.');
+    else if (r.k === 'trap') wrong(b, 'Spąstai! Niekada neįvesk slaptažodžių ir kortelių duomenų. Tokių puslapių nespaudžiam.');
+    else wrong(b, 'Čia ne apie tai arba labai senas puslapis. Ieškok žinyno.');
+  });
+}
+function stepArticle() {
+  const a = C.art;
+  setUrl(a.site, true);
+  say('3 žingsnis: paspausk sakinį, kuriame yra atsakymas.');
+  $('#tip').textContent = 'Patarimas: neskaityk visko. Naudok „Ieškoti puslapyje“.';
+  $('#page').innerHTML = `<div class="art"><h2>${esc(a.h)}</h2><div class="meta">${esc(a.site.split('/')[0])}</div>
+    <div id="sents">${a.s.map((s, k) => `<span class="sent" data-k="${k}">${esc(s)}</span> `).join('')}</div></div>
+    <div class="findbar"><button class="btn small" id="find">🔎 Ieškoti puslapyje</button><span id="findInfo"></span></div>`;
+  $('#page').scrollTop = 0;
+  $('#find').onclick = () => {
+    const word = a.find; let n = 0;
+    document.querySelectorAll('#sents .sent').forEach((el, k) => {
+      const t = a.s[k], i = t.toLowerCase().indexOf(word.toLowerCase());
+      if (i >= 0) { n++; el.innerHTML = esc(t.slice(0, i)) + '<mark>' + esc(t.slice(i, i + word.length)) + '</mark>' + esc(t.slice(i + word.length)); }
+    });
+    $('#findInfo').innerHTML = `<span class="word">${esc(word)}</span> rasta: ${n}`;
+  };
+  document.querySelectorAll('#sents .sent').forEach((el) => el.onclick = () => {
+    if (+el.dataset.k === a.a) { el.classList.add('right'); right('Radai! Štai kur atsakymas.'); setTimeout(next, 1000); }
+    else wrong(el, 'Šiame sakinyje atsakymo nėra. Pabandyk „Ieškoti puslapyje“.');
+  });
+}
+function stepAnswer() {
+  say('4 žingsnis: koks atsakymas?');
+  $('#tip').textContent = C.tip || 'Patarimas: atsakymas yra pažymėtame sakinyje.';
+  const sent = C.art.s[C.art.a];
+  $('#page').innerHTML = `<div class="art"><div class="src"><b>${esc(C.art.site.split('/')[0])}</b>${esc(sent)}</div></div>
+    <p class="q2">${esc(C.q)}</p><div class="answers">${C.ans.map((x, k) => `<button class="pick" data-k="${k}">${esc(x)}</button>`).join('')}</div>`;
+  $('#page').scrollTop = 0;
+  document.querySelectorAll('#page .answers .pick').forEach((b) => b.onclick = () => {
+    if (+b.dataset.k === C.an) { b.classList.add('right'); right('Byla beveik išspręsta!'); setTimeout(next, 900); }
+    else wrong(b, 'Ne. Perskaityk sakinį dar kartą.');
+  });
+}
+function stepTwo() {
+  if (!C.two) return finish();
+  const T = C.two;
+  setUrl('du-šaltiniai', false);
+  say('5 žingsnis: du šaltiniai sako skirtingai.');
+  $('#tip').textContent = 'Patarimas: geras detektyvas tikrina kelis šaltinius ir žiūri datą.';
+  $('#page').innerHTML = `<div class="two"><div class="src"><b>${esc(T.a[0])}</b>${esc(T.a[1])}</div><div class="src"><b>${esc(T.b[0])}</b>${esc(T.b[1])}</div></div>
+    <p class="q2">${esc(T.q)}</p><div class="choose">${T.o.map((x, k) => `<button class="pick" data-k="${k}">${esc(x)}</button>`).join('')}</div>`;
+  $('#page').scrollTop = 0;
+  document.querySelectorAll('#page .choose .pick').forEach((b) => b.onclick = () => {
+    if (+b.dataset.k === T.c) { b.classList.add('right'); right(T.why); setTimeout(next, 1800); }
+    else wrong(b, 'Hmm, ne visai. Pagalvok, kodėl skaičiai skiriasi.');
+  });
+}
+function finish() {
+  const stars = mistakes === 0 ? 3 : mistakes <= 2 ? 2 : 1, first = !prog.stars[ci];
+  prog.stars[ci] = Math.max(prog.stars[ci] || 0, stars); saveProg();
+  sfx.win(); setUrl('byla-isspresta', false);
+  say('Byla išspręsta! Klaidų: ' + mistakes + '.', 'good');
+  const last = ci >= CASES.length - 1;
+  $('#page').innerHTML = `<div class="done-card"><div class="badge">🕵️</div><div class="stars">${'★'.repeat(stars)}${'☆'.repeat(3 - stars)}</div>
+    <h3>Byla ${ci + 1} išspręsta!</h3><p>${esc(C.q)} Atsakymas: <b>${esc(C.ans[C.an])}</b></p><p>Taškai: ${points}</p>
+    <div class="row">${last ? '' : '<button class="btn go" id="nextCase">▶ Kita byla</button>'}<button class="btn" id="again">↻ Dar kartą</button><button class="btn" id="toCases">Bylos</button></div></div>`;
+  $('#page').scrollTop = 0;
+  if (!last) $('#nextCase').onclick = () => openCase(ci + 1);
+  $('#again').onclick = () => openCase(ci);
+  $('#toCases').onclick = showCases;
+  $('#totalStars').textContent = totalStars();
+  if (window.ZM) ZM.report('paieskos-detektyvas', { score: totalStars(), xp: points + (first ? 20 : 0) });
+}
+$('#back').onclick = showCases;
+showCases();
+})();
+</script>
+</body>
+</html>
