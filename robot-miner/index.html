@@ -48,7 +48,7 @@ body {
   -webkit-touch-callout: none;
   -webkit-tap-highlight-color: transparent;
 }
-#app { position: fixed; inset: 0; display: grid; grid-template-rows: auto minmax(0, 1fr); }
+#app { position: fixed; inset: 0; height: 100dvh; display: grid; grid-template-rows: auto minmax(0, 1fr); grid-template-columns: minmax(0, 1fr); }
 
 .btn {
   font: inherit; font-weight: 700; color: var(--ink); cursor: pointer; touch-action: manipulation;
@@ -72,8 +72,10 @@ body {
 .top {
   display: flex; align-items: center; gap: 10px;
   padding: calc(env(safe-area-inset-top, 0px) + 8px) 12px 8px;
-  background: var(--stone-lo); border-bottom: 4px solid #000;
+  background: var(--stone-lo); border-bottom: 4px solid #000; min-width: 0;
 }
+.top > * { flex-shrink: 0; }
+.top .hint { flex-shrink: 1; }
 .top .title { font-size: 1.35rem; letter-spacing: 0.06em; text-shadow: 2px 2px 0 #000; white-space: nowrap; }
 .top .title b { color: var(--gold); }
 .top .hint { flex: 1; min-width: 0; font-family: var(--word); font-weight: 800; font-size: 1rem; color: var(--gem); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
@@ -95,6 +97,27 @@ body {
   .main { grid-template-columns: minmax(0, 1fr) minmax(340px, 440px); grid-template-rows: minmax(0, 1fr); }
   .side { border-top: 0; border-left: 4px solid #000; grid-template-rows: minmax(0, 1fr) auto auto; align-content: stretch; }
   .prog { max-height: none; }
+}
+
+/* žemas landscape (Android planšetė su adreso juosta): viskas sutraukiama, kad tilptų be slinkimo */
+@media (min-aspect-ratio: 5/4) and (max-height: 640px) {
+  .top { padding-top: calc(env(safe-area-inset-top, 0px) + 5px); padding-bottom: 5px; gap: 8px; }
+  .top .title { font-size: 1.15rem; }
+  .boardWrap { padding: 8px; }
+  .side { gap: 8px; padding: 8px 10px calc(env(safe-area-inset-bottom, 0px) + 8px); }
+  .cmd { height: 58px; font-size: 0.78rem; }
+  .cmd svg { width: 24px; height: 24px; }
+  .controls .play, .controls .btn:not(.play) { height: 50px; }
+  .controls .play { font-size: 1.2rem; }
+  .chip, .slot, .loop .count-btn { width: 44px; height: 44px; }
+  .loop .count-btn { width: auto; min-width: 44px; font-size: 1.15rem; }
+  .chip svg { width: 26px; height: 26px; }
+}
+/* siauras telefonas: užuomina antroje eilutėje, kad juosta neišplėstų puslapio */
+@media (max-width: 640px) {
+  .top { flex-wrap: wrap; row-gap: 6px; }
+  .top .hint { order: 9; flex-basis: 100%; white-space: normal; }
+  .cmd { min-width: 0; height: 64px; }
 }
 
 /* program */
@@ -182,11 +205,20 @@ h2 { font-family: var(--word); font-weight: 900; font-size: clamp(2rem, 9vw, 2.6
 .seg { display: flex; }
 .seg .btn { font-size: 0.95rem; padding: 4px 14px; }
 .seg .btn[aria-pressed="true"] { background: var(--gold); color: #2a1d00; border-color: #fff0a8 #b8861a #b8861a #fff0a8; }
-.levels { display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; width: 100%; }
+.levels { display: grid; grid-template-columns: repeat(6, minmax(0, 1fr)); gap: 8px; width: 100%; }
+#levelsOv .panel { max-width: 520px; }
+/* landscape: pavadinimas kairėje, 24 lygiai dešinėje, viskas telpa į ekraną */
+@media (min-aspect-ratio: 5/4) {
+  #levelsOv .panel { max-width: min(1000px, 100%); grid-template-columns: minmax(180px, 280px) auto; column-gap: 24px; align-items: center; }
+  #levelsOv .panel > * { grid-column: 1; }
+  #levelsOv .panel > .levels { grid-column: 2; grid-row: 1 / span 5; width: min(100%, calc((100dvh - 90px) * 1.45)); justify-self: center; }
+  #levelsOv h1 { font-size: clamp(2rem, 7vh, 3.2rem); }
+}
 .lvl {
   aspect-ratio: 1; max-width: 100%; display: grid; place-items: center; align-content: center; gap: 4px; padding: 4px;
-  font-family: var(--pixel); font-weight: 700; font-size: 1.7rem; color: var(--ink);
+  font-family: var(--pixel); font-weight: 700; font-size: clamp(1rem, 3.2vmin, 1.5rem); color: var(--ink);
 }
+.lvl .star { width: 11px; height: 11px; }
 .lvl.loopy { background: #4a3b1c; }
 .lvl.cur { outline: 3px solid var(--gold); outline-offset: 3px; }
 .lvl:disabled { opacity: 0.35; }
@@ -293,7 +325,8 @@ h2 { font-family: var(--word); font-weight: 900; font-size: clamp(2rem, 9vw, 2.6
       par: (n) => `3 žvaigždėms reikia <b>${n}</b>.`,
       perfect: 'Tobula programa!',
       empty: 'Spausk komandą apačioje',
-      hints: { 1: 'Nuvesk robotą iki deimanto.', 4: 'Robotas moka suktis.', 7: 'Akmenį galima iškasti.', 9: 'Kartok: ta pati komanda daug kartų.' },
+      hints: { 1: 'Nuvesk robotą iki deimanto.', 4: 'Robotas moka suktis.', 7: 'Akmenį galima iškasti.', 9: 'Kartok: ta pati komanda daug kartų.',
+        13: 'Ilgas kelias: skaičiuok žingsnius.', 17: 'Programoje gali būti kelios kartotės.', 19: 'Ratas: kartok kraštinę ir posūkį.', 21: 'Kask, eik, sukis: viskas vienoje kartotėje.', 23: 'BOSAS! Viskas, ką moki.' },
     },
     en: {
       lead: 'Line up commands and drive the robot to the diamond.',
@@ -314,7 +347,8 @@ h2 { font-family: var(--word); font-weight: 900; font-size: clamp(2rem, 9vw, 2.6
       par: (n) => `3 stars need <b>${n}</b>.`,
       perfect: 'Perfect program!',
       empty: 'Tap a command below',
-      hints: { 1: 'Drive the robot to the diamond.', 4: 'The robot can turn.', 7: 'Stones can be mined.', 9: 'Repeat: one command, many times.' },
+      hints: { 1: 'Drive the robot to the diamond.', 4: 'The robot can turn.', 7: 'Stones can be mined.', 9: 'Repeat: one command, many times.',
+        13: 'A long road: count the steps.', 17: 'A program can have several repeats.', 19: 'A ring: repeat one side and a turn.', 21: 'Mine, move, turn: all in one repeat.', 23: 'BOSS! Everything you know.' },
     },
   };
 
@@ -334,6 +368,19 @@ h2 { font-family: var(--word); font-weight: 900; font-size: clamp(2rem, 9vw, 2.6
     { g: ['#######', '#####D#', '####..#', '###..##', '##..###', '#R.####', '#######'], dir: 1, par: 5, limit: 6 },
     { g: ['#########', '#Rs.s.sD#', '#########'], dir: 1, par: 4, limit: 5 },
     { g: ['######', '#R...#', '#LLL.#', '#LLL.#', '#D...#', '######'], dir: 1, par: 5, limit: 6 },
+    // 13-24: ilgesni keliai, akmenys ir lava, tada kelios kartotės ir du bosai. par patikrintas sprendikliu.
+    { g: ['#######', '#R..###', '###.###', '###...#', '#####.#', '#D....#', '#######'], dir: 1, par: 11 },
+    { g: ['########', '#R.s.###', '####.###', '####s..#', '######D#', '########'], dir: 1, par: 13 },
+    { g: ['#########', '#R..LLLL#', '#LL.LLLL#', '#LL...LL#', '#LLLL.LL#', '#LLLL..D#', '#########'], dir: 1, par: 7 },
+    { g: ['##########', '#R.#.....#', '#..#.##.##', '##...#...#', '####.#s#.#', '#D...#..L#', '##########'], dir: 1, par: 11 },
+    { g: ['##########', '#R.......#', '########.#', '########.#', '########.#', '########D#', '##########'], dir: 1, par: 5, limit: 6 },
+    { g: ['###########', '#Rs.s.s.s.#', '#########s#', '#########D#', '###########'], dir: 1, par: 8, limit: 9 },
+    { g: ['#######', '#R....#', '##LLL.#', '#.LLL.#', '#.LLL.#', '#D....#', '#######'], dir: 1, par: 6, limit: 7 },
+    { g: ['########', '#LLLLLD#', '#LLLL..#', '#LLL..L#', '#LL..LL#', '#R..LLL#', '########'], dir: 1, par: 6, limit: 7 },
+    { g: ['########', '#Rs#####', '##.s####', '###.s###', '####.s##', '#####D##', '########'], dir: 1, par: 6, limit: 7 },
+    { g: ['##########', '#Rs.s.s.##', '#######s##', '#######.##', '#######s##', '#######D##', '##########'], dir: 1, par: 9, limit: 10 },
+    { g: ['#########', '#R.L#####', '#Ls.L####', '##L.s.L##', '###L.s.L#', '####L..D#', '#########'], dir: 1, par: 17, limit: 19 },
+    { g: ['###########', '#R........#', '#########.#', '#.........#', '#.#########', '#........D#', '###########'], dir: 1, par: 14, limit: 16 },
   ];
   const cmdsFor = (n) => (n <= 3 ? 'F' : n <= 6 ? 'FLR' : n <= 8 ? 'FLRM' : 'FLRMP');
   const DX = [0, 1, 0, -1], DY = [-1, 0, 1, 0];

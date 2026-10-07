@@ -79,6 +79,7 @@ canvas { image-rendering: pixelated; }
 .right { display: grid; justify-items: end; gap: 6px; }
 .lvl { font-size: 0.95rem; color: var(--ink-dim); letter-spacing: 0.08em; text-shadow: 2px 2px 0 var(--stone-lo); }
 .lvl b { color: var(--ink); font-size: 1.25rem; }
+.world { font-size: 0.8rem; letter-spacing: 0.08em; color: var(--diamond); text-shadow: 2px 2px 0 var(--stone-lo); }
 
 /* beveled block buttons and panels */
 .btn {
@@ -102,6 +103,7 @@ canvas { image-rendering: pixelated; }
   padding: calc(env(safe-area-inset-top, 0px) + 20px) 16px calc(env(safe-area-inset-bottom, 0px) + 20px);
   background: radial-gradient(ellipse at 50% 45%, rgba(12, 10, 18, 0.25), var(--scrim) 75%);
   overflow-y: auto;
+  overscroll-behavior: contain;
 }
 .panel {
   width: 100%; max-width: 360px; display: grid; gap: 14px; justify-items: center; text-align: center;
@@ -127,6 +129,44 @@ h2 { font-size: clamp(2.6rem, 13vw, 3.4rem); color: var(--tnt); text-shadow: 4px
 .final b { font-size: 4.6rem; line-height: 1; color: var(--gold); font-variant-numeric: tabular-nums; text-shadow: 4px 4px 0 #000; }
 .final span { color: var(--ink-dim); letter-spacing: 0.1em; text-transform: uppercase; font-size: 0.85rem; }
 .badge { background: var(--diamond); color: var(--cave); font-weight: 700; padding: 3px 12px; box-shadow: 3px 3px 0 #000; }
+.reached { margin: 0; color: var(--diamond); font-size: 1.05rem; letter-spacing: 0.06em; }
+.links { display: flex; flex-wrap: wrap; gap: 8px; justify-content: center; align-items: center; }
+.links:empty { display: none; }
+/* start worlds: every 3 levels the cave turns into a new world; reached worlds can be picked as the start */
+.worlds { display: grid; gap: 6px; width: 100%; }
+.worlds > span { font-size: 0.82rem; color: var(--ink-dim); letter-spacing: 0.08em; }
+.wrow { display: grid; grid-template-columns: repeat(4, 1fr); gap: 6px; }
+.wbtn { display: grid; justify-items: center; gap: 2px; padding: 5px 2px 4px; font-size: 0.72rem; line-height: 1.1; letter-spacing: 0.03em; }
+.wbtn canvas { width: 30px; height: 30px; }
+.wbtn small { font-size: 0.68rem; color: var(--ink-dim); }
+.wbtn[aria-pressed="true"] { outline: 3px solid var(--diamond); outline-offset: 2px; }
+.wbtn:disabled { opacity: 0.45; cursor: default; }
+.wbtn:disabled canvas { filter: grayscale(1) brightness(0.6); }
+/* portrait order: title, lead, legend, tip, worlds, play, best, links */
+.col { display: contents; }
+#start h1 { order: 1; } #start .lead { order: 2; } #start .legend { order: 3; } #start .tip { order: 4; }
+#start .worlds { order: 5; } #start .play { order: 6; } #start .best { order: 7; } #start .links { order: 8; }
+/* Android tablets in landscape (about 1024x552 to 1280x800): two columns, nothing below the fold */
+@media (orientation: landscape) and (min-width: 700px) {
+  .overlay { padding: calc(env(safe-area-inset-top, 0px) + 10px) 16px calc(env(safe-area-inset-bottom, 0px) + 10px); }
+  #start .panel { max-width: 900px; grid-template-columns: 1fr 1fr; align-items: center; gap: 0 24px; padding: 14px 20px; }
+  #start .col { display: grid; gap: clamp(6px, 1.8dvh, 14px); justify-items: center; align-content: center; }
+  #start h1 { font-size: clamp(2.4rem, 11dvh, 4.6rem); }
+  #start h1 span { display: inline; }
+  #start .lead { font-size: clamp(0.85rem, 2.6dvh, 1.02rem); }
+  #start .legend { gap: 6px; }
+  #start .legend canvas { width: clamp(30px, 7dvh, 44px); height: clamp(30px, 7dvh, 44px); }
+  .play { font-size: clamp(1.3rem, 4.5dvh, 1.7rem); padding: clamp(8px, 1.8dvh, 12px) 36px; }
+  #over .panel { gap: clamp(6px, 1.8dvh, 14px); padding: 14px 18px; max-width: 420px; }
+  #over h2 { font-size: clamp(2rem, 9dvh, 3.4rem); }
+  .final b { font-size: clamp(2.6rem, 13dvh, 4.6rem); }
+}
+/* phones in portrait */
+@media (orientation: portrait) and (max-width: 520px) {
+  .panel { gap: 10px; padding: 14px 14px; }
+  .lead { font-size: 0.92rem; }
+  h1 { font-size: clamp(2.6rem, 13vw, 4.2rem); }
+}
 @media (prefers-reduced-motion: reduce) { .lives i.pop { animation: none; } }
 </style>
 
@@ -145,13 +185,21 @@ h2 { font-size: clamp(2.6rem, 13vw, 3.4rem); color: var(--tnt); text-shadow: 4px
   </div>
   <div class="right">
     <span class="lvl">LVL <b id="lvl">1</b></span>
+    <span class="world" id="world">CAVE</span>
     <button class="btn mute" id="mute" type="button" aria-pressed="false">Sound on</button>
   </div>
 </div>
 
 <div class="overlay" id="start">
   <div class="panel">
+   <div class="col">
     <h1>ORE <span>RUSH</span></h1>
+    <div class="worlds"><span>START WORLD</span><div class="wrow" id="worlds"></div></div>
+    <button class="btn play" id="play" type="button">PLAY</button>
+    <p class="best">Best: <b id="bestStart">0</b> &middot; best level <b id="bestLvlStart">1</b></p>
+    <div class="links"><a class="zm-back" href="../">← Meniu</a></div>
+   </div>
+   <div class="col">
     <p class="lead">Slide your finger to drive the minecart. Catch every ore block. A missed block costs <b>half a heart</b>. TNT costs <b>a whole heart</b>, on a hit or when it lands next to you.</p>
     <ul class="legend">
       <li><canvas data-kind="coal" width="88" height="88"></canvas><b>1</b>coal</li>
@@ -163,10 +211,8 @@ h2 { font-size: clamp(2.6rem, 13vw, 3.4rem); color: var(--tnt); text-shadow: 4px
       <li><canvas data-kind="magnet" width="88" height="88"></canvas><b>pull</b>magnet</li>
       <li><canvas data-kind="streak" width="88" height="88"></canvas><b>x2 x3</b>streak</li>
     </ul>
-    <p class="tip">10 ores in a row = x2 points. 25 in a row = x3.</p>
-    <button class="btn play" id="play" type="button">PLAY</button>
-    <p class="best">Best: <b id="bestStart">0</b></p>
-    <a class="zm-back" href="../">← Meniu</a>
+    <p class="tip">10 ores in a row = x2 points. 25 in a row = x3.<br>Every 3 levels: a new world!</p>
+   </div>
   </div>
 </div>
 
@@ -174,10 +220,11 @@ h2 { font-size: clamp(2.6rem, 13vw, 3.4rem); color: var(--tnt); text-shadow: 4px
   <div class="panel">
     <h2>GAME OVER</h2>
     <div class="final"><b id="final">0</b><span>points, level <span id="finalLvl">1</span></span></div>
+    <p class="reached" id="finalWorld">CAVE</p>
     <div class="badge" id="newBest" hidden>NEW RECORD!</div>
     <button class="btn play" id="again" type="button">PLAY AGAIN</button>
-    <p class="best">Best: <b id="bestOver">0</b></p>
-    <a class="zm-back" href="../">← Meniu</a>
+    <p class="best">Best: <b id="bestOver">0</b> &middot; best level <b id="bestLvlOver">1</b></p>
+    <div class="links"><a class="zm-back" href="../">← Meniu</a></div>
   </div>
 </div>
 
@@ -191,7 +238,7 @@ h2 { font-size: clamp(2.6rem, 13vw, 3.4rem); color: var(--tnt); text-shadow: 4px
   const cvs = $('game');
   const ctx = cvs.getContext('2d');
   const reduce = matchMedia('(prefers-reduced-motion: reduce)').matches;
-  const FONT = '"Pixelify Sans", "Courier New", monospace';
+  const FONT = '"ZM Digits", "Pixelify Sans", "Courier New", monospace';
 
   /* ---------- pixel textures ---------- */
   function rng(seed) {
@@ -225,13 +272,15 @@ h2 { font-size: clamp(2.6rem, 13vw, 3.4rem); color: var(--tnt); text-shadow: 4px
     iron:    { v: 2,  main: '#d9a98a', hi: '#f3d6c1', dark: '#a67558', glow: null },
     gold:    { v: 5,  main: '#f8d838', hi: '#fff6a0', dark: '#c4921a', glow: '255,214,60' },
     diamond: { v: 10, main: '#4de8d6', hi: '#d0fff7', dark: '#1d9c8f', glow: '77,232,214' },
+    emerald: { v: 15, main: '#3ddc6a', hi: '#c2ffd2', dark: '#167a35', glow: '61,220,106' },
+    big:     { v: 50, main: '#4de8d6', hi: '#d0fff7', dark: '#1d9c8f', glow: '120,255,240', size: 1.6 },
   };
   function oreTex(name, seed) {
     const o = ORES[name], r = rng(seed);
     const base = stoneTex(seed + 7, STONE);
     return makeCanvas(16, 16, (g) => {
       g.drawImage(base, 0, 0);
-      const spots = name === 'diamond' ? 5 : 6;
+      const spots = name === 'diamond' || name === 'big' ? 5 : 6;
       for (let i = 0; i < spots; i++) {
         const cx = 1 + ((r() * 12) | 0), cy = 1 + ((r() * 12) | 0);
         px(g, cx, cy, 2, 2, o.main);
@@ -290,12 +339,43 @@ h2 { font-size: clamp(2.6rem, 13vw, 3.4rem); color: var(--tnt); text-shadow: 4px
     '.dddddd.',
   ], { s: '#dfe3ea', r: '#e0402e', d: '#9c2418' });
 
+  const LAVA_DROP = maskSprite([
+    '...o...',
+    '..ooo..',
+    '.oyyyo.',
+    '.oyhyo.',
+    'oyyhyyo',
+    'oyyyyyo',
+    '.oyyyo.',
+    '..ooo..',
+  ], { o: '#c8400c', y: '#ff9a2e', h: '#fff1a0' });
+
   const TEX = {
     coal: oreTex('coal', 11), iron: oreTex('iron', 23), gold: oreTex('gold', 37), diamond: oreTex('diamond', 41),
+    emerald: oreTex('emerald', 53), big: oreTex('big', 47),
     tnt: tntTex(false), tntLit: tntTex(true),
+    lava: stoneTex(61, ['#ff7a1a', '#ff9a2e', '#e85a10', '#ffc04a', '#ff8a20', '#c84a0c']),
   };
-  const WALL = [stoneTex(3, STONE), stoneTex(5, STONE), stoneTex(9, STONE), stoneTex(13, STONE)];
-  const FLOOR = [stoneTex(17, DEEP), stoneTex(19, DEEP), stoneTex(29, DEEP)];
+
+  /* ---------- worlds: every 3 levels the cave changes ---------- */
+  const BIOMES = [
+    { name: 'CAVE', from: 1, wall: STONE, floor: DEEP, tint: 'rgba(14,10,24,0.5)', bgOre: ['coal', 'iron'],
+      torch: ['255,170,60', '#ff8a1e', '#ffd34a', '#fff6c4'], tip: null },
+    { name: 'LAVA CAVES', from: 4, wall: ['#4a3f3c', '#433835', '#52463f', '#3b312e', '#4d413b', '#342b28'],
+      floor: ['#3a2f2c', '#332825', '#41352f', '#2c2320', '#3d312c', '#261e1b'], tint: 'rgba(70,18,4,0.42)', lava: true,
+      bgOre: ['iron', 'gold'], torch: ['255,150,40', '#ff6a12', '#ffb02e', '#fff1a0'], tip: 'WATCH OUT: LAVA DROPS!' },
+    { name: 'THE NETHER', from: 7, wall: ['#6e2a2a', '#622424', '#7a3030', '#572020', '#6a2828', '#4e1c1c'],
+      floor: ['#3a1414', '#331111', '#421818', '#2c0e0e', '#3c1515', '#260b0b'], tint: 'rgba(40,0,8,0.42)', lava: true,
+      bgOre: ['gold', 'emerald'], torch: ['255,214,120', '#e0a040', '#ffe08a', '#fff6c4'], tip: 'NEW ORE: EMERALD = 15' },
+    { name: 'THE END', from: 10, wall: ['#2a1b3d', '#24173a', '#311f47', '#1f1430', '#2c1c40', '#1a1128'],
+      floor: ['#d9d39a', '#cfc88c', '#e2dca6', '#c6bf82', '#d4cd94', '#bdb679'], tint: 'rgba(20,6,40,0.3)', stars: true,
+      bgOre: [], torch: ['200,140,255', '#b98cff', '#e8d6ff', '#ffffff'], tip: 'BIG DIAMOND = 50!' },
+  ];
+  const biomeAt = (lvl) => { let i = 0; BIOMES.forEach((b, j) => { if (lvl >= b.from) i = j; }); return i; };
+  const BTEX = BIOMES.map((b, i) => ({
+    wall: [3, 5, 9, 13].map((sd) => stoneTex(sd + i * 100, b.wall)),
+    floor: [17, 19, 29].map((sd) => stoneTex(sd + i * 100, b.floor)),
+  }));
 
   /* ---------- hero sprite: miner riding a minecart ---------- */
   function heroSprite(frame) {
@@ -352,9 +432,15 @@ h2 { font-size: clamp(2.6rem, 13vw, 3.4rem); color: var(--tnt); text-shadow: 4px
   const S = {
     mode: 'start', score: 0, hp: 6, streak: 0, mult: 1, level: 1, best: 0,
     t: 0, spawn: 0.5, blocks: [], parts: [], floats: [], shake: 0, flash: 0,
-    magnet: 0, invuln: 0, bounce: 0, load: [], banner: null,
+    magnet: 0, invuln: 0, bounce: 0, load: [], banner: null, biome: 0, base: 0, bestLvl: 1, startLvl: 1,
   };
-  try { S.best = Number(localStorage.getItem(NS('ore-best'))) || 0; } catch (e) {}
+  try {
+    S.best = Number(localStorage.getItem(NS('ore-best'))) || 0;
+    S.bestLvl = Math.max(1, Number(localStorage.getItem(NS('ore-bestlvl'))) || 1);
+    const w = Number(localStorage.getItem(NS('ore-world'))) || 1;
+    S.startLvl = BIOMES.some((b) => b.from === w) && w <= S.bestLvl ? w : 1;
+  } catch (e) {}
+  S.biome = biomeAt(S.startLvl);
 
   const levelAt = (n) => 15 * n * (n + 1); // L2 at 30, L3 at 90, L4 at 180, L5 at 300
 
@@ -386,13 +472,23 @@ h2 { font-size: clamp(2.6rem, 13vw, 3.4rem); color: var(--tnt); text-shadow: 4px
       g.imageSmoothingEnabled = false;
       const r = rng(77);
       const T = B;
+      const bio = BIOMES[S.biome], WALL = BTEX[S.biome].wall, FLOOR = BTEX[S.biome].floor;
+      g.clearRect(0, 0, W, H);
       // back wall
       for (let y = 0; y < ground; y += T) for (let x = 0; x < W; x += T) {
         g.drawImage(WALL[(r() * WALL.length) | 0], x, y, T, T);
-        if (r() < 0.06) g.drawImage(TEX[r() < 0.7 ? 'coal' : 'iron'], x, y, T, T);
+        if (bio.bgOre.length && r() < 0.06) g.drawImage(TEX[bio.bgOre[r() < 0.7 ? 0 : bio.bgOre.length - 1]], x, y, T, T);
+        else if (bio.lava && r() < 0.025) g.drawImage(TEX.lava, x, y, T, T);
       }
-      g.fillStyle = 'rgba(14,10,24,0.5)';
+      g.fillStyle = bio.tint;
       g.fillRect(0, 0, W, ground);
+      if (bio.stars) {
+        for (let i = 0; i < (W * ground) / 2600; i++) {
+          g.fillStyle = r() < 0.3 ? '#e8d6ff' : '#9a7ac8';
+          const sz = r() < 0.15 ? 3 : 2;
+          g.fillRect(r() * W, r() * ground * 0.85, sz, sz);
+        }
+      }
       // ceiling with drips
       for (let x = 0; x < W; x += T) {
         g.drawImage(WALL[(r() * WALL.length) | 0], x, -T * 0.35, T, T);
@@ -404,9 +500,17 @@ h2 { font-size: clamp(2.6rem, 13vw, 3.4rem); color: var(--tnt); text-shadow: 4px
       g.fillStyle = 'rgba(14,10,24,0.35)';
       g.fillRect(0, 0, W, T * 1.4);
       // floor
-      for (let y = ground; y < H; y += T) for (let x = 0; x < W; x += T) g.drawImage(FLOOR[(r() * FLOOR.length) | 0], x, y, T, T);
+      for (let y = ground; y < H; y += T) for (let x = 0; x < W; x += T) {
+        const lavaPool = bio.lava && r() < 0.16;
+        g.drawImage(lavaPool ? TEX.lava : FLOOR[(r() * FLOOR.length) | 0], x, y, T, T);
+      }
       g.fillStyle = 'rgba(0,0,0,0.25)';
       g.fillRect(0, ground, W, H - ground);
+      if (bio.lava) {
+        const gl = g.createLinearGradient(0, H, 0, ground - T * 2);
+        gl.addColorStop(0, 'rgba(255,110,20,0.28)'); gl.addColorStop(1, 'rgba(255,110,20,0)');
+        g.fillStyle = gl; g.fillRect(0, ground - T * 2, W, H - ground + T * 2);
+      }
       // rail
       const tieW = T * 0.22, tieH = T * 0.14;
       for (let x = T * 0.15; x < W; x += T * 0.5) {
@@ -419,7 +523,8 @@ h2 { font-size: clamp(2.6rem, 13vw, 3.4rem); color: var(--tnt); text-shadow: 4px
       const s = B / 10;
       for (const tc of torches) {
         const gr = g.createRadialGradient(tc.x, tc.y, 0, tc.x, tc.y, B * 4);
-        gr.addColorStop(0, 'rgba(255,150,50,0.3)'); gr.addColorStop(1, 'rgba(255,120,30,0)');
+        const tg = BIOMES[S.biome].torch[0];
+        gr.addColorStop(0, `rgba(${tg},0.3)`); gr.addColorStop(1, `rgba(${tg},0)`);
         g.fillStyle = gr; g.beginPath(); g.arc(tc.x, tc.y, B * 4, 0, TAU); g.fill();
         g.fillStyle = '#6b4a2b'; g.fillRect(tc.x - s, tc.y, s * 2, s * 9);
         g.fillStyle = '#4c331d'; g.fillRect(tc.x, tc.y, s, s * 9);
@@ -437,7 +542,11 @@ h2 { font-size: clamp(2.6rem, 13vw, 3.4rem); color: var(--tnt); text-shadow: 4px
       gr.addColorStop(0, `rgba(${rgb},${a})`); gr.addColorStop(1, `rgba(${rgb},0)`);
       c.fillStyle = gr; c.beginPath(); c.arc(cx, cy, r, 0, TAU); c.fill();
     };
-    for (const t of Object.keys(ORES)) add('cube:' + t, ORES[t].glow ? B * 3 : B * 1.5, (c, x, y) => drawCube(c, TEX[t], x, y, B, ORES[t].glow));
+    for (const t of Object.keys(ORES)) {
+      const z = B * (ORES[t].size || 1);
+      add('cube:' + t, ORES[t].glow ? z * 3 : z * 1.5, (c, x, y) => drawCube(c, TEX[t], x, y, z, ORES[t].glow));
+    }
+    add('item:lava', B * 2.2, (c, x, y) => drawItem(c, LAVA_DROP, x, y, B * 0.62, '255,120,30', 0));
     add('cube:tnt', B * 1.5, (c, x, y) => drawCube(c, TEX.tnt, x, y, B, null));
     add('cube:tntLit', B * 3, (c, x, y) => drawCube(c, TEX.tntLit, x, y, B, '255,90,60'));
     add('item:heart', B * 2.4, (c, x, y) => drawItem(c, HEART, x, y, B * 0.9, '255,80,90', 0));
@@ -446,7 +555,7 @@ h2 { font-size: clamp(2.6rem, 13vw, 3.4rem); color: var(--tnt); text-shadow: 4px
     HERO.forEach((h, i) => add('hero' + i, heroW, (c, x, y) => c.drawImage(h, x - 11 * p, y - 11 * p, 22 * p, 22 * p)));
     for (const t of Object.keys(ORES)) add('mini:' + t, 3 * p, (c, x, y) => c.drawImage(TEX[t], x - 1.5 * p, y - 1.5 * p, 3 * p, 3 * p));
     add('lamp', 18 * p, (c, x, y) => glowDisc(c, x, y, 9 * p, '255,240,170', 0.45));
-    add('torch', B * 3, (c, x, y) => glowDisc(c, x, y, B * 1.5, '255,170,60', 0.35));
+    add('torch', B * 3, (c, x, y) => glowDisc(c, x, y, B * 1.5, BIOMES[S.biome].torch[0], 0.35));
 
     const maxW = 2048;
     let x = 0, y = 0, rowH = 0;
@@ -502,7 +611,7 @@ h2 { font-size: clamp(2.6rem, 13vw, 3.4rem); color: var(--tnt); text-shadow: 4px
     c.drawImage(spr, x - w / 2, y - h / 2 + bob, w, h);
   }
   function drawBlock(c, blk, t) {
-    if (blk.type === 'heart' || blk.type === 'magnet') {
+    if (blk.type === 'heart' || blk.type === 'magnet' || blk.type === 'lava') {
       return blit(c, 'item:' + blk.type, blk.x, blk.y + Math.sin(t * 5) * blk.b * 0.05);
     }
     if (blk.type === 'tnt') {
@@ -539,9 +648,10 @@ h2 { font-size: clamp(2.6rem, 13vw, 3.4rem); color: var(--tnt); text-shadow: 4px
       blit(ctx, 'torch', tc.x, tc.y - s * 2);
       ctx.globalAlpha = 1;
       const f = Math.sin(t * 12 + tc.p) > 0 ? 1 : 0;
-      ctx.fillStyle = '#ff8a1e'; ctx.fillRect(tc.x - s * 1.5, tc.y - s * 3, s * 3, s * 3);
-      ctx.fillStyle = '#ffd34a'; ctx.fillRect(tc.x - s * (0.5 + f * 0.5), tc.y - s * (4 + f), s * 2, s * 2.5);
-      ctx.fillStyle = '#fff6c4'; ctx.fillRect(tc.x - s * 0.5, tc.y - s * 2, s, s);
+      const tc3 = BIOMES[S.biome].torch;
+      ctx.fillStyle = tc3[1]; ctx.fillRect(tc.x - s * 1.5, tc.y - s * 3, s * 3, s * 3);
+      ctx.fillStyle = tc3[2]; ctx.fillRect(tc.x - s * (0.5 + f * 0.5), tc.y - s * (4 + f), s * 2, s * 2.5);
+      ctx.fillStyle = tc3[3]; ctx.fillRect(tc.x - s * 0.5, tc.y - s * 2, s, s);
     }
   }
 
@@ -601,12 +711,12 @@ h2 { font-size: clamp(2.6rem, 13vw, 3.4rem); color: var(--tnt); text-shadow: 4px
     src.connect(f).connect(g).connect(actx.destination);
     src.start(t0); src.stop(t0 + dur);
   }
-  const PITCH = { coal: 330, iron: 440, gold: 587, diamond: 880 };
+  const PITCH = { coal: 330, iron: 440, gold: 587, diamond: 880, emerald: 698, big: 1047 };
   const sfx = {
     ore: (type, streak) => {
       const f = PITCH[type] * (1 + Math.min(streak, 24) * 0.025);
       tone(f, 0.09); tone(f * 1.5, 0.12, 'square', 0.05, 0.06);
-      if (type === 'diamond') [1, 1.26, 1.5, 2].forEach((m, i) => tone(f * m, 0.12, 'square', 0.05, 0.1 + i * 0.06));
+      if (type === 'diamond' || type === 'big') [1, 1.26, 1.5, 2].forEach((m, i) => tone(f * m, 0.12, 'square', 0.05, 0.1 + i * 0.06));
     },
     boom: () => { noise(0.7, 0.5, 1400); tone(120, 0.45, 'sine', 0.35, 0, 40); },
     hit: () => { tone(200, 0.25, 'square', 0.07, 0.05, 70); },
@@ -614,24 +724,30 @@ h2 { font-size: clamp(2.6rem, 13vw, 3.4rem); color: var(--tnt); text-shadow: 4px
     heart: () => { tone(523, 0.1); tone(784, 0.1, 'square', 0.06, 0.08); tone(1047, 0.18, 'square', 0.06, 0.16); },
     magnet: () => tone(200, 0.4, 'square', 0.05, 0, 1200),
     level: () => [523, 659, 784, 1047, 784, 1047].forEach((f, i) => tone(f, 0.12, 'square', 0.06, i * 0.09)),
+    world: () => [392, 523, 659, 784, 1047, 1319, 1568].forEach((f, i) => tone(f, 0.14, 'square', 0.06, i * 0.1)),
+    sizzle: () => { noise(0.35, 0.3, 3200); tone(300, 0.2, 'sawtooth', 0.04, 0, 120); },
     streak: () => [659, 880, 1175].forEach((f, i) => tone(f, 0.1, 'square', 0.05, i * 0.07)),
     over: () => [392, 330, 262, 196].forEach((f, i) => tone(f, 0.25, 'square', 0.06, i * 0.2)),
   };
 
   /* ---------- rules ---------- */
+  const speedLvl = (L) => Math.min(L, 12);
   function spawn(demo) {
-    const L = demo ? 1 : S.level;
+    const L = demo ? 1 : S.level, bi = S.biome, Lc = speedLvl(L);
     let type;
     const r = Math.random();
     if (!demo && r < 0.04 && S.hp < 10) type = 'heart';
     else if (!demo && r < 0.055 && S.magnet <= 0) type = 'magnet';
-    else if (Math.random() < Math.min(0.34, 0.14 + L * 0.03)) type = 'tnt';
+    else if (bi >= 1 && Math.random() < 0.06 + bi * 0.01) type = 'lava';
+    else if (Math.random() < Math.min(bi >= 1 ? 0.26 : 0.32, 0.14 + Lc * 0.025)) type = 'tnt';
+    else if (bi >= 3 && Math.random() < 0.04) type = 'big';
     else {
-      const q = Math.random();
-      type = q < 0.06 ? 'diamond' : q < 0.18 ? 'gold' : q < 0.45 ? 'iron' : 'coal';
+      const q = Math.random(), em = bi >= 2 ? 0.09 : 0;
+      type = q < 0.06 ? 'diamond' : q < 0.06 + em ? 'emerald' : q < 0.18 + em ? 'gold' : q < 0.45 + em ? 'iron' : 'coal';
     }
-    const b = type === 'heart' || type === 'magnet' ? B * 0.9 : B;
-    const vy = (demo ? 130 : Math.min(560, 160 + L * 32)) * k * (0.85 + Math.random() * 0.3);
+    const b = type === 'heart' || type === 'magnet' ? B * 0.9 : type === 'lava' ? B * 0.7 : B * (ORES[type] && ORES[type].size || 1);
+    const fast = type === 'lava' ? 1.15 : type === 'big' ? 0.8 : 1;
+    const vy = (demo ? 130 : Math.min(500, 160 + Lc * 28)) * k * fast * (0.85 + Math.random() * 0.3);
     S.blocks.push({ type, x: b / 2 + 10 + Math.random() * (W - b - 20), y: -b, vy, b });
   }
 
@@ -656,6 +772,13 @@ h2 { font-size: clamp(2.6rem, 13vw, 3.4rem); color: var(--tnt); text-shadow: 4px
   function catchBlock(blk, play) {
     const t = blk.type;
     if (t === 'tnt') { explode(blk.x, blk.y, play, true); return; }
+    if (t === 'lava') {
+      debris(blk.x, blk.y, ['#ff7a1a', '#ffc04a', '#fff1a0', '#c8400c'], 18, 0.9);
+      smoke(blk.x, blk.y, reduce ? 2 : 5);
+      sfx.sizzle();
+      if (play) { floatText('HOT!', blk.x, blk.y - 10, '#ff8a1e', 30); hurt(); }
+      return;
+    }
     S.bounce = 1;
     if (t === 'heart') {
       debris(blk.x, blk.y, ['#e8303a', '#ff9a9a'], 14);
@@ -674,21 +797,40 @@ h2 { font-size: clamp(2.6rem, 13vw, 3.4rem); color: var(--tnt); text-shadow: 4px
       return;
     }
     const o = ORES[t];
-    debris(blk.x, blk.y, [o.main, o.hi, STONE[0], STONE[3]], t === 'diamond' ? 26 : 14);
+    debris(blk.x, blk.y, [o.main, o.hi, STONE[0], STONE[3]], t === 'diamond' || t === 'big' ? 26 : 14);
     S.load.push(t); if (S.load.length > 4) S.load.shift();
     if (!play) return;
     S.streak++;
     setMult();
     const pts = o.v * S.mult;
     S.score += pts;
-    floatText('+' + pts, blk.x, blk.y - 10, t === 'diamond' ? '#4de8d6' : t === 'gold' ? '#ffcc33' : '#f3f0f7', t === 'diamond' ? 36 : 26);
+    const col = { diamond: '#4de8d6', big: '#4de8d6', gold: '#ffcc33', emerald: '#3ddc6a' }[t] || '#f3f0f7';
+    floatText('+' + pts, blk.x, blk.y - 10, col, t === 'big' ? 44 : t === 'diamond' || t === 'emerald' ? 36 : 26);
     sfx.ore(t, S.streak);
-    while (S.score >= levelAt(S.level)) {
-      S.level++;
-      S.banner = { txt: 'LEVEL ' + S.level, life: 1.8 };
-      sfx.level();
-    }
+    levelUp();
     hud();
+  }
+
+  // levels come from points; a run started in a later world counts the points of the skipped levels
+  function levelUp() {
+    while (S.score + S.base >= levelAt(S.level)) {
+      S.level++;
+      const bi = biomeAt(S.level);
+      if (S.level > S.bestLvl) {
+        S.bestLvl = S.level;
+        try { localStorage.setItem(NS('ore-bestlvl'), String(S.bestLvl)); } catch (e) {}
+      }
+      if (bi !== S.biome) {
+        S.biome = bi;
+        buildBackground(); buildAtlas();
+        S.banner = { txt: BIOMES[bi].name, sub: 'LEVEL ' + S.level, life: 2.6 };
+        if (BIOMES[bi].tip) floatText(BIOMES[bi].tip, W / 2, H * 0.56, '#4de8d6', 26);
+        sfx.world();
+      } else {
+        S.banner = { txt: 'LEVEL ' + S.level, life: 1.8 };
+        sfx.level();
+      }
+    }
   }
 
   function explode(x, y, play, direct) {
@@ -732,7 +874,7 @@ h2 { font-size: clamp(2.6rem, 13vw, 3.4rem); color: var(--tnt); text-shadow: 4px
 
     if (!play) {
       let tgt = null;
-      for (const b of S.blocks) if (b.type !== 'tnt' && (!tgt || b.y > tgt.y)) tgt = b;
+      for (const b of S.blocks) if (b.type !== 'tnt' && b.type !== 'lava' && (!tgt || b.y > tgt.y)) tgt = b;
       if (tgt) uni.tx = tgt.x;
     } else if (keys.l || keys.r) {
       uni.tx = uni.x + ((keys.r ? 1 : 0) - (keys.l ? 1 : 0)) * W * 0.07;
@@ -751,7 +893,7 @@ h2 { font-size: clamp(2.6rem, 13vw, 3.4rem); color: var(--tnt); text-shadow: 4px
     S.spawn -= dt;
     if (S.spawn <= 0) {
       spawn(!play);
-      S.spawn = play ? Math.max(0.3, 0.92 - S.level * 0.07) : 1.0;
+      S.spawn = play ? Math.max(0.36, 0.92 - speedLvl(S.level) * 0.055) : 1.0;
     }
 
     for (let i = S.blocks.length - 1; i >= 0; i--) {
@@ -762,6 +904,7 @@ h2 { font-size: clamp(2.6rem, 13vw, 3.4rem); color: var(--tnt); text-shadow: 4px
       if (b.y + b.b / 2 >= ground - B * 0.1) {
         S.blocks.splice(i, 1);
         if (b.type === 'tnt') explode(b.x, ground - b.b * 0.4, play, false);
+        else if (b.type === 'lava') debris(b.x, ground - b.b * 0.2, ['#ff7a1a', '#ffc04a', '#c8400c'], 8, 0.5);
         else missOre(b, play);
       }
     }
@@ -812,7 +955,7 @@ h2 { font-size: clamp(2.6rem, 13vw, 3.4rem); color: var(--tnt); text-shadow: 4px
     // landing shadows
     for (const b of S.blocks) {
       const prog = Math.max(0, Math.min(1, b.y / ground));
-      ctx.fillStyle = b.type === 'tnt' ? `rgba(255,60,40,${0.15 + prog * 0.45})` : `rgba(0,0,0,${0.1 + prog * 0.3})`;
+      ctx.fillStyle = b.type === 'tnt' || b.type === 'lava' ? `rgba(255,60,40,${0.15 + prog * 0.45})` : `rgba(0,0,0,${0.1 + prog * 0.3})`;
       const w = b.b * (0.4 + prog * 0.6);
       ctx.fillRect(b.x - w / 2, ground - B * 0.12, w, B * 0.08);
     }
@@ -846,6 +989,11 @@ h2 { font-size: clamp(2.6rem, 13vw, 3.4rem); color: var(--tnt); text-shadow: 4px
       ctx.fillStyle = '#000'; ctx.fillText(b.txt, 5, 5);
       ctx.fillStyle = '#8a5a12'; ctx.fillText(b.txt, 2.5, 2.5);
       ctx.fillStyle = '#ffcc33'; ctx.fillText(b.txt, 0, 0);
+      if (b.sub) {
+        ctx.font = `700 ${Math.round(28 * k)}px ${FONT}`;
+        ctx.fillStyle = '#000'; ctx.fillText(b.sub, 3, 50 * k + 3);
+        ctx.fillStyle = '#f3f0f7'; ctx.fillText(b.sub, 0, 50 * k);
+      }
       ctx.restore();
     }
     ctx.restore();
@@ -868,6 +1016,7 @@ h2 { font-size: clamp(2.6rem, 13vw, 3.4rem); color: var(--tnt); text-shadow: 4px
   function hud(gained) {
     $('score').textContent = S.score;
     $('lvl').textContent = S.level;
+    $('world').textContent = BIOMES[S.biome].name;
     const m = $('mult');
     m.hidden = S.mult < 2;
     m.textContent = 'x' + S.mult;
@@ -897,8 +1046,13 @@ h2 { font-size: clamp(2.6rem, 13vw, 3.4rem); color: var(--tnt); text-shadow: 4px
 
   function start() {
     ensureAudio();
-    Object.assign(S, { mode: 'play', score: 0, hp: 6, streak: 0, mult: 1, level: 1, spawn: 0.6, magnet: 0, invuln: 0, banner: null });
+    const lv = S.startLvl;
+    Object.assign(S, { mode: 'play', score: 0, hp: 6, streak: 0, mult: 1, level: lv, base: lv > 1 ? levelAt(lv - 1) : 0,
+                       spawn: 0.6, magnet: 0, invuln: 0, banner: null });
     S.blocks.length = 0; S.load.length = 0;
+    const bi = biomeAt(lv);
+    if (bi !== S.biome) { S.biome = bi; buildBackground(); buildAtlas(); }
+    if (lv > 1) S.banner = { txt: BIOMES[bi].name, sub: 'LEVEL ' + lv, life: 2.2 };
     $('start').hidden = true; $('over').hidden = true; $('hud').hidden = false;
     hud();
     keepAwake();
@@ -912,6 +1066,9 @@ h2 { font-size: clamp(2.6rem, 13vw, 3.4rem); color: var(--tnt); text-shadow: 4px
     if (ZM) ZM.report('ore-rush', { score: S.score, xp: Math.round(S.score / 2) });
     $('final').textContent = S.score;
     $('finalLvl').textContent = S.level;
+    $('finalWorld').textContent = 'WORLD: ' + BIOMES[S.biome].name;
+    $('bestLvlOver').textContent = S.bestLvl;
+    renderWorlds();
     $('bestOver').textContent = S.best;
     $('bestStart').textContent = S.best;
     $('newBest').hidden = !isBest || S.score === 0;
@@ -923,6 +1080,38 @@ h2 { font-size: clamp(2.6rem, 13vw, 3.4rem); color: var(--tnt); text-shadow: 4px
     }, 600);
     sfx.over();
   }
+
+  // start world buttons: one per world, unlocked once a run reached its first level
+  function worldIcon(i) {
+    const c = document.createElement('canvas'); c.width = c.height = 32;
+    const g = c.getContext('2d'); g.imageSmoothingEnabled = false;
+    g.drawImage(BTEX[i].wall[0], 0, 0, 32, 32);
+    const icon = [null, LAVA_DROP, TEX.emerald, TEX.big][i];
+    if (icon) g.drawImage(icon, 8, 8, 16, 16);
+    return c;
+  }
+  function renderWorlds() {
+    const row = $('worlds');
+    row.innerHTML = '';
+    BIOMES.forEach((b, i) => {
+      const open = S.bestLvl >= b.from;
+      const btn = document.createElement('button');
+      btn.type = 'button'; btn.className = 'btn wbtn';
+      btn.disabled = !open;
+      btn.setAttribute('aria-pressed', String(S.startLvl === b.from));
+      btn.appendChild(worldIcon(i));
+      btn.insertAdjacentHTML('beforeend', `<span>${b.name.replace('THE ', '')}</span><small>${open ? 'LVL ' + b.from : 'LOCKED'}</small>`);
+      btn.addEventListener('click', () => {
+        S.startLvl = b.from;
+        try { localStorage.setItem(NS('ore-world'), String(b.from)); } catch (e) {}
+        if (S.mode !== 'play' && biomeAt(b.from) !== S.biome) { S.biome = biomeAt(b.from); buildBackground(); buildAtlas(); }
+        renderWorlds();
+      });
+      row.appendChild(btn);
+    });
+    $('bestLvlStart').textContent = S.bestLvl;
+  }
+  renderWorlds();
 
   $('play').addEventListener('click', start);
   $('again').addEventListener('click', start);

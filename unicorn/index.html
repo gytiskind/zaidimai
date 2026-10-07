@@ -106,6 +106,15 @@ h2 { font-size: clamp(2.2rem, 10vw, 3rem); }
   border-radius: 999px; padding: 4px 14px; letter-spacing: 0.04em;
 }
 @media (prefers-reduced-motion: reduce) { .lives .pop { animation: none; } }
+
+/* Short landscape tablets (Android, browser bars eat the height): a menu or result panel that does not
+   fit gets two columns instead of a scroll. The fitter script below adds .fit2 only when it is needed. */
+.overlay .fit2 { display: block; columns: 2; column-gap: 24px; max-width: min(880px, 96vw); padding-top: 12px; padding-bottom: 12px; }
+.fit2 > * { break-inside: avoid; margin: 0 auto 10px; width: fit-content; max-width: 100%; }
+.fit2 > :is(button, a) { display: block; }
+.fit2 > :last-child { margin-bottom: 0; }
+.fit2 > :is(.levels, .stats, .lvls, .grid, .icons, .legend) { width: 100%; }
+.fit2 h1 { font-size: clamp(1.9rem, 8vh, 2.8rem); }
 </style>
 
 <canvas id="game" aria-label="Night meadow with a unicorn catching falling stars"></canvas>
@@ -693,6 +702,28 @@ h2 { font-size: clamp(2.2rem, 10vw, 3rem); }
   }
   drawLegend();
   requestAnimationFrame(frame);
+})();
+</script>
+<script>
+/* Fits menu and result panels into short landscape screens: two columns when a panel is taller than its overlay. */
+(() => {
+  let queued = false;
+  const mo = new MutationObserver(() => schedule());
+  const watch = () => mo.observe(document.body, { subtree: true, attributes: true, attributeFilter: ['hidden', 'class', 'style'] });
+  function fit() {
+    queued = false; mo.disconnect();
+    document.querySelectorAll('.overlay > .panel, .overlay > .card').forEach((p) => {
+      const o = p.parentElement;
+      if (o.hidden || getComputedStyle(o).display === 'none') return;
+      p.classList.remove('fit2');
+      if (innerWidth > innerHeight && o.scrollHeight > o.clientHeight + 1) p.classList.add('fit2');
+    });
+    watch();
+  }
+  function schedule() { if (!queued) { queued = true; requestAnimationFrame(fit); } }
+  addEventListener('resize', schedule); addEventListener('load', schedule);
+  if (document.fonts) document.fonts.ready.then(schedule);
+  watch(); schedule();
 })();
 </script>
 
