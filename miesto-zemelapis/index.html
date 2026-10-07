@@ -1,0 +1,693 @@
+<!doctype html>
+<html lang="lt">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<style>body{margin:0}.zm-back{display:inline-flex;align-items:center;justify-self:center;align-self:center;font:900 0.95rem "Nunito","Arial Rounded MT Bold",system-ui,sans-serif;color:#f3f0f7;text-decoration:none;background:#3b3846;border:3px solid;border-color:#6e6a7c #1f1c27 #1f1c27 #6e6a7c;box-shadow:0 0 0 2px #000;padding:5px 12px;touch-action:manipulation;white-space:nowrap}.zm-back:focus-visible{outline:3px solid #4de8d6;outline-offset:3px}</style>
+<script src="../zm.js"></script>
+<title>Miesto žemėlapis</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Nunito:wght@700;800;900&family=Pixelify+Sans:wght@400;700&display=swap">
+<link rel="stylesheet" href="../fonts/zm-digits.css">
+<style>
+/* Miesto žemėlapis: kurjeris dviračiu vežioja siuntinius po miestą.
+   Moko: pasaulio šalys (Š, P, R, V), atstumas langeliais, mastelis, žemėlapio legenda.
+   Išdėstymas kaip Robot Miner: žemėlapis šalia (platūs ekranai) arba virš (aukšti) programos ir mygtukų. */
+:root {
+  --night: #141b3a;
+  --stone: #3b3846;
+  --stone-hi: #6e6a7c;
+  --stone-lo: #1f1c27;
+  --gold: #ffcc33;
+  --gem: #4de8d6;
+  --red: #e0402e;
+  --grass: #5cbf3a;
+  --grass-hi: #8ee35f;
+  --grass-lo: #2f7a1c;
+  --ink: #f3f0f7;
+  --ink-dim: #b7b1c2;
+  --c-n: #3f7fd8;
+  --c-s: #d9822b;
+  --c-e: #2fa36a;
+  --c-w: #8a5fd0;
+  --pixel: "ZM Digits", "Pixelify Sans", "Courier New", ui-monospace, monospace;
+  --word: "Nunito", "Arial Rounded MT Bold", system-ui, sans-serif;
+  color-scheme: dark;
+}
+[hidden] { display: none !important; }
+html, body { height: 100%; }
+body {
+  background: var(--night); color: var(--ink); font-family: var(--pixel); overflow: hidden;
+  touch-action: manipulation; user-select: none; -webkit-user-select: none; -webkit-touch-callout: none; -webkit-tap-highlight-color: transparent;
+}
+#app { position: fixed; inset: 0; height: 100vh; height: 100dvh; display: grid; grid-template-rows: auto minmax(0, 1fr); grid-template-columns: minmax(0, 1fr); }
+
+.btn {
+  font: inherit; font-weight: 700; color: var(--ink); cursor: pointer; touch-action: manipulation;
+  background: var(--stone); border: 3px solid; border-color: var(--stone-hi) var(--stone-lo) var(--stone-lo) var(--stone-hi);
+  box-shadow: 0 0 0 2px #000;
+}
+.btn:focus-visible { outline: 3px solid var(--gem); outline-offset: 3px; }
+.btn:active { border-color: var(--stone-lo) var(--stone-hi) var(--stone-hi) var(--stone-lo); }
+.btn:disabled { opacity: 0.4; cursor: default; }
+.small { font-family: var(--word); font-weight: 800; font-size: 0.9rem; padding: 4px 10px; }
+.small[aria-pressed="true"] { background: var(--stone-lo); color: var(--ink-dim); text-decoration: line-through; }
+.play {
+  font-family: var(--word); font-weight: 900; font-size: 1.3rem; letter-spacing: 0.03em; color: #fff;
+  background: var(--grass); border-color: var(--grass-hi) var(--grass-lo) var(--grass-lo) var(--grass-hi); text-shadow: 2px 2px 0 var(--grass-lo);
+}
+.play:active { border-color: var(--grass-lo) var(--grass-hi) var(--grass-hi) var(--grass-lo); }
+.play.stop { background: var(--red); border-color: #ff8a7a #7a1a10 #7a1a10 #ff8a7a; text-shadow: 2px 2px 0 #7a1a10; }
+
+/* viršutinė juosta */
+.top { display: flex; align-items: center; gap: 10px; padding: calc(env(safe-area-inset-top, 0px) + 8px) 12px 8px; background: var(--stone-lo); border-bottom: 4px solid #000; min-width: 0; }
+.top > * { flex-shrink: 0; }
+.top .title { font-size: 1.3rem; letter-spacing: 0.06em; text-shadow: 2px 2px 0 #000; white-space: nowrap; }
+.top .title b { color: var(--gold); }
+.top .hint { flex: 1 1 auto; min-width: 0; font-family: var(--word); font-weight: 800; font-size: 1rem; color: var(--gem); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.count { font-family: var(--word); font-weight: 900; font-size: 1rem; background: #000; padding: 4px 10px; white-space: nowrap; }
+
+/* pagrindinė dalis */
+.main { display: grid; grid-template-rows: minmax(0, 1fr) auto; min-height: 0; }
+.boardWrap { position: relative; min-height: 0; display: grid; place-items: center; padding: 12px; overflow: hidden; }
+.mapBox { position: relative; }
+#board { display: block; image-rendering: pixelated; box-shadow: 0 0 0 4px #000, 8px 8px 0 4px rgba(0, 0, 0, 0.45); }
+.compass { position: absolute; top: -6px; right: -6px; width: 74px; height: 74px; pointer-events: none; filter: drop-shadow(3px 3px 0 rgba(0,0,0,.6)); }
+.scalebar { position: absolute; left: 6px; bottom: 6px; display: flex; align-items: center; gap: 6px; padding: 3px 8px; background: rgba(0,0,0,.72);
+  font-family: var(--word); font-weight: 900; font-size: 0.85rem; pointer-events: none; }
+.scalebar i { display: block; height: 8px; background: repeating-linear-gradient(90deg, #fff 0 50%, #000 50% 100%); border: 2px solid #fff; }
+.side { display: grid; gap: 10px; align-content: start; min-height: 0; padding: 10px 12px calc(env(safe-area-inset-bottom, 0px) + 12px); background: var(--stone-lo); border-top: 4px solid #000; }
+.lower { display: grid; grid-template-columns: auto minmax(0, 1fr); gap: 10px; align-items: center; }
+@media (min-aspect-ratio: 5/4) {
+  .main { grid-template-columns: minmax(0, 1fr) minmax(320px, 420px); grid-template-rows: minmax(0, 1fr); }
+  .side { border-top: 0; border-left: 4px solid #000; grid-template-rows: minmax(0, 1fr) auto; align-content: stretch; }
+  .lower { grid-template-columns: auto minmax(0, 1fr); }
+  .prog { max-height: none; }
+}
+/* žemas landscape (Android planšetė su adreso juosta) */
+@media (min-aspect-ratio: 5/4) and (max-height: 640px) {
+  .top { padding-top: calc(env(safe-area-inset-top, 0px) + 5px); padding-bottom: 5px; gap: 8px; }
+  .top .title { font-size: 1.1rem; }
+  .boardWrap { padding: 8px; }
+  .side { gap: 8px; padding: 8px 10px calc(env(safe-area-inset-bottom, 0px) + 8px); }
+  .dpad { --k: 54px; }
+  .controls .btn { height: 50px; }
+  .chip { height: 44px; min-width: 60px; }
+  .compass { width: 62px; height: 62px; }
+}
+@media (max-width: 640px) {
+  .top { flex-wrap: wrap; row-gap: 6px; }
+  .top .hint { order: 9; flex-basis: 100%; white-space: normal; }
+}
+
+/* programa */
+.prog { min-height: 68px; max-height: 20vh; overflow-y: auto; background: #0e0c14; border: 3px solid #000; box-shadow: inset 0 0 0 2px var(--stone);
+  padding: 8px; display: flex; flex-wrap: wrap; gap: 6px; align-content: flex-start; }
+.chip { height: 50px; min-width: 66px; padding: 0 8px; display: flex; align-items: center; justify-content: center; gap: 4px; cursor: pointer; color: #fff;
+  font-family: var(--word); font-weight: 900; font-size: 1.15rem; border: 3px solid; box-shadow: 0 0 0 1.5px #000; position: relative; }
+.chip b { font-family: var(--pixel); font-size: 1.15rem; }
+.d-Š { background: var(--c-n); border-color: #7fb0ff #1f4b8f #1f4b8f #7fb0ff; }
+.d-P { background: var(--c-s); border-color: #ffc27a #8a4a10 #8a4a10 #ffc27a; }
+.d-R { background: var(--c-e); border-color: #7fe0a8 #17603a #17603a #7fe0a8; }
+.d-V { background: var(--c-w); border-color: #c0a0ff #4f2f8a #4f2f8a #c0a0ff; }
+.chip.now { outline: 4px solid var(--gold); outline-offset: 2px; transform: translateY(-3px); }
+.chip.err { outline: 4px solid var(--red); outline-offset: 2px; }
+.empty-note { font-family: var(--word); font-weight: 800; color: var(--ink-dim); font-size: 0.95rem; align-self: center; padding: 0 4px; }
+
+/* pasaulio šalių pultas */
+.dpad { --k: 64px; display: grid; grid-template-columns: repeat(3, var(--k)); grid-template-rows: repeat(3, var(--k)); gap: 5px; }
+.dir { display: grid; place-items: center; align-content: center; gap: 0; color: #fff; font-family: var(--word); font-weight: 900; font-size: 1.35rem; line-height: 1;
+  border: 3px solid; box-shadow: 0 0 0 2px #000; cursor: pointer; text-shadow: 1px 1px 0 rgba(0,0,0,.5); padding: 0; }
+.dir small { font-size: 0.62rem; font-weight: 800; }
+.dir:active { transform: translateY(2px); }
+.dir:disabled { opacity: 0.25; transform: none; cursor: default; }
+.dir[data-d="Š"] { grid-area: 1 / 2; } .dir[data-d="V"] { grid-area: 2 / 1; } .dir[data-d="R"] { grid-area: 2 / 3; } .dir[data-d="P"] { grid-area: 3 / 2; }
+.dpad .del { grid-area: 2 / 2; font-family: var(--word); font-weight: 900; font-size: 1.3rem; padding: 0; }
+.tips { font-family: var(--word); font-weight: 800; font-size: 0.9rem; color: var(--ink-dim); line-height: 1.35; display: grid; gap: 6px; align-content: center; min-width: 0; }
+.tips b { color: var(--ink); }
+.controls { display: flex; gap: 8px; }
+.controls .play { flex: 2; height: 58px; }
+.controls .btn:not(.play) { flex: 1; height: 58px; font-family: var(--word); font-weight: 900; font-size: 1rem; }
+.busy .dpad, .busy .prog { pointer-events: none; }
+.busy .dpad { opacity: 0.5; }
+
+/* klaidos juosta */
+.bug { position: absolute; left: 50%; bottom: 14px; transform: translateX(-50%); z-index: 2; width: min(92%, 420px); display: grid; gap: 8px; justify-items: center; text-align: center;
+  background: rgba(31, 28, 39, 0.96); padding: 12px 14px 14px; border: 4px solid var(--red); box-shadow: 0 0 0 3px #000, 6px 6px 0 3px rgba(0,0,0,.45); }
+.bug h3 { margin: 0; font-family: var(--word); font-weight: 900; font-size: 1.5rem; color: var(--red); letter-spacing: 0.04em; text-shadow: 2px 2px 0 #000; }
+.bug p { margin: 0; font-family: var(--word); font-weight: 800; font-size: 1.05rem; }
+.bug .btn { font-family: var(--word); font-weight: 900; font-size: 1.1rem; padding: 8px 26px; }
+
+/* langai */
+.overlay { position: fixed; inset: 0; z-index: 5; display: grid; place-items: center; padding: calc(env(safe-area-inset-top, 0px) + 14px) 14px calc(env(safe-area-inset-bottom, 0px) + 14px);
+  background: radial-gradient(ellipse at 50% 45%, rgba(12,10,24,.4), rgba(12,10,24,.85) 75%); overflow-y: auto; }
+.panel { width: 100%; max-width: 460px; display: grid; gap: 12px; justify-items: center; text-align: center; background: rgba(31,28,39,.96); padding: 18px 18px 20px;
+  border: 4px solid; border-color: var(--stone-hi) var(--stone-lo) var(--stone-lo) var(--stone-hi); box-shadow: 0 0 0 3px #000, 8px 8px 0 3px rgba(0,0,0,.45); }
+h1, h2 { margin: 0; font-weight: 700; line-height: 0.95; letter-spacing: 0.04em; text-wrap: balance; }
+h1 { font-size: clamp(2.2rem, 10vw, 3.2rem); color: var(--gold); text-shadow: 4px 4px 0 #8a5a12, 8px 8px 0 #000; }
+h1 span { display: block; color: var(--gem); text-shadow: 4px 4px 0 #157a70, 8px 8px 0 #000; }
+h2 { font-family: var(--word); font-weight: 900; font-size: clamp(1.8rem, 8vw, 2.4rem); color: var(--gem); text-shadow: 3px 3px 0 #157a70, 6px 6px 0 #000; }
+.lead { margin: 0; font-family: var(--word); font-weight: 700; font-size: 1.05rem; line-height: 1.4; max-width: 34ch; }
+.levels { display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 8px; width: 100%; }
+@media (min-aspect-ratio: 5/4) {
+  #levelsOv .panel { max-width: min(960px, 100%); grid-template-columns: minmax(180px, 300px) auto; column-gap: 24px; align-items: center; }
+  #levelsOv .panel > * { grid-column: 1; }
+  #levelsOv .panel > .levels { grid-column: 2; grid-row: 1 / span 4; width: min(100%, calc((100dvh - 80px) * 1.6)); justify-self: center; }
+  #levelsOv h1 { font-size: clamp(1.8rem, 7vh, 3rem); }
+  #legendOv .panel, #qOv .panel { max-width: 640px; }
+}
+.lvl { aspect-ratio: 1; display: grid; place-items: center; align-content: center; gap: 4px; padding: 4px; font-family: var(--pixel); font-weight: 700; font-size: clamp(1rem, 3.4vmin, 1.5rem); }
+.lvl .star { width: 11px; height: 11px; }
+.lvl.cur { outline: 3px solid var(--gold); outline-offset: 3px; }
+.lvl:disabled { opacity: 0.35; }
+.stars { display: flex; gap: 2px; justify-content: center; }
+.star { width: 14px; height: 14px; background: #000; clip-path: polygon(50% 0, 61% 35%, 98% 35%, 68% 57%, 79% 91%, 50% 70%, 21% 91%, 32% 57%, 2% 35%, 39% 35%); }
+.star.on { background: var(--gold); }
+.stars.big .star { width: 44px; height: 44px; }
+.stars.big { gap: 8px; }
+.note { margin: 0; font-family: var(--word); font-weight: 800; font-size: 1rem; color: var(--ink-dim); }
+.note b { color: var(--ink); }
+.row-btns { display: flex; gap: 10px; flex-wrap: wrap; justify-content: center; }
+.row-btns .btn { font-family: var(--word); font-weight: 900; font-size: 1.15rem; padding: 10px 22px; }
+.answers { display: flex; gap: 10px; flex-wrap: wrap; justify-content: center; }
+.answers .btn { font-family: var(--pixel); font-size: 1.3rem; padding: 12px 20px; min-width: 120px; }
+.answers .btn.wrong { background: var(--red); animation: shake 0.3s steps(3); }
+@keyframes shake { 33% { transform: translateX(-6px); } 66% { transform: translateX(6px); } }
+.legend { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 8px; width: 100%; text-align: left; }
+.legend div { display: flex; align-items: center; gap: 8px; font-family: var(--word); font-weight: 800; font-size: 0.95rem; }
+.legend canvas { width: 36px; height: 36px; image-rendering: pixelated; box-shadow: 0 0 0 2px #000; flex: none; }
+@media (prefers-reduced-motion: reduce) { .answers .btn.wrong { animation: none; } }
+</style>
+</head>
+<body>
+<div id="app">
+  <div class="top">
+    <a class="zm-back" href="../">← Meniu</a>
+    <button class="btn small" id="toLevels" type="button">Lygiai</button>
+    <div class="title">Lygis <b id="lvlNum">1</b></div>
+    <div class="hint" id="hint"></div>
+    <div class="count" id="count">Komandų: 0</div>
+    <button class="btn small" id="toLegend" type="button">Legenda</button>
+    <button class="btn small" id="mute" type="button" aria-pressed="false">Garsas</button>
+  </div>
+  <div class="main">
+    <div class="boardWrap" id="boardWrap">
+      <div class="mapBox" id="mapBox">
+        <canvas id="board" aria-label="Miesto žemėlapis su kurjeriu"></canvas>
+        <svg class="compass" viewBox="0 0 80 80" aria-label="Kompasas: Š viršuje">
+          <circle cx="40" cy="40" r="30" fill="#1f1c27" stroke="#000" stroke-width="4"/>
+          <polygon points="40,8 47,40 40,36 33,40" fill="#e0402e" stroke="#000" stroke-width="2"/>
+          <polygon points="40,72 47,40 40,44 33,40" fill="#f3f0f7" stroke="#000" stroke-width="2"/>
+          <polygon points="72,40 40,47 44,40 40,33" fill="#b7b1c2" stroke="#000" stroke-width="2"/>
+          <polygon points="8,40 40,47 36,40 40,33" fill="#b7b1c2" stroke="#000" stroke-width="2"/>
+          <g font-family="Nunito, sans-serif" font-weight="900" font-size="13" text-anchor="middle" fill="#fff" stroke="#000" stroke-width="3" paint-order="stroke">
+            <text x="40" y="13">Š</text><text x="40" y="78">P</text><text x="73" y="45">R</text><text x="7" y="45">V</text>
+          </g>
+        </svg>
+        <div class="scalebar" id="scalebar" hidden><i id="scaleI"></i><span>100 m</span></div>
+      </div>
+      <div class="bug" id="bug" hidden role="alert">
+        <h3 id="bugTitle">STOP!</h3>
+        <p id="bugWhy"></p>
+        <button class="btn" id="fix" type="button">Taisyti</button>
+      </div>
+    </div>
+    <div class="side">
+      <div class="prog" id="prog" aria-label="Programa"></div>
+      <div class="lower">
+        <div class="dpad" id="dpad">
+          <button class="dir d-Š" type="button" data-d="Š" aria-label="Šiaurė">⬆<small>Š</small></button>
+          <button class="dir d-V" type="button" data-d="V" aria-label="Vakarai">⬅<small>V</small></button>
+          <button class="btn del" type="button" id="del" aria-label="Ištrinti paskutinę">⌫</button>
+          <button class="dir d-R" type="button" data-d="R" aria-label="Rytai">➡<small>R</small></button>
+          <button class="dir d-P" type="button" data-d="P" aria-label="Pietūs">⬇<small>P</small></button>
+        </div>
+        <div class="tips" id="tips"></div>
+      </div>
+      <div class="controls">
+        <button class="btn play" id="run" type="button">VAŽIUOTI</button>
+        <button class="btn" id="step" type="button">Žingsnis</button>
+        <button class="btn" id="reset" type="button">Iš naujo</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="overlay" id="levelsOv">
+  <div class="panel">
+    <h1>MIESTO <span>ŽEMĖLAPIS</span></h1>
+    <p class="lead">Tu kurjeris. Sudėk kelią pasaulio šalimis ir nuvežk siuntinius.</p>
+    <div class="levels" id="levels"></div>
+    <a class="zm-back" href="../">← Meniu</a>
+  </div>
+</div>
+
+<div class="overlay" id="qOv" hidden>
+  <div class="panel">
+    <h2>MASTELIS</h2>
+    <p class="lead" id="qText"></p>
+    <div class="answers" id="answers"></div>
+    <p class="note" id="qNote"></p>
+  </div>
+</div>
+
+<div class="overlay" id="winOv" hidden>
+  <div class="panel">
+    <h2 id="winTitle">PRISTATYTA!</h2>
+    <div class="stars big" id="winStars"><i class="star"></i><i class="star"></i><i class="star"></i></div>
+    <p class="note" id="winNote"></p>
+    <div class="row-btns">
+      <button class="btn" id="again" type="button">Dar kartą</button>
+      <button class="btn play" id="next" type="button">Kitas lygis</button>
+    </div>
+    <a class="zm-back" href="../">← Meniu</a>
+  </div>
+</div>
+
+<div class="overlay" id="legendOv" hidden>
+  <div class="panel">
+    <h2>LEGENDA</h2>
+    <p class="note">Legenda paaiškina, ką reiškia žemėlapio ženklai.</p>
+    <div class="legend" id="legend"></div>
+    <button class="btn play" id="legendOk" type="button" style="padding:8px 28px">Supratau</button>
+  </div>
+</div>
+
+<script>
+(() => {
+  const ZM = window.ZM || null;
+  const NS = (k) => (ZM ? ZM.ns(k) : k);
+  const $ = (id) => document.getElementById(id);
+
+  /* ---------- lygiai ----------
+     . kelias, = tiltas, B kurjerio startas, g pieva, t parkas, h namas, ~ upė.
+     P paštas, M mokykla, N namai, S parduotuvė: sustojimai iš eilės (stops).
+     r b y: raudonas, mėlynas, geltonas stogas; X (raudonas) ir Y (mėlynas) yra mįslės atsakymas.
+     par = mažiausiai komandų (patikrinta paieška), dirs = leidžiamos kryptys. */
+  const LEVELS = [
+    { g: ['gggggggg','gB....Pg','gggggggg'], stops: 'P', dirs: 'ŠR', par: 1, hint: 'Rytai (R) yra dešinėje. Nuvežk siuntinį į paštą.' },
+    { g: ['ggggggg','gggSggg','ggg.ggg','ggg.ggg','gggBggg','ggggggg'], stops: 'S', dirs: 'ŠR', par: 1, hint: 'Šiaurė (Š) yra viršuje. Važiuok į parduotuvę.' },
+    { g: ['gggggggg','ghhhhhMg','ghhhhh.g','ghhhhh.g','gB.....g','gggggggg'], stops: 'M', dirs: 'ŠR', par: 2, hint: 'Pirma į rytus, paskui į šiaurę. Mokykla laukia!' },
+    { g: ['ggggggggg','ghhhh..Ng','ghhhh.hhg','ghh...hhg','ghh.hhhhg','gB..hhhhg','ggggggggg'], stops: 'N', dirs: 'ŠR', par: 5, hint: 'Laiptai: Š ir R pakaitomis. Suskaičiuok langelius.' },
+    { g: ['ggggggggg','gB....hhg','ghhhh.hhg','gS....hhg','ggggggggg'], stops: 'S', par: 3, hint: 'Dabar galima ir į pietus (P), ir į vakarus (V).' },
+    { g: ['ggggggggg','gB..g...g','gg.ggg.gg','~~=~~~~~~','gg.ggg.gg','g......Mg','ggggggggg'], stops: 'M', par: 3, hint: 'Per upę važiuojama tik tiltu.' },
+    { g: ['gggggggggg','g......B.g','g.tttttt.g','g.tttttt.g','gS.......g','gggggggggg'], stops: 'S', par: 2, hint: 'Parkas užstoja kelią. Kuris kelias trumpesnis?' },
+    { g: ['gggggggggg','gP...gg..g','gggg.gg.gg','~~~~=~~=~~','g.......Bg','gggggggggg'], stops: 'P', par: 3, hint: 'Rask tinkamą tiltą ir nuvežk laišką į paštą.' },
+    { g: ['ggggggggg','gP.....Mg','g.hhhhh.g','g.hhhhh.g','gB.....Ng','ggggggggg'], stops: 'PMN', par: 3, hint: 'Trys siuntiniai iš eilės: 1 paštas, 2 mokykla, 3 namai.' },
+    { g: ['gggggggggg','gS......Ng','g.hhhhhh.g','~=~~~~~~=~','g.hhhPhh.g','gB.......g','gggggggggg'], stops: 'SNP', par: 5, hint: 'Parduotuvė, namai, paštas. Žiūrėk į numerius.' },
+    { g: ['gggggggggg','g...ttt..g','gM..ttt.Sg','g...ttt..g','g........g','gB..hhhhNg','gggggggggg'], stops: 'MSN', par: 5, hint: 'Mokykla, parduotuvė, namai. Apvažiuok parką.' },
+    { g: ['ggggggggg','ghhh...Mg','ghhh.hhhg','gB...hhhg','ggggggggg'], stops: 'M', par: 3, scale: true, hint: 'Mastelis: 1 langelis = 100 m. Kiek nuvažiuosi?' },
+    { g: ['gggggggggg','gP......Ng','g.hhhhhh.g','gB.......g','gggggggggg'], stops: 'PN', par: 2, scale: true, hint: 'Pirma paštas, tada namai. Skaičiuok metrus.' },
+    { g: ['gggggggggg','gB......rg','g.hhhhhh.g','g.hhhhhh.g','~=~~~~~~=~','gy.....bXg','gggggggggg'], stops: 'X', riddle: true, par: 2,
+      hint: 'Mįslė: pastatas raudonu stogu prie tilto.', tip: 'Siuntinys pristatomas ten, kur baigiasi programa.' },
+    { g: ['gggggggggg','gB.......g','g.ttt.hhbg','g.ttt.hh.g','g.tttY...g','~~~~~~~~=~','gy.......g','gggggggggg'], stops: 'Y', riddle: true, par: 2,
+      hint: 'Mįslė: mėlynas pastatas tarp parko ir upės.', tip: 'Siuntinys pristatomas ten, kur baigiasi programa.' },
+  ];
+  const D = { 'Š': [0, -1], 'P': [0, 1], 'R': [1, 0], 'V': [-1, 0] };
+  const WALK = new Set(['.', '=', 'B', 'P', 'M', 'N', 'S', 'r', 'b', 'y', 'X', 'Y']);
+  const STOP_NAME = { P: 'paštas', M: 'mokykla', N: 'namai', S: 'parduotuvė' };
+  const BLOCK_WHY = {
+    h: 'Ten namas. Dviračiu per namus nevažiuojama!',
+    g: 'Ten pieva. Važiuok keliu.',
+    t: 'Ten parkas su medžiais. Važiuok keliu.',
+    '~': 'Upė! Per upę važiuojama tik tiltu.',
+    edge: 'Čia žemėlapio kraštas.',
+  };
+
+  /* ---------- išsaugojimas ---------- */
+  let muted = false, progress = { stars: {} };
+  try {
+    muted = localStorage.getItem('mz-muted') === '1';
+    const p = JSON.parse(localStorage.getItem(NS('mz-progress')) || 'null'); if (p && p.stars) progress = p;
+  } catch (e) {}
+  const save = (k, v) => { try { localStorage.setItem(k, v); } catch (e) {} };
+  const unlockedUpTo = () => { let n = 1; while (n < LEVELS.length && progress.stars[n]) n++; return n; };
+
+  /* ---------- garsas ---------- */
+  let actx = null;
+  function ensureAudio() {
+    try { if (!actx) actx = new (window.AudioContext || window.webkitAudioContext)(); if (actx.state === 'suspended') actx.resume(); } catch (e) { actx = null; }
+  }
+  function tone(freq, dur, type = 'square', vol = 0.05, delay = 0, endFreq) {
+    if (muted || !actx) return;
+    const t0 = actx.currentTime + delay, o = actx.createOscillator(), g = actx.createGain();
+    o.type = type; o.frequency.setValueAtTime(freq, t0);
+    if (endFreq) o.frequency.exponentialRampToValueAtTime(endFreq, t0 + dur);
+    g.gain.setValueAtTime(vol, t0); g.gain.exponentialRampToValueAtTime(0.0008, t0 + dur);
+    o.connect(g).connect(actx.destination); o.start(t0); o.stop(t0 + dur + 0.05);
+  }
+  const sfx = {
+    add: () => tone(660, 0.05, 'square', 0.04),
+    remove: () => tone(330, 0.06, 'square', 0.04),
+    move: () => tone(480, 0.05, 'triangle', 0.04, 0, 560),
+    bell: () => { tone(1320, 0.08, 'square', 0.04); tone(1760, 0.12, 'square', 0.04, 0.08); },
+    bad: () => { tone(220, 0.16, 'square', 0.06, 0, 110); tone(140, 0.25, 'square', 0.06, 0.15, 70); },
+    win: () => [523, 659, 784, 1047, 784, 1047, 1319].forEach((f, i) => tone(f, 0.13, 'square', 0.05, i * 0.08)),
+  };
+
+  /* ---------- piešimas: pikselinės plytelės ---------- */
+  const board = $('board'), ctx = board.getContext('2d'), boardWrap = $('boardWrap');
+  let T = 48, dpr = 1, staticMap = null;
+  function rng(seed) { return () => { seed = (seed + 0x6d2b79f5) | 0; let t = Math.imul(seed ^ (seed >>> 15), 1 | seed); t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t; return ((t ^ (t >>> 14)) >>> 0) / 4294967296; }; }
+  const ROOF = { r: ['#c0392b', '#8e2a20'], X: ['#c0392b', '#8e2a20'], b: ['#2f6fd0', '#1f4b8f'], Y: ['#2f6fd0', '#1f4b8f'], y: ['#e8b62a', '#a07a10'] };
+  const HOUSE_ROOFS = [['#7a4f34', '#553522'], ['#6e6a7c', '#4a4656'], ['#2e8a7e', '#1d5f57'], ['#9a6a3a', '#6e4a26']];
+  const STOP_LOOK = { P: ['#3f7fd8', '#1f4b8f', '#ffffff'], M: ['#b0442e', '#7a2a1c', '#ffcc33'], N: ['#3aa35a', '#1f6a36', '#ffffff'], S: ['#e07a24', '#9a4e10', '#ffffff'] };
+  const isRoadish = (c) => c === '.' || c === '=' || c === 'B';
+
+  // viena plytelė 16x16 pikselių, vėliau padidinama
+  function drawCell(g, c, x, y, cells) {
+    const r = rng(x * 131 + y * 977 + c.charCodeAt(0));
+    const P = (px, py, w, h, col) => { g.fillStyle = col; g.fillRect(px, py, w, h); };
+    const grass = () => { P(0, 0, 16, 16, '#4f9a3a'); for (let i = 0; i < 18; i++) P((r() * 16) | 0, (r() * 16) | 0, 1, 1, r() < 0.5 ? '#5cbf3a' : '#3f7f2e'); };
+    const road = () => {
+      P(0, 0, 16, 16, '#4a4752'); for (let i = 0; i < 14; i++) P((r() * 16) | 0, (r() * 16) | 0, 1, 1, r() < 0.5 ? '#55525e' : '#403d48');
+      const at = (dx, dy) => { const row = cells[y + dy]; const n = row && row[x + dx]; return n && (isRoadish(n) || WALK.has(n)); };
+      // geltonos linijos kelio viduryje į tas puses, kur kelias tęsiasi
+      if (at(0, -1)) P(7, 0, 2, 3, '#f2d24a'), P(7, 5, 2, 2, '#f2d24a');
+      if (at(0, 1)) P(7, 13, 2, 3, '#f2d24a'), P(7, 9, 2, 2, '#f2d24a');
+      if (at(-1, 0)) P(0, 7, 3, 2, '#f2d24a'), P(5, 7, 2, 2, '#f2d24a');
+      if (at(1, 0)) P(13, 7, 3, 2, '#f2d24a'), P(9, 7, 2, 2, '#f2d24a');
+    };
+    const roof = (main, dark) => { P(2, 2, 12, 12, '#2a2530'); P(3, 3, 10, 10, main); P(3, 8, 10, 5, dark); P(3, 8, 10, 1, '#00000055'); P(7, 3, 2, 10, dark); };
+    if (c === 'g') grass();
+    else if (c === 't') { grass(); P(3, 2, 10, 10, '#1f5a24'); P(4, 3, 8, 8, '#2f7a2e'); P(5, 4, 3, 3, '#4fa840'); P(7, 12, 2, 3, '#6a4426'); }
+    else if (c === '~') { P(0, 0, 16, 16, '#2a6fd0'); for (let i = 0; i < 5; i++) P((r() * 12) | 0, (r() * 16) | 0, 4, 1, '#5a9cf0'); }
+    else if (c === '=') {
+      P(0, 0, 16, 16, '#2a6fd0');
+      const vertical = (cells[y][x - 1] === '~' || cells[y][x + 1] === '~');
+      if (vertical) { P(2, 0, 12, 16, '#9a6a3a'); for (let yy = 1; yy < 16; yy += 3) P(2, yy, 12, 1, '#6e4a26'); P(1, 0, 1, 16, '#5a3a1c'); P(14, 0, 1, 16, '#5a3a1c'); }
+      else { P(0, 2, 16, 12, '#9a6a3a'); for (let xx = 1; xx < 16; xx += 3) P(xx, 2, 1, 12, '#6e4a26'); P(0, 1, 16, 1, '#5a3a1c'); P(0, 14, 16, 1, '#5a3a1c'); }
+    }
+    else if (c === 'h') { grass(); const [m, d] = HOUSE_ROOFS[(r() * HOUSE_ROOFS.length) | 0]; roof(m, d); }
+    else if (ROOF[c]) { grass(); roof(...ROOF[c]); P(6, 13, 4, 2, '#3a2a1c'); }
+    else if (STOP_LOOK[c]) {
+      grass(); const [m, d, sign] = STOP_LOOK[c]; roof(m, d);
+      P(4, 5, 8, 7, '#000'); P(5, 6, 6, 5, sign === '#ffffff' ? '#ffffff' : '#ffcc33');
+      // raidė ženkle (5x5)
+      const L = { P: ['###', '#.#', '###', '#..', '#..'], M: ['#.#', '###', '###', '#.#', '#.#'], N: ['#.#', '###', '###', '###', '#.#'], S: ['###', '#..', '###', '..#', '###'] }[c];
+      L.forEach((row, yy) => [...row].forEach((ch, xx) => { if (ch === '#') P(6 + xx, 6 + yy, 1, 1, m); }));
+      P(6, 13, 4, 2, '#3a2a1c');
+    }
+    else road();
+  }
+  function renderStatic() {
+    const W = cols * 16, H = rows * 16;
+    staticMap = document.createElement('canvas'); staticMap.width = W; staticMap.height = H;
+    const g = staticMap.getContext('2d');
+    for (let y = 0; y < rows; y++) for (let x = 0; x < cols; x++) { g.save(); g.translate(x * 16, y * 16); drawCell(g, L.g[y][x], x, y, L.g); g.restore(); }
+  }
+  // dviratininkas su siuntiniu (20x16)
+  const BIKE = (() => {
+    const c = document.createElement('canvas'); c.width = 20; c.height = 16; const g = c.getContext('2d');
+    const P = (x, y, w, h, col) => { g.fillStyle = col; g.fillRect(x, y, w, h); };
+    const wheel = (cx) => { P(cx - 2, 9, 4, 1, '#111'); P(cx - 2, 15, 4, 1, '#111'); P(cx - 3, 10, 1, 5, '#111'); P(cx + 2, 10, 1, 5, '#111'); P(cx - 1, 11, 2, 3, '#9aa0b0'); };
+    wheel(4); wheel(15);
+    P(4, 12, 6, 1, '#e0402e'); P(9, 9, 1, 4, '#e0402e'); P(9, 12, 6, 1, '#e0402e'); P(10, 9, 5, 1, '#e0402e'); P(14, 7, 1, 3, '#e0402e'); P(13, 6, 3, 1, '#222');
+    P(7, 8, 4, 1, '#222');
+    P(7, 4, 4, 4, '#3f7fd8'); P(8, 8, 2, 3, '#2a3a6a'); P(10, 5, 4, 1, '#f2c29a');
+    P(8, 1, 3, 3, '#f2c29a'); P(7, 0, 5, 2, '#ffcc33');
+    P(1, 4, 6, 5, '#c98a3a'); P(1, 4, 6, 1, '#8a5a20'); P(3, 4, 1, 5, '#8a5a20');
+    return c;
+  })();
+
+  /* ---------- žaidimo būsena ---------- */
+  let lvlIdx = 0, L = null, rows = 0, cols = 0, start = null;
+  let prog = [];
+  const bike = { x: 0, y: 0, face: 1 };
+  let anim = null, trail = [], run = { active: false }, visited = 0, dist = 0, t = 0;
+
+  function loadLevel(i) {
+    lvlIdx = i; L = LEVELS[i]; rows = L.g.length; cols = L.g[0].length;
+    L.g.forEach((row, y) => [...row].forEach((c, x) => { if (c === 'B') start = { x, y }; }));
+    prog = [];
+    $('lvlNum').textContent = i + 1;
+    $('hint').textContent = L.hint;
+    const allowed = L.dirs || 'ŠPRV';
+    document.querySelectorAll('.dir').forEach((b) => { b.disabled = !allowed.includes(b.dataset.d); });
+    $('scalebar').hidden = !L.scale;
+    renderTips();
+    resetBike(); renderProg(); layoutBoard();
+  }
+  function renderTips() {
+    const multi = !L.riddle && L.stops.length > 1;
+    let h = `<span><b>Užduotis:</b> ${L.hint}</span>`;
+    if (L.dirs) h += '<span>Šiame lygyje tik <b>Š</b> ir <b>R</b>.</span>';
+    if (multi) h += `<span>Eilė: ${[...L.stops].map((s, i) => `<b>${i + 1}</b> ${STOP_NAME[s]}`).join(', ')}.</span>`;
+    if (L.scale) h += '<span><b>1 langelis = 100 m</b></span>';
+    if (L.tip) h += `<span>${L.tip}</span>`;
+    h += '<span>Bakstelk komandą: skaičius mažėja.</span>';
+    $('tips').innerHTML = h;
+  }
+  function resetBike() {
+    bike.x = start.x; bike.y = start.y; bike.face = 1;
+    anim = null; trail = [{ x: start.x, y: start.y }]; visited = 0; dist = 0;
+    run = { active: false };
+    $('bug').hidden = true;
+    document.querySelectorAll('.now,.err').forEach((e) => e.classList.remove('now', 'err'));
+    document.body.classList.remove('busy');
+    setRunLabel();
+  }
+  const cell = (x, y) => (y < 0 || y >= rows || x < 0 || x >= cols ? null : L.g[y][x]);
+
+  /* ---------- programa ---------- */
+  function edited() { if (run.active || run.mode || trail.length > 1) resetBike(); renderProg(); }
+  function addDir(d) {
+    const lastC = prog[prog.length - 1];
+    if (lastC && lastC.d === d && lastC.n < 9) lastC.n++; else prog.push({ d, n: 1 });
+    sfx.add(); edited();
+  }
+  function renderProg() {
+    $('prog').innerHTML = prog.length
+      ? prog.map((c, i) => `<button class="chip d-${c.d}" type="button" data-i="${i}" aria-label="${c.d} ${c.n}">${{ 'Š': '⬆', P: '⬇', R: '➡', V: '⬅' }[c.d]} ${c.d}<b>${c.n}</b></button>`).join('')
+      : '<span class="empty-note">Spausk kryptį. Spausk dar kartą: važiuos toliau.</span>';
+    $('count').textContent = 'Komandų: ' + prog.length;
+  }
+  $('dpad').addEventListener('click', (e) => {
+    const b = e.target.closest('.dir'); if (!b || b.disabled) return;
+    ensureAudio(); addDir(b.dataset.d);
+  });
+  $('del').addEventListener('click', () => { if (!prog.length) return; prog.pop(); sfx.remove(); edited(); });
+  $('prog').addEventListener('click', (e) => {
+    const b = e.target.closest('.chip'); if (!b) return;
+    const c = prog[+b.dataset.i]; c.n--; if (c.n <= 0) prog.splice(+b.dataset.i, 1);
+    sfx.remove(); edited();
+  });
+
+  /* ---------- vykdymas ---------- */
+  function steps() { const s = []; prog.forEach((c, i) => { for (let k = 0; k < c.n; k++) s.push({ d: c.d, i, last: k === c.n - 1 }); }); return s; }
+  function setRunLabel() {
+    const b = $('run');
+    if (run.active && run.mode === 'run') { b.textContent = 'STOP'; b.classList.add('stop'); }
+    else { b.textContent = 'VAŽIUOTI'; b.classList.remove('stop'); }
+  }
+  function begin(mode) {
+    if (!prog.length) { fail('empty'); return; }
+    if (!run.active) { resetBike(); run = { active: true, mode, list: steps(), i: 0, wait: 0 }; document.body.classList.add('busy'); }
+    run.mode = mode;
+    setRunLabel();
+  }
+  $('run').addEventListener('click', () => {
+    ensureAudio();
+    if (run.active && run.mode === 'run') { resetBike(); return; }
+    begin('run');
+  });
+  $('step').addEventListener('click', () => {
+    ensureAudio();
+    if (anim) return;
+    if (!run.active) begin('step');
+    run.mode = 'step'; setRunLabel(); execStep();
+  });
+  $('reset').addEventListener('click', () => resetBike());
+  $('fix').addEventListener('click', () => resetBike());
+
+  function execStep() {
+    if (!run.active || anim) return;
+    if (run.i >= run.list.length) { finish(); return; }
+    const s = run.list[run.i++];
+    document.querySelectorAll('.chip.now').forEach((e) => e.classList.remove('now'));
+    const chip = document.querySelector(`.chip[data-i="${s.i}"]`); if (chip) chip.classList.add('now');
+    const [dx, dy] = D[s.d];
+    if (dx) bike.face = dx;
+    const nx = bike.x + dx, ny = bike.y + dy, c = cell(nx, ny);
+    if (c === null || !WALK.has(c)) { anim = { kind: 'bump', t: 0, dur: 0.3, dx, dy, why: c === null ? 'edge' : c, chip: s.i }; sfx.bad(); return; }
+    anim = { kind: 'move', t: 0, dur: 0.17, fx: bike.x, fy: bike.y, last: s.last };
+    bike.x = nx; bike.y = ny; dist++; trail.push({ x: nx, y: ny }); sfx.move();
+  }
+  function afterAnim(a) {
+    if (a.kind === 'bump') { failBlock(a.why, a.chip); return; }
+    const c = cell(bike.x, bike.y);
+    if (!L.riddle && c === L.stops[visited]) {
+      visited++; sfx.bell();
+      if (visited === L.stops.length) { success(); return; }
+    }
+    if (run.mode === 'step' && run.i >= run.list.length) finish();
+  }
+  function finish() {
+    if (L.riddle) {
+      const c = cell(bike.x, bike.y);
+      if (c === L.stops[0]) { success(); return; }
+      if (ROOF[c]) { fail('wrongHouse'); return; }
+      fail('riddleEnd'); return;
+    }
+    fail('end');
+  }
+  function stopRun() { run.active = false; run.mode = 'done'; document.body.classList.remove('busy'); setRunLabel(); }
+  function failBlock(why, chipI) {
+    stopRun();
+    const chip = document.querySelector(`.chip[data-i="${chipI}"]`); if (chip) chip.classList.add('err');
+    showBug('STOP!', BLOCK_WHY[why] || BLOCK_WHY.g);
+  }
+  function fail(kind) {
+    stopRun();
+    let msg = '';
+    if (kind === 'empty') msg = 'Pirma pridėk komandų.';
+    else if (kind === 'wrongHouse') msg = 'Čia ne tas pastatas. Perskaityk mįslę dar kartą.';
+    else if (kind === 'riddleEnd') msg = 'Programa baigėsi kelyje. Baik prie tinkamo pastato.';
+    else { const left = [...L.stops].slice(visited).map((s) => STOP_NAME[s]).join(', '); msg = 'Komandos baigėsi. Dar nepristatyta: ' + left + '.'; }
+    showBug(kind === 'empty' ? 'TUŠČIA' : 'NEPRISTATYTA', msg);
+    if (kind !== 'empty') sfx.bad(); else sfx.remove();
+  }
+  function showBug(title, msg) { $('bugTitle').textContent = title; $('bugWhy').textContent = msg; $('bug').hidden = false; }
+
+  function success() {
+    stopRun();
+    if (L.scale) { askScale(); return; }
+    showWin();
+  }
+  // 1 langelį, 2-9 langelius, 10-20 langelių (galininkas); kilmininkas nereikalingas
+  function cellsAcc(n) { const a = n % 10, b = n % 100; return n + (a === 1 && b !== 11 ? ' langelį' : a >= 2 && (b < 10 || b > 20) ? ' langelius' : ' langelių'); }
+  function cellsNom(n) { const a = n % 10, b = n % 100; return n + (a === 1 && b !== 11 ? ' langelis' : a >= 2 && (b < 10 || b > 20) ? ' langeliai' : ' langelių'); }
+  function askScale() {
+    const right = dist * 100;
+    const opts = new Set([right]);
+    for (const d of [-300, 200, -100, 300, 100]) { if (opts.size >= 3) break; const v = right + d; if (v > 0) opts.add(v); }
+    const arr = [...opts].sort((a, b) => a - b);
+    $('qText').innerHTML = `Nuvažiavai <b>${cellsAcc(dist)}</b>. Mastelis: <b>1 langelis = 100 m</b>.<br>Kiek metrų nuvažiavai?`;
+    $('qNote').textContent = 'Pėdsakas žemėlapyje rodo tavo kelią.';
+    $('answers').innerHTML = arr.map((v) => `<button class="btn" type="button" data-v="${v}">${v} m</button>`).join('');
+    $('qOv').hidden = false;
+  }
+  $('answers').addEventListener('click', (e) => {
+    const b = e.target.closest('[data-v]'); if (!b) return;
+    if (+b.dataset.v === dist * 100) { $('qOv').hidden = true; showWin(); }
+    else { b.classList.remove('wrong'); void b.offsetWidth; b.classList.add('wrong'); sfx.bad(); $('qNote').textContent = `Ne. ${cellsNom(dist)} po 100 m. Padaugink!`; }
+  });
+  function showWin() {
+    const n = prog.length;
+    const stars = n <= L.par ? 3 : n <= L.par + 2 ? 2 : 1;
+    const key = lvlIdx + 1, prev = progress.stars[key] || 0;
+    progress.stars[key] = Math.max(prev, stars);
+    save(NS('mz-progress'), JSON.stringify(progress));
+    if (ZM) {
+      const total = Object.values(progress.stars).reduce((a, b) => a + b, 0);
+      ZM.report('miesto-zemelapis', { score: total, xp: (prev ? 0 : 10) + 20 * Math.max(0, stars - prev) });
+    }
+    document.querySelectorAll('#winStars .star').forEach((s, i) => s.classList.toggle('on', i < stars));
+    $('winNote').innerHTML = `Komandų: <b>${n}</b>. ` + (stars === 3 ? 'Trumpiausias kelias!' : `3 žvaigždėms užtenka <b>${L.par}</b>.`);
+    const lastLvl = lvlIdx >= LEVELS.length - 1;
+    $('next').textContent = lastLvl ? 'Lygiai' : 'Kitas lygis';
+    sfx.win();
+    setTimeout(() => { $('winOv').hidden = false; }, 300);
+  }
+  $('again').addEventListener('click', () => { $('winOv').hidden = true; resetBike(); });
+  $('next').addEventListener('click', () => { $('winOv').hidden = true; if (lvlIdx >= LEVELS.length - 1) { openLevels(); return; } loadLevel(lvlIdx + 1); });
+
+  /* ---------- ciklas ir piešimas ---------- */
+  function update(dt) {
+    t += dt;
+    if (anim) { anim.t += dt / anim.dur; if (anim.t >= 1) { const a = anim; anim = null; afterAnim(a); } }
+    if (run.active && run.mode === 'run' && !anim) { run.wait -= dt; if (run.wait <= 0) { execStep(); run.wait = 0.04; } }
+  }
+  function draw() {
+    if (!staticMap) return;
+    ctx.setTransform(dpr, 0, 0, dpr, 0, 0); ctx.imageSmoothingEnabled = false;
+    ctx.drawImage(staticMap, 0, 0, cols * T, rows * T);
+    // upės bangelės
+    const wave = Math.floor(t * 2) % 2;
+    ctx.fillStyle = 'rgba(160,200,255,0.5)';
+    for (let y = 0; y < rows; y++) for (let x = 0; x < cols; x++) if (L.g[y][x] === '~') ctx.fillRect(x * T + ((wave + x) % 2) * T * 0.4 + T * 0.1, y * T + T * 0.45, T * 0.3, T * 0.07);
+    // pėdsakas
+    ctx.fillStyle = 'rgba(255,204,51,0.85)';
+    for (const p of trail) ctx.fillRect((p.x + 0.5) * T - T * 0.08, (p.y + 0.5) * T - T * 0.08, T * 0.16, T * 0.16);
+    // sustojimų numeriai ir rodyklė virš kito sustojimo
+    if (!L.riddle) {
+      const multi = L.stops.length > 1;
+      [...L.stops].forEach((s, i) => {
+        L.g.forEach((row, y) => [...row].forEach((c, x) => {
+          if (c !== s) return;
+          if (i < visited) { ctx.fillStyle = '#2fa36a'; ctx.fillRect(x * T + T * 0.62, y * T + T * 0.02, T * 0.36, T * 0.36); ctx.fillStyle = '#fff'; ctx.font = `900 ${T * 0.3}px Nunito, sans-serif`; ctx.textAlign = 'center'; ctx.fillText('✓', x * T + T * 0.8, y * T + T * 0.3); }
+          else if (multi) { ctx.fillStyle = '#000'; ctx.fillRect(x * T + T * 0.6, y * T, T * 0.4, T * 0.4); ctx.fillStyle = '#ffcc33'; ctx.font = `900 ${T * 0.32}px Nunito, sans-serif`; ctx.textAlign = 'center'; ctx.fillText(String(i + 1), x * T + T * 0.8, y * T + T * 0.31); }
+          if (i === visited) {
+            const bob = Math.sin(t * 5) * T * 0.06, cx = (x + 0.5) * T, top = y * T - T * 0.05 + bob;
+            ctx.fillStyle = '#000'; ctx.beginPath(); ctx.moveTo(cx - T * 0.2, top - T * 0.2); ctx.lineTo(cx + T * 0.2, top - T * 0.2); ctx.lineTo(cx, top + T * 0.08); ctx.fill();
+            ctx.fillStyle = '#ffcc33'; ctx.beginPath(); ctx.moveTo(cx - T * 0.13, top - T * 0.16); ctx.lineTo(cx + T * 0.13, top - T * 0.16); ctx.lineTo(cx, top + 0.01 * T); ctx.fill();
+          }
+        }));
+      });
+    }
+    // kurjeris
+    let bx = bike.x, by = bike.y;
+    if (anim && anim.kind === 'move') { const e = anim.t; bx = anim.fx + (bike.x - anim.fx) * e; by = anim.fy + (bike.y - anim.fy) * e; }
+    if (anim && anim.kind === 'bump') { const k = Math.sin(anim.t * Math.PI) * 0.3; bx += anim.dx * k; by += anim.dy * k; }
+    ctx.save();
+    ctx.translate((bx + 0.5) * T, (by + 0.5) * T);
+    ctx.scale(bike.face, 1);
+    ctx.fillStyle = 'rgba(0,0,0,0.35)'; ctx.fillRect(-T * 0.4, T * 0.3, T * 0.8, T * 0.1);
+    ctx.drawImage(BIKE, -T * 0.45, -T * 0.4, T * 0.9, T * 0.72);
+    ctx.restore();
+  }
+  function layoutBoard() {
+    if (!L) return;
+    const r = boardWrap.getBoundingClientRect(); if (!r.width || !r.height) return;
+    dpr = Math.min(window.devicePixelRatio || 1, 2);
+    T = Math.floor(Math.max(16, Math.min(96, (r.width - 28) / cols, (r.height - 28) / rows)));
+    board.width = Math.round(cols * T * dpr); board.height = Math.round(rows * T * dpr);
+    board.style.width = cols * T + 'px'; board.style.height = rows * T + 'px';
+    $('scaleI').style.width = T + 'px';
+    renderStatic();
+  }
+  let last = performance.now();
+  function frame(now) { const dt = Math.min(0.05, (now - last) / 1000); last = now; update(dt); draw(); requestAnimationFrame(frame); }
+
+  /* ---------- lygių ekranas, legenda, garsas ---------- */
+  function renderLevels() {
+    const up = unlockedUpTo();
+    $('levels').innerHTML = LEVELS.map((lv, i) => {
+      const n = i + 1, st = progress.stars[n] || 0;
+      const stars = [0, 1, 2].map((k) => `<i class="star${k < st ? ' on' : ''}"></i>`).join('');
+      return `<button class="btn lvl${i === lvlIdx ? ' cur' : ''}" type="button" data-lvl="${i}" ${n > up ? 'disabled' : ''} aria-label="Lygis ${n}">${n}<span class="stars">${stars}</span></button>`;
+    }).join('');
+  }
+  function openLevels() { renderLevels(); $('levelsOv').hidden = false; }
+  $('levels').addEventListener('click', (e) => {
+    const b = e.target.closest('[data-lvl]'); if (!b || b.disabled) return;
+    ensureAudio(); $('levelsOv').hidden = true; loadLevel(+b.dataset.lvl);
+  });
+  $('toLevels').addEventListener('click', () => { resetBike(); openLevels(); });
+
+  const LEGEND = [['.', 'Kelias'], ['=', 'Tiltas per upę'], ['~', 'Upė'], ['t', 'Parkas'], ['g', 'Pieva'], ['h', 'Namas'],
+    ['P', 'Paštas'], ['M', 'Mokykla'], ['N', 'Namai'], ['S', 'Parduotuvė'], ['r', 'Raudonas stogas'], ['b', 'Mėlynas stogas'], ['y', 'Geltonas stogas']];
+  function renderLegend() {
+    $('legend').innerHTML = LEGEND.map(([c, name], i) => `<div><canvas data-c="${i}" width="16" height="16"></canvas>${name}</div>`).join('');
+    $('legend').querySelectorAll('canvas').forEach((cv) => {
+      const [c] = LEGEND[+cv.dataset.c], g = cv.getContext('2d');
+      const fake = c === '=' ? ['~=~'] : c === '.' ? ['...'] : ['.' + c + '.'];
+      drawCell(g, c, 1, 0, fake);
+    });
+  }
+  $('toLegend').addEventListener('click', () => { renderLegend(); $('legendOv').hidden = false; });
+  $('legendOk').addEventListener('click', () => { $('legendOv').hidden = true; });
+
+  function setMuted(v) { muted = v; $('mute').setAttribute('aria-pressed', String(muted)); save('mz-muted', muted ? '1' : '0'); }
+  $('mute').addEventListener('click', () => { setMuted(!muted); if (!muted) ensureAudio(); });
+  setMuted(muted);
+
+  if ('ResizeObserver' in window) new ResizeObserver(layoutBoard).observe(boardWrap); else window.addEventListener('resize', layoutBoard);
+  loadLevel(Math.min(unlockedUpTo(), LEVELS.length) - 1);
+  renderLevels();
+  requestAnimationFrame(frame);
+})();
+</script>
+</body>
+</html>

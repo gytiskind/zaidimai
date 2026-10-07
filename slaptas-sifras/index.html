@@ -1,0 +1,461 @@
+<!doctype html>
+<html lang="lt">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Slaptas šifras</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Nunito:wght@700;800;900&family=Pixelify+Sans:wght@400;700&family=Press+Start+2P&display=swap">
+<link rel="stylesheet" href="../fonts/zm-digits.css">
+<script src="../zm.js"></script>
+<style>
+/* Slaptas šifras: Cezario šifro ratas. Kairėje ratas (arba ženklų lentelė), dešinėje raštelis, raidžių klaviatūra ir mygtukai.
+   Siauruose ekranuose viskas vienas po kito. Puslapis niekada neslenka: dydžiai skaičiuojami iš matomo aukščio. */
+:root {
+  --night: #141b3a; --stone: #3b3846; --stone-hi: #6e6a7c; --stone-lo: #1f1c27;
+  --gold: #ffcc33; --gem: #4de8d6; --red: #e0402e; --grass: #5cbf3a; --grass-hi: #8ee35f; --grass-lo: #2f7a1c;
+  --ink: #f3f0f7; --ink-dim: #b7b1c2; --scrim: rgba(12, 10, 24, 0.7);
+  --pixel: "ZM Digits", "Pixelify Sans", "Courier New", ui-monospace, monospace;
+  --word: "Nunito", "Arial Rounded MT Bold", system-ui, sans-serif;
+  /* šifro raidės: Pixelify B atrodo kaip 8, Z kaip 2, todėl raidėms aiškus arkadinis šriftas */
+  --letter: "Press Start 2P", "Courier New", monospace;
+  --cell: 30px; --key: 44px;
+  color-scheme: dark;
+}
+* { box-sizing: border-box; }
+[hidden] { display: none !important; }
+html, body { height: 100%; margin: 0; }
+body { background: var(--night) linear-gradient(180deg, #141b3a 0%, #2c2a5c 60%, #3a3570 100%); color: var(--ink); font-family: var(--word);
+  overflow: hidden; touch-action: manipulation; user-select: none; -webkit-user-select: none; -webkit-tap-highlight-color: transparent; }
+#app { position: fixed; inset: 0; height: 100dvh; display: grid; grid-template-rows: auto minmax(0, 1fr); grid-template-columns: minmax(0, 1fr); }
+
+.btn { font: 900 1rem var(--word); color: var(--ink); cursor: pointer; touch-action: manipulation; min-height: 44px; padding: 4px 14px;
+  background: var(--stone); border: 3px solid; border-color: var(--stone-hi) var(--stone-lo) var(--stone-lo) var(--stone-hi); box-shadow: 0 0 0 2px #000; }
+.btn:active { border-color: var(--stone-lo) var(--stone-hi) var(--stone-hi) var(--stone-lo); }
+.btn:focus-visible { outline: 3px solid var(--gem); outline-offset: 3px; }
+.btn:disabled { opacity: .45; cursor: default; }
+.btn.go { background: var(--grass); color: #fff; text-shadow: 2px 2px 0 var(--grass-lo); border-color: var(--grass-hi) var(--grass-lo) var(--grass-lo) var(--grass-hi); }
+.btn.gem { background: var(--gem); color: #0d2a27; border-color: #9ff5ea #1a7f74 #1a7f74 #9ff5ea; }
+.zm-back { display: inline-flex; align-items: center; font: 900 .95rem var(--word); color: var(--ink); text-decoration: none; background: var(--stone);
+  border: 3px solid; border-color: var(--stone-hi) var(--stone-lo) var(--stone-lo) var(--stone-hi); box-shadow: 0 0 0 2px #000; padding: 5px 12px; white-space: nowrap; }
+
+/* viršutinė juosta */
+.top { display: flex; align-items: center; gap: 10px; padding: 8px 10px; background: rgba(15,13,22,.85); border-bottom: 3px solid #000; min-width: 0; }
+.top h1 { margin: 0; font: 700 1.25rem var(--pixel); color: var(--gold); text-shadow: 2px 2px 0 #000; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; flex: 1; min-width: 0; }
+.top .stars { font-size: 1.1rem; letter-spacing: 2px; color: var(--gold); white-space: nowrap; }
+
+/* žaidimo vieta */
+.play { min-height: 0; display: grid; gap: 10px; padding: 10px; grid-template-columns: minmax(0, 1fr); grid-template-rows: auto minmax(0, 1fr); }
+.side { min-height: 0; display: grid; justify-items: center; align-content: center; gap: 6px; }
+.main { min-height: 0; display: grid; grid-template-rows: auto minmax(0, 1fr) auto auto; gap: 8px; }
+@media (min-aspect-ratio: 5/4) {
+  .play { grid-template-columns: minmax(0, 0.9fr) minmax(0, 1.4fr); grid-template-rows: minmax(0, 1fr); }
+}
+.panel { background: var(--stone-lo); border: 4px solid; border-color: var(--stone-hi) #000 #000 var(--stone-hi); box-shadow: 0 0 0 3px #000; }
+.story { margin: 0; padding: 8px 12px; font-weight: 800; font-size: clamp(.9rem, 2.4vmin, 1.1rem); line-height: 1.3; }
+.story .key { color: var(--gem); font-weight: 900; white-space: nowrap; }
+.story .hint { display: block; color: var(--gold); }
+
+/* ratas */
+.wheel { position: relative; width: var(--wheel, 260px); height: var(--wheel, 260px); touch-action: none; cursor: grab; }
+.wheel svg { position: absolute; inset: 0; width: 100%; height: 100%; overflow: visible; }
+/* SVG koordinatės prasideda rato centre (viewBox -100..100), todėl sukam aplink 0 0 */
+#inner { transition: transform .25s steps(5); transform-box: view-box; transform-origin: 0 0; }
+.wheel.drag #inner { transition: none; }
+.wctl { display: flex; align-items: center; gap: 10px; }
+.wctl .btn { min-width: 52px; font-size: 1.3rem; }
+.klabel { font: 700 1.05rem var(--word); text-align: center; min-width: 7.5em; }
+.klabel b { color: var(--gem); font-size: 1.35rem; }
+.legend { display: grid; grid-template-columns: repeat(7, auto); gap: 4px; }
+.legend div { display: grid; justify-items: center; gap: 2px; background: #0f0d16; border: 2px solid #000; padding: 3px 4px; font: 400 .6rem var(--letter); }
+.legend svg { width: var(--sym, 26px); height: var(--sym, 26px); }
+
+/* raštelis */
+.msg { min-height: 0; overflow: hidden; padding: 8px; display: grid; align-content: center; gap: 6px; }
+.part { display: grid; gap: 4px; }
+.part.lock { opacity: .55; }
+.part .ptitle { font-weight: 900; font-size: .85rem; color: var(--ink-dim); text-align: center; }
+.words { display: flex; flex-wrap: wrap; gap: 4px calc(var(--cell) * .55); justify-content: center; }
+.word { display: flex; gap: 2px; }
+.col { display: grid; gap: 2px; justify-items: center; }
+.given, .slot { width: var(--cell); height: calc(var(--cell) * 1.1); display: grid; place-items: center; font: 400 calc(var(--cell) * .46) var(--letter); }
+.given { color: var(--gold); }
+.given svg { width: calc(var(--cell) * .9); height: calc(var(--cell) * .9); }
+.slot { background: #f3f0f7; color: #141b3a; border: 2px solid #000; cursor: pointer; }
+.slot.on { background: var(--gem); box-shadow: 0 0 0 2px #fff; }
+.slot.ok { background: #b9f0a0; cursor: default; }
+.slot.bad { background: #ff9b8f; animation: shake .3s steps(3); }
+@keyframes shake { 33% { transform: translateX(-3px); } 66% { transform: translateX(3px); } }
+
+/* klaviatūra */
+.kbd { display: grid; grid-template-columns: repeat(9, minmax(0, 1fr)); gap: 4px; }
+.kbd button { min-height: var(--key); padding: 0; font: 400 calc(var(--key) * .36) var(--letter); }
+.kbd .wide { grid-column: span 2; }
+.actions { display: flex; gap: 8px; justify-content: center; flex-wrap: wrap; }
+.actions .btn { min-height: 46px; }
+
+/* lygiai ir pabaiga */
+.overlay { position: fixed; inset: 0; height: 100dvh; display: grid; place-items: center; background: var(--scrim); padding: 10px; z-index: 5; }
+.card { width: min(860px, 100%); max-height: 100%; overflow: hidden; padding: 14px 16px; display: grid; gap: 10px; justify-items: center; text-align: center; }
+.card h2 { margin: 0; font: 700 clamp(1.8rem, 7vmin, 3rem) var(--pixel); color: var(--gold); text-shadow: 3px 3px 0 #8a5a12, 6px 6px 0 #000; }
+.card p { margin: 0; font-weight: 800; color: var(--ink-dim); }
+.lvls { display: grid; grid-template-columns: repeat(6, minmax(0, 1fr)); gap: 8px; width: 100%; }
+.lvl { display: grid; gap: 2px; place-items: center; padding: 6px 2px; min-height: clamp(54px, 13vmin, 92px); }
+.lvl b { font: 700 clamp(1.1rem, 4vmin, 1.7rem) var(--pixel); }
+.lvl small { font-size: .7rem; font-weight: 800; color: var(--ink-dim); line-height: 1.1; }
+.lvl i { font-style: normal; color: var(--gold); font-size: .8rem; letter-spacing: 1px; }
+.lvl.cur { outline: 3px solid var(--gold); }
+.row { display: flex; gap: 10px; flex-wrap: wrap; justify-content: center; align-items: center; }
+.win .note { font: 700 clamp(1.2rem, 4.5vmin, 2rem) var(--word); color: var(--ink); background: #f6edd5; color: #3a2a10; padding: 10px 16px; border: 3px solid #000;
+  box-shadow: 4px 4px 0 #000; transform: rotate(-1deg); }
+.win .bigstars { font-size: clamp(2rem, 8vmin, 3.2rem); color: var(--gold); letter-spacing: 6px; text-shadow: 3px 3px 0 #000; }
+.learn { font-size: .95rem; }
+@media (max-aspect-ratio: 1/1) { .lvls { grid-template-columns: repeat(4, minmax(0, 1fr)); } }
+@media (max-height: 600px) { .card { gap: 6px; padding: 10px 12px; } .card h2 { font-size: 1.8rem; } }
+</style>
+</head>
+<body>
+<div id="app">
+  <header class="top">
+    <button class="btn" id="toLevels">☰ Lygiai</button>
+    <h1 id="title">Slaptas šifras</h1>
+    <span class="stars" id="liveStars"></span>
+  </header>
+  <section class="play">
+    <div class="side panel" id="side">
+      <div class="wheel" id="wheel" aria-label="Šifro ratas">
+        <svg viewBox="-100 -100 200 200" aria-hidden="true">
+          <circle r="98" fill="#2a2633" stroke="#000" stroke-width="3"/>
+          <g id="outer"></g>
+          <g id="inner"></g>
+          <circle r="34" fill="#141b3a" stroke="#000" stroke-width="3"/>
+          <path d="M0 -99 L-6 -91 L6 -91 Z" fill="#ffcc33" stroke="#000" stroke-width="1.5"/>
+        </svg>
+      </div>
+      <div class="wctl" id="wctl">
+        <button class="btn" id="rotL" aria-label="Sukti atgal">◀</button>
+        <div class="klabel" id="klabel"></div>
+        <button class="btn" id="rotR" aria-label="Sukti pirmyn">▶</button>
+      </div>
+      <div class="legend" id="legend" hidden></div>
+    </div>
+    <div class="main">
+      <p class="story panel" id="story"></p>
+      <div class="msg panel" id="msg"></div>
+      <div class="kbd" id="kbd"></div>
+      <div class="actions">
+        <button class="btn" id="hintBtn">💡 Užuomina</button>
+        <button class="btn" id="clearBtn">🧽 Išvalyti</button>
+        <button class="btn go" id="checkBtn" disabled>✔ Tikrinti</button>
+      </div>
+    </div>
+  </section>
+</div>
+
+<div class="overlay" id="levels">
+  <div class="card panel">
+    <h2>Slaptas šifras</h2>
+    <p>Robotas Bitas ieško lobio. Jo rašteliai užšifruoti: kiekviena raidė pakeista kita. Sukite ratą ir iššifruokite!</p>
+    <div class="lvls" id="lvls"></div>
+    <div class="row"><a class="zm-back" href="../">← Meniu</a></div>
+  </div>
+</div>
+
+<div class="overlay" id="win" hidden>
+  <div class="card panel win">
+    <h2 id="winTitle">Iššifruota!</h2>
+    <div class="bigstars" id="winStars"></div>
+    <div class="note" id="winNote"></div>
+    <p class="learn" id="winLearn"></p>
+    <div class="row">
+      <button class="btn go" id="nextBtn">▶ Kita misija</button>
+      <button class="btn" id="againBtn">↻ Dar kartą</button>
+      <button class="btn" id="winLevels">☰ Lygiai</button>
+    </div>
+  </div>
+</div>
+
+<script>
+/*MISSIONS*/
+const MISSIONS = [
+ {"type":"decode","title":"Pirmas raštelis","story":"Robotas Bitas rado seną raštelį. Nustatyk ratą ant rakto ir iššifruok.","parts":[{"plain":"LABAS","key":1,"keyShown":true,"cipher":"MBCBT"}],"pretty":"Labas!"},
+ {"type":"decode","title":"Kur lobis?","story":"Po kelmu Bitas rado dar vieną raštelį.","parts":[{"plain":"LOBIS YRA MISKE","key":3,"keyShown":true,"cipher":"ORELV BUD PLVNH"}],"pretty":"Lobis yra miške."},
+ {"type":"decode","title":"Didelis medis","story":"Miške Bitas rado antrą raštelį.","parts":[{"plain":"IESKOK SENO AZUOLO","key":3,"keyShown":true,"cipher":"LHVNRN VHQR DCXROR"}],"pretty":"Ieškok seno ąžuolo."},
+ {"type":"decode","title":"Žingsniai","story":"Prie ąžuolo kabo lentelė su nauju raktu.","parts":[{"plain":"EIK DESIMT ZINGSNIU","key":5,"keyShown":true,"cipher":"JNP IJXNRY ENSLXSNZ"}],"pretty":"Eik dešimt žingsnių."},
+ {"type":"encode","title":"Slaptažodis","story":"Bitas klausia slaptažodžio. Užšifruok jį, kad niekas kitas nesuprastų.","parts":[{"plain":"KASTUVAS","key":2,"keyShown":true,"cipher":"MCUVWXCU"}],"pretty":"Bitas gavo slaptažodį: kastuvas."},
+ {"type":"encode","title":"Atsakymas Bitui","story":"Bitas klausia: ką radai? Atsakyk užšifruotai.","parts":[{"plain":"DUOBE","key":4,"keyShown":true,"cipher":"HYSFI"}],"pretty":"Bitas supranta: radai duobę!"},
+ {"type":"encode","title":"Komanda","story":"Užšifruok komandą, kurią Bitas turi atlikti.","parts":[{"plain":"ATIDARYK SKRYNIA","key":6,"keyShown":true,"cipher":"GZOJGXEQ YQXETOG"}],"pretty":"Bitas atidaro skrynią!"},
+ {"type":"findkey","title":"Raktas dingo","story":"Raktas nusitrynė. Pasuk ratą, kol žinutė taps aiški.","hint":"Žinutė prasideda žodžiu LOBIS.","parts":[{"plain":"LOBIS PO AKMENIU","key":7,"keyShown":false,"cipher":"SVIPZ WV HRTLUPB"}],"pretty":"Lobis po akmeniu."},
+ {"type":"findkey","title":"Kas parašė?","story":"Raštelis be rakto. Bet žinome, kas jį parašė.","hint":"Paskutinis žodis yra BITAS.","parts":[{"plain":"LAUKIU PRIE UPES BITAS","key":10,"keyShown":false,"cipher":"VKEUSE ZBSO EZOC LSDKC"}],"pretty":"Laukiu prie upės. Bitas."},
+ {"type":"findkey","title":"Dažniausia raidė","story":"Šifruotojai turi gudrybę: dažniausia raidė dažnai yra A.","hint":"Dažniausia raidė šioje žinutėje yra A.","parts":[{"plain":"ANT KALNO NAMAS","key":12,"keyShown":false,"cipher":"MZF WMXZA ZMYME"}],"pretty":"Ant kalno namas."},
+ {"type":"symbol","title":"Ženklų raštas","story":"Ant skrynios vietoj raidžių nupiešti ženklai. Lentelė kairėje rodo, kuris ženklas kuri raidė.","parts":[{"plain":"AUKSAS VIDUJE","key":0,"keyShown":true,"cipher":"AUKSAS VIDUJE"}],"pretty":"Auksas viduje!"},
+ {"type":"decode","title":"Dvigubas šifras","story":"Paskutinis raštelis turi dvi dalis. Pirma dalis pasakys antros dalies raktą.","parts":[{"plain":"ANTRAS RAKTAS DEVYNI","key":4,"keyShown":true,"cipher":"ERXVEW VEOXEW HIZCRM"},{"plain":"TU TIKRAS SIFRU MEISTRAS","key":9,"keyShown":false,"keyFrom":"DEVYNI","cipher":"CD CRTAJB BROAD VNRBCAJB"}],"pretty":"Tu tikras šifrų meistras!"}
+];
+/*END MISSIONS*/
+(() => {
+const AB = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ', N = 26;
+const $ = (id) => document.getElementById(id);
+const shift = (ch, k) => AB.indexOf(ch) < 0 ? ch : AB[(AB.indexOf(ch) + k + N * 10) % N];
+const LEARN = {
+  decode: 'Taip veikia šifras: be rakto raštelis atrodo kaip nesąmonė. Kas žino raktą, tas perskaito.',
+  encode: 'Užšifravai! Pakeliui niekas nesupras, o Bitas, žinodamas raktą, perskaitys.',
+  findkey: 'Radai raktą be rakto! Todėl tikri šifrai naudoja daug sudėtingesnius raktus, o slaptažodžiai turi būti ilgi.',
+  symbol: 'Ženklai irgi yra šifras. Bet kas turi lentelę, tas perskaito, todėl lentelę reikia saugoti.',
+};
+
+/* ---------- išsaugojimas ---------- */
+const NS = (k) => (window.ZM ? ZM.ns(k) : k);
+let progress = { stars: {} };
+try { const p = JSON.parse(localStorage.getItem(NS('ss-progress')) || 'null'); if (p && p.stars) progress = p; } catch (e) {}
+const saveProgress = () => { try { localStorage.setItem(NS('ss-progress'), JSON.stringify(progress)); } catch (e) {} };
+const unlocked = () => { let n = 1; while (n < MISSIONS.length && progress.stars[n]) n++; return n; };
+
+/* ---------- ženklų šifras (kiaulių aptvaro stilius) ---------- */
+function symbolSVG(ch) {
+  const i = AB.indexOf(ch); if (i < 0) return '';
+  let d = '', dot = false;
+  if (i < 18) {
+    const j = i % 9, r = Math.floor(j / 3), c = j % 3; dot = i >= 9;
+    if (r > 0) d += 'M2 2H22'; if (r < 2) d += 'M2 22H22'; if (c > 0) d += 'M2 2V22'; if (c < 2) d += 'M22 2V22';
+  } else {
+    const j = (i - 18) % 4; dot = i >= 22;
+    d = ['M2 2L12 18L22 2', 'M22 2L6 12L22 22', 'M2 2L18 12L2 22', 'M2 22L12 6L22 22'][j];
+  }
+  return `<svg viewBox="0 0 24 24" aria-label="${ch}"><path d="${d}" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="square"/>${dot ? '<rect x="10" y="10" width="4" height="4" fill="currentColor"/>' : ''}</svg>`;
+}
+
+/* ---------- ratas ---------- */
+const ring = (r, size) => [...AB].map((ch, i) => {
+  const a = (i / N) * Math.PI * 2, x = Math.sin(a) * r, y = -Math.cos(a) * r;
+  return `<text x="${x.toFixed(1)}" y="${y.toFixed(1)}" text-anchor="middle" dominant-baseline="central" transform="rotate(${(i * 360 / N).toFixed(2)} ${x.toFixed(1)} ${y.toFixed(1)})" font-family="Press Start 2P, monospace" font-size="${size}">${ch}</text>`;
+}).join('');
+$('outer').innerHTML = `<g fill="#ffcc33">${ring(84, 10)}</g><circle r="72" fill="none" stroke="#000" stroke-width="2"/>`;
+$('inner').innerHTML = `<circle r="70" fill="#3b3846" stroke="#000" stroke-width="2"/><g fill="#4de8d6">${ring(58, 9)}</g>`;
+let k = 0;
+function setK(v, anim = true) {
+  k = ((v % N) + N) % N;
+  $('wheel').classList.toggle('drag', !anim);
+  // vidinis ratas pasisuka taip, kad po A atsidurtų raidė A+k
+  $('inner').style.transform = `rotate(${(-k * 360 / N).toFixed(3)}deg)`;
+  $('klabel').innerHTML = `Ratas: <b>${k}</b><br><span style="font-family:var(--letter);font-size:.8em">A</span> → <span style="font-family:var(--letter);font-size:.8em">${AB[k]}</span>`;
+}
+$('rotL').onclick = () => setK(k - 1);
+$('rotR').onclick = () => setK(k + 1);
+(() => {
+  const w = $('wheel'); let start = null, k0 = 0;
+  const ang = (e) => { const r = w.getBoundingClientRect(); return Math.atan2(e.clientX - r.left - r.width / 2, -(e.clientY - r.top - r.height / 2)); };
+  w.addEventListener('pointerdown', (e) => { w.setPointerCapture(e.pointerId); start = ang(e); k0 = k; });
+  w.addEventListener('pointermove', (e) => { if (start === null) return; const d = ang(e) - start; setK(k0 - Math.round(d / (Math.PI * 2 / N)), false); });
+  const up = () => { if (start !== null) { start = null; setK(k); } };
+  w.addEventListener('pointerup', up); w.addEventListener('pointercancel', up);
+})();
+
+/* ---------- misija ---------- */
+let cur = 0, pi = 0, filled = [], active = 0, mistakes = 0, hints = 0;
+function storyHTML(m) {
+  const part = m.parts[pi];
+  let s = m.story;
+  if (m.type !== 'symbol') {
+    if (part.keyShown) s += ` <span class="key">Raktas: ${part.key}</span>`;
+    else if (part.keyFrom && pi > 0) s += ` <span class="key">Raktą rasi pirmoje dalyje.</span>`;
+    else s += ` <span class="key">Raktas: ?</span>`;
+  }
+  if (m.type === 'encode') s += ' <span class="hint">Rask viršutinę raidę ant išorinio rato ir parašyk vidinę.</span>';
+  else if (m.type === 'findkey') s += ` <span class="hint" id="kh" ${hints ? '' : 'hidden'}>${m.hint}</span>`;
+  else if (m.type === 'decode' && cur === 0) s += ' <span class="hint">Rask raidę ant vidinio rato ir parašyk išorinę.</span>';
+  return s;
+}
+function startMission(n) {
+  cur = n; pi = 0; mistakes = 0; hints = 0;
+  $('levels').hidden = true; $('win').hidden = true;
+  const m = MISSIONS[cur];
+  $('title').textContent = `${cur + 1}. ${m.title}`;
+  const sym = m.type === 'symbol';
+  $('wheel').hidden = $('wctl').hidden = sym; $('legend').hidden = !sym;
+  setK(0, false);
+  startPart();
+}
+function startPart() {
+  const m = MISSIONS[cur], part = m.parts[pi];
+  // užpildoma eilutė: dekoduojant atsakymas = plain, koduojant = cipher
+  const target = m.type === 'encode' ? part.cipher : part.plain;
+  okSet = new Set();
+  filled = [...target].map((c) => (c === ' ' ? ' ' : ''));
+  active = filled.findIndex((c) => c === '');
+  $('story').innerHTML = storyHTML(m);
+  renderMsg(); fit(); updateCheck(); updateLive();
+}
+function given(m, part) { return m.type === 'encode' ? part.plain : part.cipher; }
+function target(m, part) { return m.type === 'encode' ? part.cipher : part.plain; }
+function renderMsg() {
+  const m = MISSIONS[cur];
+  let h = '';
+  m.parts.forEach((part, idx) => {
+    const g = given(m, part), done = idx < pi, locked = idx > pi;
+    // įveikta ir užrakinta dalys rodomos viena eilute, kad dabartinei liktų vietos
+    if (done) { h += `<div class="part"><div class="ptitle">${idx + 1} dalis ✓ ${target(m, part)}</div></div>`; return; }
+    if (locked) { h += `<div class="part lock"><div class="ptitle">${idx + 1} dalis: atsirakins, kai iššifruosi ${idx} dalį.</div></div>`; return; }
+    h += `<div class="part">${m.parts.length > 1 ? `<div class="ptitle">${idx + 1} dalis</div>` : ''}<div class="words">`;
+    let pos = 0;
+    g.split(' ').forEach((w) => {
+      h += '<div class="word">';
+      [...w].forEach((ch) => {
+        const gi = pos;
+        const top = m.type === 'symbol' ? symbolSVG(ch) : ch;
+        const slot = `<div class="slot ${gi === active ? 'on' : ''}" data-i="${gi}">${filled[gi] || ''}</div>`;
+        h += `<div class="col"><div class="given">${top}</div>${slot}</div>`;
+        pos++;
+      });
+      h += '</div>'; pos++; // tarpas
+    });
+    h += '</div></div>';
+  });
+  $('msg').innerHTML = h;
+  $('msg').querySelectorAll('.slot[data-i]').forEach((s) => s.onclick = () => { if (s.classList.contains('ok')) return; active = +s.dataset.i; renderMsg(); });
+  markOk();
+}
+let okSet = new Set();
+function markOk() { okSet.forEach((i) => { const s = $('msg').querySelector(`.slot[data-i="${i}"]`); if (s) { s.classList.add('ok'); s.classList.remove('on'); } }); }
+function nextEmpty(from) {
+  for (let j = 1; j <= filled.length; j++) { const i = (from + j) % filled.length; if (filled[i] === '' ) return i; }
+  return -1;
+}
+function type(ch) {
+  if (active < 0 || okSet.has(active)) return;
+  filled[active] = ch;
+  const n = nextEmpty(active); active = n < 0 ? active : n;
+  renderMsg(); updateCheck();
+}
+function back() {
+  // ištrina aktyvią arba ankstesnę užpildytą raidę
+  let i = active;
+  if (i < 0 || filled[i] === '' || okSet.has(i)) { for (i = (active < 0 ? filled.length : active) - 1; i >= 0 && (filled[i] === ' ' || filled[i] === '' || okSet.has(i)); i--); }
+  if (i >= 0 && filled[i] !== ' ' && !okSet.has(i)) { filled[i] = ''; active = i; renderMsg(); updateCheck(); }
+}
+function updateCheck() { $('checkBtn').disabled = filled.some((c) => c === ''); }
+function check() {
+  const m = MISSIONS[cur], t = target(m, m.parts[pi]);
+  let wrong = 0;
+  filled.forEach((c, i) => { if (c === ' ') return; if (c === t[i]) okSet.add(i); else { wrong++; } });
+  if (wrong) {
+    mistakes += wrong;
+    const bad = [];
+    filled.forEach((c, i) => { if (c !== ' ' && c !== t[i]) { filled[i] = ''; bad.push(i); } });
+    active = bad[0];
+    renderMsg();
+    bad.forEach((i) => { const s = $('msg').querySelector(`.slot[data-i="${i}"]`); if (s) s.classList.add('bad'); });
+    updateCheck(); updateLive();
+    return;
+  }
+  okSet = new Set();
+  if (pi < m.parts.length - 1) { pi++; startPart(); return; }
+  win();
+}
+function hint() {
+  const m = MISSIONS[cur], t = target(m, m.parts[pi]);
+  if (m.type === 'findkey' && !hints) { hints++; $('story').innerHTML = storyHTML(m); fit(); updateLive(); return; }
+  let i = active >= 0 && filled[active] === '' ? active : filled.findIndex((c) => c === '');
+  if (i < 0) i = filled.findIndex((c, j) => c !== ' ' && c !== t[j]);
+  if (i < 0) return;
+  hints++; filled[i] = t[i]; okSet.add(i);
+  const n = nextEmpty(i); active = n;
+  renderMsg(); updateCheck(); updateLive();
+}
+const starsFor = () => { const s = mistakes + hints; return s === 0 ? 3 : s <= 2 ? 2 : 1; };
+function updateLive() { const s = starsFor(); $('liveStars').textContent = '★'.repeat(s) + '☆'.repeat(3 - s); }
+function win() {
+  const m = MISSIONS[cur], s = starsFor(), n = cur + 1;
+  const prev = progress.stars[n] || 0;
+  progress.stars[n] = Math.max(prev, s); saveProgress();
+  $('winTitle').textContent = m.type === 'encode' ? 'Užšifruota!' : 'Iššifruota!';
+  $('winStars').textContent = '★'.repeat(s) + '☆'.repeat(3 - s);
+  $('winNote').textContent = m.pretty;
+  $('winLearn').textContent = LEARN[m.type === 'decode' && cur === MISSIONS.length - 1 ? 'decode' : m.type];
+  $('nextBtn').hidden = cur >= MISSIONS.length - 1;
+  $('win').hidden = false;
+  okSet = new Set();
+  const total = Object.values(progress.stars).reduce((a, b) => a + b, 0);
+  if (window.ZM) ZM.report('slaptas-sifras', { score: total, xp: s * 10 + (s > prev ? 10 : 0), countPlay: true });
+}
+
+/* ---------- klaviatūra ---------- */
+$('kbd').innerHTML = [...AB].map((c) => `<button class="btn" data-k="${c}">${c}</button>`).join('');
+$('kbd').querySelectorAll('[data-k]').forEach((b) => b.onclick = () => type(b.dataset.k));
+$('clearBtn').onclick = () => { filled = filled.map((c, i) => (c === ' ' || okSet.has(i) ? c : '')); active = filled.findIndex((c) => c === ''); renderMsg(); updateCheck(); };
+$('hintBtn').onclick = hint;
+$('checkBtn').onclick = check;
+addEventListener('keydown', (e) => {
+  if ($('levels').hidden === false || $('win').hidden === false) return;
+  const ch = e.key.toUpperCase();
+  if (AB.includes(ch) && ch.length === 1) type(ch);
+  else if (e.key === 'Backspace') back();
+  else if (e.key === 'Enter' && !$('checkBtn').disabled) check();
+  else if (e.key === 'ArrowLeft') setK(k - 1);
+  else if (e.key === 'ArrowRight') setK(k + 1);
+});
+// ⌫ atskiras mygtukas klaviatūros gale
+(() => { const b = document.createElement('button'); b.className = 'btn'; b.textContent = '⌫'; b.setAttribute('aria-label', 'Ištrinti'); b.onclick = back; $('kbd').appendChild(b); })();
+
+/* ---------- lygiai ---------- */
+function showLevels() {
+  const u = unlocked();
+  $('lvls').innerHTML = MISSIONS.map((m, i) => {
+    const n = i + 1, s = progress.stars[n] || 0, lock = n > u;
+    const kind = { decode: 'iššifruok', encode: 'užšifruok', findkey: 'rask raktą', symbol: 'ženklai' }[m.type];
+    return `<button class="btn lvl ${n === u ? 'cur' : ''}" data-n="${i}" ${lock ? 'disabled' : ''}><b>${n}</b><small>${lock ? '🔒' : kind}</small><i>${'★'.repeat(s)}${'☆'.repeat(3 - s)}</i></button>`;
+  }).join('');
+  $('lvls').querySelectorAll('[data-n]').forEach((b) => b.onclick = () => startMission(+b.dataset.n));
+  $('win').hidden = true; $('levels').hidden = false;
+}
+$('toLevels').onclick = showLevels;
+$('winLevels').onclick = showLevels;
+$('againBtn').onclick = () => startMission(cur);
+$('nextBtn').onclick = () => startMission(cur + 1);
+
+/* ---------- dydžiai: viskas telpa į ekraną ---------- */
+$('legend').innerHTML = [...AB].map((c) => `<div>${symbolSVG(c)}<span>${c}</span></div>`).join('');
+function fit() {
+  const root = document.documentElement.style;
+  const H = innerHeight, W = innerWidth, land = W / H >= 1.25;
+  // klaviatūros mygtukai: ne aukštesni nei ~7,5 % aukščio
+  root.setProperty('--key', Math.round(Math.max(34, Math.min(56, H * 0.075))) + 'px');
+  const side = $('side'), msg = $('msg'), wheel = !$('wheel').hidden;
+  // langeliai: didžiausias dydis, kuriam raštelis telpa į savo dėžutę
+  const cells = () => {
+    let c = 48; root.setProperty('--cell', c + 'px');
+    while (c > 14 && (msg.scrollHeight > msg.clientHeight + 1 || msg.scrollWidth > msg.clientWidth + 1)) { c -= 2; root.setProperty('--cell', c + 'px'); }
+    return c;
+  };
+  if (land) {
+    if (wheel) {
+      const sw = side.clientWidth - 16, sh = side.clientHeight - $('wctl').offsetHeight - 22;
+      root.setProperty('--wheel', Math.max(120, Math.min(sw, sh)) + 'px');
+    } else root.setProperty('--sym', Math.max(16, Math.min(34, Math.floor((side.clientWidth - 16) / 7) - 14, H / 6)) + 'px');
+    cells(); return;
+  }
+  // stačiai: ratas (ar lentelė) mažėja, kol rašteliui lieka bent 22 px langeliai
+  const sw = side.clientWidth - 16;
+  for (const f of [0.3, 0.26, 0.22, 0.18, 0.15]) {
+    if (wheel) root.setProperty('--wheel', Math.max(100, Math.min(sw, H * f)) + 'px');
+    else root.setProperty('--sym', Math.max(14, Math.min(34, Math.floor(sw / 7) - 14, (H * f) / 5)) + 'px');
+    if (cells() >= 22) break;
+  }
+}
+addEventListener('resize', () => { fit(); });
+if (document.fonts) document.fonts.ready.then(fit);
+showLevels();
+startMissionPreview();
+function startMissionPreview() {
+  // fone matomas pirmasis neįveiktas raštelis
+  const n = Math.min(unlocked(), MISSIONS.length) - 1;
+  cur = n; pi = 0; const m = MISSIONS[cur];
+  $('title').textContent = `${cur + 1}. ${m.title}`;
+  const sym = m.type === 'symbol'; $('wheel').hidden = $('wctl').hidden = sym; $('legend').hidden = !sym;
+  setK(0, false); startPart();
+}
+window.__ss = { MISSIONS, shift, symbolSVG };
+})();
+</script>
+</body>
+</html>

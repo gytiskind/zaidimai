@@ -1,0 +1,508 @@
+<!doctype html>
+<html lang="lt">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Spąstų medžioklė</title>
+<style>body{margin:0}.zm-back{display:inline-flex;align-items:center;justify-self:center;align-self:center;font:900 0.95rem "Nunito","Arial Rounded MT Bold",system-ui,sans-serif;color:#f3f0f7;text-decoration:none;background:#3b3846;border:3px solid;border-color:#6e6a7c #1f1c27 #1f1c27 #6e6a7c;box-shadow:0 0 0 2px #000;padding:5px 12px;touch-action:manipulation;white-space:nowrap}.zm-back:focus-visible{outline:3px solid #4de8d6;outline-offset:3px}</style>
+<script src="../zm.js"></script>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Nunito:wght@700;800;900&family=Pixelify+Sans:wght@700&display=swap">
+<link rel="stylesheet" href="../fonts/zm-digits.css">
+<style>
+/* Spąstų medžioklė: internet trap cards fall down the screen; the kid taps SAUGU or SPĄSTAI.
+   A wrong answer pauses the game and explains why, because the point is to learn the trap. */
+:root {
+  --night: #141b3a;
+  --stone: #3b3846;
+  --stone-hi: #6e6a7c;
+  --stone-lo: #1f1c27;
+  --gold: #ffcc33;
+  --gem: #4de8d6;
+  --grass: #5cbf3a; --grass-hi: #8ee35f; --grass-lo: #2f7a1c;
+  --tnt: #e0402e; --tnt-hi: #ff7a66; --tnt-lo: #8e1f14;
+  --ink: #f3f0f7; --ink-dim: #b7b1c2;
+  --pixel: "ZM Digits", "Pixelify Sans", "Courier New", ui-monospace, monospace;
+  --word: "Nunito", "Arial Rounded MT Bold", system-ui, sans-serif;
+  color-scheme: dark;
+}
+* { box-sizing: border-box; }
+[hidden] { display: none !important; }
+html, body { height: 100%; }
+body {
+  color: var(--ink); font-family: var(--word); overflow: hidden;
+  background: var(--night) linear-gradient(180deg, #141b3a 0%, #2c2a5c 60%, #3a3570 100%) fixed;
+  -webkit-tap-highlight-color: transparent; user-select: none; -webkit-user-select: none;
+}
+h1, h2 { margin: 0; font-weight: 900; line-height: 1.05; color: var(--gold); text-shadow: 3px 3px 0 #8a5a12, 6px 6px 0 #000; }
+.wbtn {
+  display: inline-flex; align-items: center; justify-content: center; gap: 8px;
+  font: 900 1.2rem var(--word); color: var(--ink); text-decoration: none; cursor: pointer; touch-action: manipulation;
+  min-height: 50px; padding: 6px 20px; background: var(--stone);
+  border: 4px solid; border-color: var(--stone-hi) var(--stone-lo) var(--stone-lo) var(--stone-hi); box-shadow: 0 0 0 3px #000;
+}
+.wbtn:active { transform: translateY(2px); }
+.wbtn:focus-visible { outline: 4px solid var(--gem); outline-offset: 4px; }
+.wbtn.go { background: var(--grass); color: #fff; text-shadow: 2px 2px 0 var(--grass-lo); border-color: var(--grass-hi) var(--grass-lo) var(--grass-lo) var(--grass-hi); }
+.wbtn.small { font-size: .95rem; min-height: 40px; padding: 4px 12px; }
+.wbtn:disabled { opacity: .45; cursor: default; }
+
+/* žaidimo ekranas: viršuje HUD, per vidurį krentančios kortelės, apačioje du dideli mygtukai */
+#app { height: 100vh; height: 100dvh; display: grid; grid-template-rows: auto minmax(0, 1fr) auto; grid-template-columns: minmax(0, 1fr);
+  padding: calc(env(safe-area-inset-top, 0px) + 8px) 10px calc(env(safe-area-inset-bottom, 0px) + 10px); gap: 8px; }
+.hud { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; min-width: 0; }
+.hud .grow { flex: 1; }
+.stat { font: 700 1.15rem var(--pixel); background: #0f0d16; padding: 4px 10px; border: 3px solid; border-color: var(--stone-hi) #000 #000 var(--stone-hi); white-space: nowrap; }
+.stat small { font: 800 .75rem var(--word); color: var(--ink-dim); margin-right: 6px; }
+.hearts { display: flex; gap: 4px; }
+.hearts i { width: 26px; height: 24px; display: block; background: var(--heart) 0 0 / 100% 100%; image-rendering: pixelated; }
+.hearts i.gone { background-image: var(--heart-empty); }
+.stage { position: relative; overflow: hidden; border: 4px solid; border-color: #000 var(--stone-hi) var(--stone-hi) #000;
+  background: rgba(10, 8, 20, .45) repeating-linear-gradient(0deg, transparent 0 31px, rgba(255,255,255,.03) 31px 32px); }
+.stage .floor { position: absolute; left: 0; right: 0; bottom: 0; height: 6px; background: var(--tnt); opacity: .55; }
+.stage .tip { position: absolute; left: 50%; bottom: 14px; transform: translateX(-50%); font-weight: 900; font-size: 1rem; padding: 4px 12px;
+  background: rgba(0,0,0,.55); border: 2px solid #000; white-space: nowrap; max-width: 96%; overflow: hidden; text-overflow: ellipsis; opacity: 0; transition: opacity .2s; }
+.stage .tip.on { opacity: 1; }
+.answers { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+.ans { font: 900 clamp(1.4rem, 4.2vw, 2.2rem) var(--word); min-height: clamp(64px, 12dvh, 96px); color: #fff; cursor: pointer; touch-action: manipulation;
+  border: 5px solid; box-shadow: 0 0 0 3px #000, 5px 5px 0 3px rgba(0,0,0,.45); text-shadow: 2px 2px 0 rgba(0,0,0,.45); }
+.ans small { display: block; font-size: .5em; font-weight: 800; opacity: .9; }
+.ans.safe { background: var(--grass); border-color: var(--grass-hi) var(--grass-lo) var(--grass-lo) var(--grass-hi); }
+.ans.trap { background: var(--tnt); border-color: var(--tnt-hi) var(--tnt-lo) var(--tnt-lo) var(--tnt-hi); }
+.ans:active { transform: translateY(3px); }
+.ans:disabled { filter: grayscale(.6); opacity: .6; }
+
+/* kortelės: maži netikri ekranai. Jokių tikrų prekių ženklų. */
+.card { position: absolute; left: 50%; width: min(460px, 92%); transform: translateX(-50%); will-change: top, transform;
+  font-family: var(--word); color: #1a1a1a; box-shadow: 0 0 0 3px #000, 6px 6px 0 3px rgba(0,0,0,.5); touch-action: none; }
+.card.out-safe { transition: transform .35s ease-in, opacity .35s; transform: translateX(60%) rotate(12deg); opacity: 0; }
+.card.out-trap { transition: transform .35s ease-in, opacity .35s; transform: translateX(-160%) rotate(-14deg); opacity: 0; }
+.card.freeze { box-shadow: 0 0 0 5px var(--gold), 6px 6px 0 3px rgba(0,0,0,.5); }
+.k-popup { background: #fff; }
+.k-popup .bar { background: #d8d6e0; padding: 5px 8px; display: flex; gap: 6px; align-items: center; font-size: .82rem; font-weight: 800; color: #333; }
+.k-popup .bar i { width: 11px; height: 11px; border-radius: 50%; background: #f26b5b; display: block; flex: none; }
+.k-popup .bar i + i { background: #f5c04a; } .k-popup .bar i + i + i { background: #5cc35a; }
+.k-popup .addr { flex: 1; background: #fff; border: 1px solid #aaa; padding: 2px 8px; font-family: ui-monospace, Menlo, monospace; font-size: .85rem; color: #222; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; }
+.k-popup .body { padding: 12px 14px 14px; display: grid; gap: 8px; text-align: center; }
+.k-popup .t { font-weight: 900; font-size: 1.2rem; }
+.k-popup .x { font-weight: 700; font-size: 1rem; color: #333; }
+.k-popup .field { border: 2px solid #999; padding: 6px; text-align: left; color: #888; font-size: .9rem; }
+.fakebtn { justify-self: center; font-weight: 900; font-size: 1rem; padding: 7px 18px; background: #2f7de1; color: #fff; border: 2px solid #0d3d7a; }
+.k-popup.alarm .bar { background: #e0402e; color: #fff; }
+.k-popup.alarm .t { color: #c01f10; }
+.fakebtn.hot { background: #e0402e; border-color: #7a140b; animation: blink .6s steps(2) infinite; }
+@keyframes blink { 50% { filter: brightness(1.35); } }
+.k-chat { background: #22202c; color: var(--ink); padding: 10px 12px; display: grid; grid-template-columns: auto 1fr; gap: 10px; align-items: start; }
+.k-chat .av { width: 42px; height: 42px; display: grid; place-items: center; font-weight: 900; font-size: 1.2rem; color: #fff; border: 2px solid #000; }
+.k-chat .who { font-weight: 900; font-size: .9rem; color: var(--gem); }
+.k-chat .msg { margin-top: 4px; background: #fff; color: #1a1a1a; padding: 8px 10px; font-weight: 800; font-size: 1.05rem; border: 2px solid #000; }
+.k-chat .app { font-size: .75rem; color: var(--ink-dim); font-weight: 800; }
+.k-notif { background: #f3f0f7; padding: 10px 12px; display: grid; grid-template-columns: auto 1fr; gap: 10px; align-items: center; border-radius: 0; }
+.k-notif .ic { font-size: 1.8rem; width: 44px; height: 44px; display: grid; place-items: center; background: #3b3846; border: 2px solid #000; }
+.k-notif .t { font-weight: 900; font-size: 1rem; }
+.k-notif .x { font-weight: 700; font-size: .95rem; color: #333; }
+.k-ad { background: repeating-linear-gradient(45deg, #ffd21f 0 14px, #ffbf00 14px 28px); padding: 14px; text-align: center; display: grid; gap: 8px; border: 3px dashed #c01f10; }
+.k-ad .t { font-weight: 900; font-size: 1.45rem; color: #c01f10; text-shadow: 1px 1px 0 #fff; }
+.k-ad .x { font-weight: 800; font-size: .95rem; }
+.k-ad .tag { position: absolute; right: 6px; top: 4px; font-size: .65rem; font-weight: 800; color: #444; }
+.k-game { background: #2a5a2a linear-gradient(180deg, #5bb3ff 0 45%, #5cbf3a 45% 52%, #7a4f2a 52%); padding: 14px; text-align: center; display: grid; gap: 10px; color: #fff; }
+.k-game .t { font: 700 1.4rem "Pixelify Sans", var(--word); text-shadow: 2px 2px 0 #000; }
+.k-game .x { font-weight: 800; font-size: .95rem; text-shadow: 1px 1px 0 #000; }
+.k-game .fakebtn { background: #5cbf3a; border-color: #2f7a1c; font-size: 1.15rem; }
+
+/* perdangos */
+.overlay { position: fixed; inset: 0; z-index: 10; display: grid; place-items: center; padding: 10px; background: rgba(12, 10, 18, .72); overflow: hidden; }
+.panel { width: min(720px, 100%); max-height: calc(100dvh - 20px); overflow: auto; background: var(--stone-lo); padding: 16px 18px; display: grid; gap: 12px;
+  border: 4px solid; border-color: var(--stone-hi) #000 #000 var(--stone-hi); box-shadow: 0 0 0 3px #000, 7px 7px 0 3px rgba(0,0,0,.45); }
+.panel p { margin: 0; font-weight: 800; color: var(--ink-dim); font-size: 1.05rem; }
+.row { display: flex; gap: 10px; flex-wrap: wrap; align-items: center; }
+.legend { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+.legend div { padding: 8px 10px; font-weight: 900; border: 3px solid #000; color: #fff; font-size: 1.05rem; }
+.legend div small { display: block; font-weight: 800; font-size: .85rem; opacity: .92; }
+.legend .s { background: var(--grass-lo); } .legend .p { background: var(--tnt-lo); }
+.rounds { display: grid; grid-template-columns: repeat(10, minmax(0, 1fr)); gap: 6px; }
+.rounds button { font: 700 1rem var(--pixel); min-height: 42px; color: var(--ink); background: var(--stone); cursor: pointer;
+  border: 3px solid; border-color: var(--stone-hi) var(--stone-lo) var(--stone-lo) var(--stone-hi); box-shadow: 0 0 0 2px #000; }
+.rounds button.on { background: var(--gem); color: #0d2a27; }
+.rounds button:disabled { opacity: .4; }
+.lbl { font-weight: 900; }
+.verdict { font: 900 1.5rem var(--word); }
+.verdict.bad { color: var(--tnt-hi); } .verdict.good { color: var(--grass-hi); }
+.why { background: #0f0d16; border: 3px solid #000; padding: 10px 12px; font-weight: 900; font-size: 1.15rem; color: var(--ink); }
+.mini { position: relative; height: auto; }
+.mini .card { position: relative; left: auto; transform: none; width: 100%; max-width: 420px; margin: 0 auto; }
+.types { display: grid; gap: 6px; margin: 0; padding: 0; list-style: none; }
+.types li { display: grid; grid-template-columns: auto 1fr; gap: 10px; align-items: center; background: #0f0d16; padding: 6px 10px; border: 2px solid #000; font-weight: 800; }
+.types li span { font-size: 1.4rem; }
+.types li b { display: block; color: var(--gold); }
+.big { font: 700 2.2rem var(--pixel); color: var(--gold); text-shadow: 3px 3px 0 #000; }
+.links { display: flex; gap: 10px; flex-wrap: wrap; align-items: center; }
+
+/* trumpas gulsčias ekranas (planšetė su naršyklės juosta): mygtukai dešinėje, kortelės kairėje */
+@media (orientation: landscape) and (max-height: 640px) {
+  #app { grid-template-columns: minmax(0, 1fr) clamp(170px, 24vw, 240px); grid-template-rows: auto minmax(0, 1fr); }
+  .hud { grid-column: 1 / -1; }
+  .answers { grid-template-columns: 1fr; grid-template-rows: 1fr 1fr; }
+  .ans { min-height: 0; }
+  .panel { max-width: 960px; }
+  .start-panel { width: min(960px, 100%); grid-template-columns: 1fr 1fr; align-items: start; column-gap: 20px; }
+  .start-panel h1 { grid-column: 1 / -1; }
+  .k-popup .t, .k-ad .t { font-size: 1.1rem; }
+  h1 { font-size: 2rem; } h2 { font-size: 1.6rem; }
+  .why { font-size: 1.05rem; }
+  .types { grid-template-columns: 1fr 1fr; }
+  .types li { font-size: .88rem; padding: 4px 8px; gap: 8px; }
+  .types li span { font-size: 1.15rem; }
+  .panel { gap: 9px; padding: 12px 16px; }
+}
+@media (max-width: 520px) {
+  .rounds { grid-template-columns: repeat(5, minmax(0, 1fr)); }
+  .legend div { font-size: .95rem; }
+}
+@media (prefers-reduced-motion: reduce) { .fakebtn.hot { animation: none; } }
+</style>
+</head>
+<body>
+<div id="app">
+  <div class="hud">
+    <a class="zm-back" href="../">← Meniu</a>
+    <span class="grow"></span>
+    <span class="stat"><small>RAUNDAS</small><span id="hRound">1</span>/10</span>
+    <span class="stat"><small>TAŠKAI</small><span id="hScore">0</span></span>
+    <span class="hearts" id="hearts" role="img" aria-label="3 širdys"></span>
+    <button class="wbtn small" id="mute" aria-label="Garsas">🔊</button>
+  </div>
+  <div class="stage" id="stage"><div class="floor"></div><div class="tip" id="tip"></div></div>
+  <div class="answers">
+    <button class="ans trap" id="bTrap">⛔ SPĄSTAI<small>apgavystė, pavojus</small></button>
+    <button class="ans safe" id="bSafe">✅ SAUGU<small>galima spausti</small></button>
+  </div>
+</div>
+
+<!-- pradžia -->
+<div class="overlay" id="oStart">
+  <div class="panel start-panel">
+    <h1>Spąstų medžioklė</h1>
+    <div style="display:grid;gap:10px">
+      <p>Internete pilna spąstų: netikri mygtukai, „laimėjai!“ langai, žmonės, kurie prašo slaptažodžio. Kortelės krenta žemyn. Spręsk greitai!</p>
+      <div class="legend">
+        <div class="p">⛔ SPĄSTAI<small>apgavystė arba pavojus</small></div>
+        <div class="s">✅ SAUGU<small>įprasta, nieko blogo</small></div>
+      </div>
+      <p style="font-size:.95rem">Gali ir braukti kortelę: kairėn = spąstai, dešinėn = saugu.</p>
+    </div>
+    <div style="display:grid;gap:10px">
+      <span class="lbl">Pradėk nuo raundo</span>
+      <div class="rounds" id="rounds"></div>
+      <div class="row"><button class="wbtn go" id="play">▶ ŽAISTI</button><span class="stat"><small>REKORDAS</small><span id="best">0</span></span></div>
+      <div class="links"><a class="zm-back" href="../">← Meniu</a></div>
+    </div>
+  </div>
+</div>
+
+<!-- klaidos paaiškinimas -->
+<div class="overlay" id="oWhy" hidden>
+  <div class="panel">
+    <div class="verdict bad" id="wVerdict"></div>
+    <div class="mini" id="wCard"></div>
+    <div class="why" id="wWhy"></div>
+    <div class="row"><button class="wbtn go" id="wOk">Supratau ▶</button></div>
+  </div>
+</div>
+
+<!-- raundo apžvalga -->
+<div class="overlay" id="oRecap" hidden>
+  <div class="panel">
+    <h2 id="rTitle"></h2>
+    <p id="rStats"></p>
+    <ul class="types" id="rTypes"></ul>
+    <div class="row"><button class="wbtn go" id="rNext">Kitas raundas ▶</button></div>
+  </div>
+</div>
+
+<!-- pabaiga -->
+<div class="overlay" id="oOver" hidden>
+  <div class="panel">
+    <h2 id="oTitle"></h2>
+    <div class="row"><span class="big" id="oScore">0</span><p id="oSub"></p></div>
+    <ul class="types" id="oMist"></ul>
+    <div class="row"><button class="wbtn go" id="again">↻ Dar kartą</button><a class="zm-back" href="../">← Meniu</a></div>
+  </div>
+</div>
+
+<script>
+(() => {
+'use strict';
+const $ = (id) => document.getElementById(id);
+
+/* ---------- kortelės ----------
+   k: popup (naršyklės langas), chat (žinutė), notif (pranešimas), ad (reklama), game (žaidimo ekranas)
+   d: sunkumas 1-3. s: true = saugu. ty: spąstų rūšis (žr. TYPES). why: vienas sakinys vaikui. */
+const TYPES = {
+  download: ['⬇️', 'Netikras „Atsisiųsti“', 'Mirksintys atsisiuntimo mygtukai dažnai yra reklama arba virusas.'],
+  prize: ['🎁', '„Tu laimėjai!“', 'Niekas nedalina prizų atsitiktiniams lankytojams.'],
+  virus: ['🦠', 'Netikras viruso įspėjimas', 'Svetainė negali žinoti, ar planšetėje yra virusų.'],
+  password: ['🔑', 'Prašo slaptažodžio', 'Slaptažodžio nesakom niekam, net „administratoriui“.'],
+  coins: ['💰', 'Nemokamos monetos', 'Nemokamų monetų generatoriai yra apgavystė.'],
+  stranger: ['🕵️', 'Nepažįstamasis klausinėja', 'Adreso, mokyklos ir nuotraukų nesakom nepažįstamiems.'],
+  lookalike: ['🔍', 'Netikras adresas', 'Įsižiūrėk į adresą: viena pakeista raidė jau kitas puslapis.'],
+  hacked: ['👤', 'Keistas prašymas iš draugo', 'Draugo paskyrą galėjo kas nors pavogti. Paklausk jo gyvai.'],
+  urgent: ['⏱️', 'Skubinimas', 'Apgavikai skubina, kad nespėtum pagalvoti.'],
+  money: ['💳', 'Kortelė ir kodai', 'Kortelės numerių ir SMS kodų niekam neduodam.'],
+};
+const C = [
+  // ---------- SAUGU ----------
+  { s: 1, d: 1, k: 'game', t: 'Blokų žaidimas', x: 'Pagrindinis meniu', b: '▶ ŽAISTI', why: 'Tikras žaidimo mygtukas pačiame žaidime.' },
+  { s: 1, d: 1, k: 'chat', who: 'Mama', av: 'M', col: '#e85d9a', app: 'Žinutės', x: 'Grįžk namo iki 18:00 😊', why: 'Žinutė iš žmogaus, kurį pažįsti. Ji nieko neprašo.' },
+  { s: 1, d: 1, k: 'chat', who: 'Tomas (klasiokas)', av: 'T', col: '#2f7de1', app: 'Žinutės', x: 'Kokie rytdienos matematikos namų darbai?', why: 'Pažįstamas klasiokas klausia apie pamokas.' },
+  { s: 1, d: 1, k: 'popup', a: 'blokuzaidimas.lt', t: 'Nustatymai', x: 'Garsumas: 70 %', b: 'Išsaugoti', why: 'Įprasti žaidimo nustatymai.' },
+  { s: 1, d: 1, k: 'notif', ic: '⏰', t: 'Laikrodis', x: 'Žadintuvas 7:30', why: 'Planšetės laikrodžio priminimas.' },
+  { s: 1, d: 1, k: 'popup', a: 'blokuzaidimas.lt', t: 'Žaidimas baigtas', x: 'Tavo taškai: 1250', b: 'Žaisti dar', why: 'Žaidimas tik parodo tavo taškus.' },
+  { s: 1, d: 2, k: 'popup', a: 'blokuzaidimas.lt', t: 'Išeiti iš žaidimo?', x: 'Neišsaugota pažanga dings.', b: 'Taip / Ne', why: 'Žaidimas tik klausia, ar tikrai nori išeiti.' },
+  { s: 1, d: 2, k: 'notif', ic: '🛍️', t: 'Programėlių parduotuvė', x: '„Blokų žaidimas“ atnaujintas į 2.1 versiją', why: 'Atnaujinimai ateina per oficialią programėlių parduotuvę.' },
+  { s: 1, d: 2, k: 'chat', who: 'Mokytoja Rasa', av: 'R', col: '#9b5de5', app: 'Mokyklos programėlė', x: 'Rytoj atsineškite spalvotus pieštukus.', why: 'Mokytoja rašo per mokyklos programėlę ir nieko neprašo.' },
+  { s: 1, d: 2, k: 'popup', a: 'videotube.com', t: 'Kitas vaizdo įrašas', x: 'Prasidės po 5 s', b: 'Atšaukti', why: 'Įprastas vaizdo įrašų puslapio pranešimas.' },
+  { s: 1, d: 2, k: 'notif', ic: '🔋', t: 'Baterija', x: 'Liko 15 %. Prijunk įkroviklį.', why: 'Tikras planšetės pranešimas apie bateriją.' },
+  { s: 1, d: 2, k: 'notif', ic: '📅', t: 'Kalendorius', x: 'Šiandien: būrelis 15:00', why: 'Tavo paties kalendoriaus priminimas.' },
+  { s: 1, d: 3, k: 'chat', who: 'Tėtis', av: 'T', col: '#1fa597', app: 'Žinutės', x: 'Nupirkau pieno. Ar reikia dar ko nors?', why: 'Tėtis klausia apie pirkinius. Nieko slapto neprašo.' },
+  { s: 1, d: 3, k: 'game', t: 'Blokų žaidimas', x: 'Pasirink veikėjo spalvą', b: 'Rinktis', why: 'Žaidimo nustatymas pačiame žaidime.' },
+  { s: 1, d: 3, k: 'chat', who: 'Ema (draugė)', av: 'E', col: '#f2a23c', app: 'Blokų žaidimo pokalbis', x: 'Žiūrėk, kokį namą pastačiau! 🏠', why: 'Draugė dalinasi žaidimu, nesiunčia nuorodų ir nieko neprašo.' },
+  { s: 1, d: 3, k: 'popup', a: 'nustatymai', t: 'Tėvų kontrolė', x: 'Šiandien liko 20 min žaidimo laiko.', b: 'Gerai', why: 'Tėvų nustatytas laiko priminimas.' },
+  { s: 1, d: 3, k: 'chat', who: 'Lukas (klasės grupė)', av: 'L', col: '#c4921a', app: 'Klasės grupė', x: 'Ar kas nors žino, kada ekskursija?', why: 'Klasioko klausimas klasės grupėje.' },
+  { s: 1, d: 3, k: 'popup', a: 'blokuzaidimas.lt', t: 'Prisijungti', x: 'Įvesk slaptažodį savo paskyrai', b: 'Prisijungti', field: 'Slaptažodis', why: 'Adresas tikras, o prisijungti prie savo paskyros galima. Tik niekam nesakyk slaptažodžio.' },
+  // ---------- SPĄSTAI ----------
+  { s: 0, d: 1, ty: 'download', k: 'ad', t: '⬇ ATSISIŲSTI NEMOKAMAI', x: 'Pilna žaidimo versija!', why: 'Didelis mirksintis ATSISIŲSTI mygtukas reklamoje dažnai yra virusas.' },
+  { s: 0, d: 2, ty: 'download', k: 'popup', a: 'free-games-download.xyz', t: 'Tavo žaidimas pasenęs!', x: 'Atsisiųsk naują versiją čia', b: 'ATSISIŲSTI', hot: 1, why: 'Atnaujinimai ateina tik per programėlių parduotuvę, ne per keistus puslapius.' },
+  { s: 0, d: 3, ty: 'download', k: 'ad', t: 'Spausk, kad tęstum ▶', x: 'Įdiek „Žaidimų paleidiklį“', why: 'Tikras „tęsti“ mygtukas būna pačiame žaidime, o ne reklamos lange.' },
+  { s: 0, d: 1, ty: 'prize', k: 'popup', a: 'super-prizai.win', t: '🎉 TU LAIMĖJAI TELEFONĄ!', x: 'Tu esi milijoninis lankytojas!', b: 'ATSIIMTI', hot: 1, alarm: 0, why: 'Niekas nedalina telefonų atsitiktiniams lankytojams.' },
+  { s: 0, d: 2, ty: 'prize', k: 'popup', a: 'dovanos-vaikams.top', t: 'Sveikiname! Laimėjai planšetę', x: 'Įvesk savo adresą, kad atsiųstume', b: 'Įvesti', field: 'Namų adresas', why: 'Prizų lange niekada nevesk savo adreso.' },
+  { s: 0, d: 3, ty: 'prize', k: 'notif', ic: '🎰', t: 'Loterija', x: 'Tavo telefonas laimėjo 500 €! Atsakyk SMS', why: 'Loterijos, kurioje nedalyvavai, laimėti negali.' },
+  { s: 0, d: 1, ty: 'virus', k: 'popup', a: 'planseteswarning.com', alarm: 1, t: '⚠ VIRUSAI!', x: 'Planšetėje rasti 3 virusai! Spausk VALYTI', b: 'VALYTI', hot: 1, why: 'Svetainė negali žinoti, ar planšetėje yra virusų. Tai gąsdinimas.' },
+  { s: 0, d: 2, ty: 'virus', k: 'popup', a: 'saugumas-centras.top', alarm: 1, t: 'Planšetė užblokuota', x: 'Skambink numeriu 8 700 00000, kad atblokuotume', b: 'Skambinti', why: 'Tikros planšetės neužsiblokuoja per svetainę ir nereikalauja skambinti.' },
+  { s: 0, d: 3, ty: 'virus', k: 'notif', ic: '🧹', t: 'Valymo programa', x: 'Atmintis 99 %! Įdiek „SuperValiklį“ dabar', why: 'Netikri valikliai patys būna kenkėjai.' },
+  { s: 0, d: 1, ty: 'password', k: 'chat', who: 'Nepažįstamas', av: '?', col: '#555', app: 'Blokų žaidimo pokalbis', x: 'Atsiųsk slaptažodį ir gausi 1000 monetų!', why: 'Tikri žaidimai niekada neprašo slaptažodžio.' },
+  { s: 0, d: 2, ty: 'password', k: 'popup', a: 'blokuzaidimas-dovanos.xyz', t: 'Gauk dovaną!', x: 'Prisijunk, kad gautum dovaną', b: 'Prisijungti', field: 'Slaptažodis', why: 'Adresas ne tikro žaidimo. Slaptažodį vesk tik tikrame puslapyje.' },
+  { s: 0, d: 3, ty: 'password', k: 'chat', who: 'Žaidimo administratorius', av: 'A', col: '#e0402e', app: 'Blokų žaidimo pokalbis', x: 'Tavo paskyra bus ištrinta! Atsiųsk slaptažodį patvirtinimui.', why: 'Tikri administratoriai niekada neprašo slaptažodžio.' },
+  { s: 0, d: 1, ty: 'coins', k: 'ad', t: 'NEMOKAMOS MONETOS 💰💰💰', x: 'Spausk ir gauk 99 999!', why: 'Nemokamų monetų generatoriai yra apgavystė.' },
+  { s: 0, d: 2, ty: 'coins', k: 'popup', a: 'monetos-free.click', t: 'Monetų generatorius', x: 'Įvesk vardą ir slaptažodį, ir monetos atsiras', b: 'Generuoti', field: 'Slaptažodis', why: 'Monetų generatoriai nori tik pavogti tavo paskyrą.' },
+  { s: 0, d: 3, ty: 'coins', k: 'chat', who: 'ProŽaidėjas2014', av: 'P', col: '#9b5de5', app: 'Blokų žaidimo pokalbis', x: 'Žinau triuką, kaip gauti begalę monetų. Parašyk man privačiai 😉', why: 'Svetimi „triukai“ dažniausiai yra būdas pavogti paskyrą.' },
+  { s: 0, d: 1, ty: 'stranger', k: 'chat', who: 'Nepažįstamas', av: '?', col: '#555', app: 'Blokų žaidimo pokalbis', x: 'Kokia tavo mokykla ir kur gyveni?', why: 'Niekada nesakyk adreso ar mokyklos nepažįstamiems.' },
+  { s: 0, d: 2, ty: 'stranger', k: 'chat', who: 'Nauja draugė Mia', av: 'M', col: '#e85d9a', app: 'Blokų žaidimo pokalbis', x: 'Atsiųsk savo nuotrauką, aš irgi atsiųsiu 🙂', why: 'Nuotraukų nesiunčiam tiems, kurių nepažįstam gyvai. Pasakyk suaugusiam.' },
+  { s: 0, d: 3, ty: 'stranger', k: 'chat', who: 'Žaidimų treneris', av: 'Ž', col: '#1fa597', app: 'Blokų žaidimo pokalbis', x: 'Nesakyk tėvams apie mūsų pokalbius. Tai mūsų paslaptis.', why: 'Jei kas prašo paslapties nuo tėvų, tai pavojaus ženklas. Pasakyk suaugusiam.' },
+  { s: 0, d: 2, ty: 'lookalike', k: 'popup', a: 'bl0kuzaidimas.lt', t: 'Prisijungti', x: 'Įvesk slaptažodį', b: 'Prisijungti', field: 'Slaptažodis', why: 'Įsižiūrėk: vietoj „o“ yra nulis „0“. Tai netikras puslapis.' },
+  { s: 0, d: 3, ty: 'lookalike', k: 'popup', a: 'vldeotube.com', t: 'Žiūrėk be reklamų', x: 'Prisijunk su savo paskyra', b: 'Prisijungti', field: 'Slaptažodis', why: '„vldeotube“, ne „videotube“: viena raidė pakeista.' },
+  { s: 0, d: 3, ty: 'lookalike', k: 'popup', a: 'blokuzaidimas.lt.dovanos.xyz', t: 'Blokų žaidimas', x: 'Atsiimk savo dovaną', b: 'Atsiimti', why: 'Adresas baigiasi „.xyz“, o ne „blokuzaidimas.lt“. Tai ne tikras puslapis.' },
+  { s: 0, d: 2, ty: 'hacked', k: 'chat', who: 'Tomas (klasiokas)', av: 'T', col: '#2f7de1', app: 'Blokų žaidimo pokalbis', x: 'Skubiai paskolink man savo paskyrą, rytoj grąžinsiu!', why: 'Paskyros neskolinam niekam, net draugams. Gal Tomo paskyrą kažkas pavogė.' },
+  { s: 0, d: 3, ty: 'hacked', k: 'chat', who: 'Ema (draugė)', av: 'E', col: '#f2a23c', app: 'Žinutės', x: 'Žiūrėk, čia tu filmuke! 😱 bit.ly/x7k2q', why: 'Keista nuoroda net iš draugės gali būti spąstai: jos paskyrą galėjo užgrobti.' },
+  { s: 0, d: 2, ty: 'urgent', k: 'popup', a: 'daiktu-apsauga.top', alarm: 1, t: '⏱ Liko 00:30!', x: 'Spausk dabar, kitaip prarasi visus žaidimo daiktus!', b: 'GELBĖTI', hot: 1, why: 'Skubinimas laikmačiu yra apgavikų triukas, kad nespėtum pagalvoti.' },
+  { s: 0, d: 3, ty: 'urgent', k: 'notif', ic: '🏦', t: 'Banko žinutė', x: 'Kortelė užblokuota. Įvesk kodą per 5 min', why: 'Bankas taip nerašo. Parodyk tėvams ir nieko nespausk.' },
+  { s: 0, d: 2, ty: 'money', k: 'popup', a: 'deimantai-pigiai.shop', t: 'Specialus pasiūlymas', x: '1000 deimantų tik už 0,01 €! Įvesk tėvų kortelę', b: 'Pirkti', field: 'Kortelės numeris', why: 'Kortelės duomenis vesti gali tik tėvai ir tik patikimose vietose.' },
+  { s: 0, d: 3, ty: 'money', k: 'chat', who: 'Jonas (draugas)', av: 'J', col: '#5cbf3a', app: 'Žinutės', x: 'Atsiųsk man kodą, kuris atėjo SMS į mamos telefoną', why: 'SMS kodai yra kaip raktai. Niekam jų neduok.' },
+  { s: 0, d: 1, ty: 'download', k: 'ad', t: 'ATSISIŲSTI ⬇ ATSISIŲSTI', x: 'Greitas atsisiuntimas 100 %', why: 'Keli dideli ATSISIŲSTI mygtukai vienoje reklamoje yra spąstai.' },
+];
+
+/* ---------- raundai ---------- */
+const ROUNDS = 10;
+const COUNT = [6, 6, 7, 7, 8, 8, 8, 9, 9, 10];
+const POOL = (r) => (r <= 2 ? [1] : r <= 4 ? [1, 2] : r <= 7 ? [1, 2, 3] : [2, 3]);
+const FALL = (r) => 11 - (r - 1) * 0.6; // sekundės per visą ekraną: 11 s → 5.6 s
+
+/* ---------- išsaugojimas ---------- */
+const NS = (k) => (window.ZM ? ZM.ns(k) : k);
+let prog = { best: 0, maxRound: 1 }, muted = false, pickRound = 1;
+try {
+  const p = JSON.parse(localStorage.getItem(NS('sm-progress')) || 'null'); if (p) prog = Object.assign(prog, p);
+  muted = localStorage.getItem('sm-muted') === '1';
+} catch (e) {}
+const saveProg = () => { try { localStorage.setItem(NS('sm-progress'), JSON.stringify(prog)); } catch (e) {} };
+
+/* ---------- garsas ---------- */
+let actx = null;
+function ensureAudio() { try { if (!actx) actx = new (window.AudioContext || window.webkitAudioContext)(); if (actx.state === 'suspended') actx.resume(); } catch (e) { actx = null; } }
+function tone(f, dur, type = 'square', vol = 0.05, delay = 0, f2) {
+  if (muted || !actx) return;
+  const t0 = actx.currentTime + delay, o = actx.createOscillator(), g = actx.createGain();
+  o.type = type; o.frequency.setValueAtTime(f, t0); if (f2) o.frequency.exponentialRampToValueAtTime(f2, t0 + dur);
+  g.gain.setValueAtTime(vol, t0); g.gain.exponentialRampToValueAtTime(0.0008, t0 + dur);
+  o.connect(g).connect(actx.destination); o.start(t0); o.stop(t0 + dur + 0.05);
+}
+const sfx = {
+  good: () => { tone(660, 0.07); tone(990, 0.09, 'square', 0.05, 0.06); },
+  zap: () => { tone(300, 0.12, 'sawtooth', 0.05, 0, 90); },
+  bad: () => { tone(220, 0.16, 'square', 0.06, 0, 110); tone(140, 0.25, 'square', 0.06, 0.15, 70); },
+  round: () => [523, 659, 784, 1047].forEach((f, i) => tone(f, 0.12, 'square', 0.05, i * 0.08)),
+};
+const setMute = () => { $('mute').textContent = muted ? '🔇' : '🔊'; };
+$('mute').onclick = () => { muted = !muted; setMute(); try { localStorage.setItem('sm-muted', muted ? '1' : '0'); } catch (e) {} };
+setMute();
+
+/* ---------- pikselinės širdys ---------- */
+function heartURL(fill) {
+  const rows = ['.##.##.', '#######', '#######', '.#####.', '..###..', '...#...'];
+  const c = document.createElement('canvas'); c.width = 7; c.height = 6; const g = c.getContext('2d');
+  rows.forEach((r, y) => [...r].forEach((ch, x) => { if (ch === '#') { g.fillStyle = fill ? (y < 2 && x % 3 === 1 ? '#ff9a8a' : '#e0402e') : '#3b3846'; g.fillRect(x, y, 1, 1); } }));
+  return `url(${c.toDataURL()})`;
+}
+$('hearts').style.setProperty('--heart', heartURL(true));
+$('hearts').style.setProperty('--heart-empty', heartURL(false));
+
+/* ---------- kortelės piešimas ---------- */
+const esc = (s) => String(s).replace(/[&<>"]/g, (m) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[m]));
+function cardHTML(c) {
+  if (c.k === 'popup') return `<div class="card k-popup ${c.alarm ? 'alarm' : ''}"><div class="bar"><i></i><i></i><i></i><span class="addr">${esc(c.a)}</span></div>
+    <div class="body"><div class="t">${esc(c.t)}</div><div class="x">${esc(c.x)}</div>${c.field ? `<div class="field">${esc(c.field)}</div>` : ''}<div class="fakebtn ${c.hot ? 'hot' : ''}">${esc(c.b)}</div></div></div>`;
+  if (c.k === 'chat') return `<div class="card k-chat"><div class="av" style="background:${c.col}">${esc(c.av)}</div><div><div class="app">${esc(c.app)}</div><div class="who">${esc(c.who)}</div><div class="msg">${esc(c.x)}</div></div></div>`;
+  if (c.k === 'notif') return `<div class="card k-notif"><div class="ic">${c.ic}</div><div><div class="t">${esc(c.t)}</div><div class="x">${esc(c.x)}</div></div></div>`;
+  if (c.k === 'ad') return `<div class="card k-ad"><span class="tag">Reklama</span><div class="t">${esc(c.t)}</div><div class="x">${esc(c.x)}</div><div class="fakebtn hot">${esc(c.t.includes('ATSISI') ? 'ATSISIŲSTI' : 'SPAUSK ČIA')}</div></div>`;
+  return `<div class="card k-game"><div class="t">${esc(c.t)}</div><div class="x">${esc(c.x)}</div><div class="fakebtn">${esc(c.b)}</div></div>`;
+}
+
+/* ---------- būsena ---------- */
+const S = { mode: 'start', round: 1, score: 0, hp: 3, streak: 0, deck: [], cur: null, el: null, y: 0, speed: 0,
+  seen: new Set(), roundTraps: [], roundCaught: 0, roundTrapN: 0, mistakes: [], last: 0 };
+const stage = $('stage');
+
+function shuffle(a) { for (let i = a.length - 1; i > 0; i--) { const j = Math.floor(Math.random() * (i + 1)); [a[i], a[j]] = [a[j], a[i]]; } return a; }
+function buildDeck(r) {
+  const ds = POOL(r), n = COUNT[r - 1];
+  const fresh = (list) => shuffle(list.filter((c) => !S.seen.has(c))).concat(shuffle(list.filter((c) => S.seen.has(c))));
+  // vėlesniuose raunduose daugiau sunkių kortelių
+  const pick = (safe, k) => {
+    let list = C.filter((c) => !!c.s === safe && ds.includes(c.d));
+    if (r >= 5) list = list.sort((a, b) => b.d - a.d);
+    return fresh(list).slice(0, k);
+  };
+  const traps = Math.round(n * 0.6);
+  return shuffle(pick(false, traps).concat(pick(true, n - traps)));
+}
+
+function hud() {
+  $('hRound').textContent = S.round; $('hScore').textContent = S.score;
+  $('hearts').innerHTML = [0, 1, 2].map((i) => `<i class="${i < S.hp ? '' : 'gone'}"></i>`).join('');
+  $('hearts').setAttribute('aria-label', S.hp + ' širdys');
+}
+function tip(txt) { const t = $('tip'); t.textContent = txt; t.classList.add('on'); clearTimeout(tip.h); tip.h = setTimeout(() => t.classList.remove('on'), 1600); }
+function show(id) { ['oStart', 'oWhy', 'oRecap', 'oOver'].forEach((o) => { $(o).hidden = o !== id; }); }
+function lock(on) { $('bSafe').disabled = $('bTrap').disabled = on; }
+
+function startGame(r) {
+  ensureAudio();
+  Object.assign(S, { mode: 'play', round: r, score: 0, hp: 3, streak: 0, mistakes: [] });
+  S.seen = new Set();
+  show(null); startRound();
+}
+function startRound() {
+  S.deck = buildDeck(S.round); S.roundTraps = []; S.roundCaught = 0; S.roundTrapN = 0;
+  S.speed = 1 / FALL(S.round); hud(); nextCard();
+}
+function nextCard() {
+  if (S.el) { S.el.remove(); S.el = null; }
+  if (S.hp <= 0) return gameOver(false);
+  if (!S.deck.length) return endRound();
+  S.cur = S.deck.pop(); S.seen.add(S.cur);
+  if (!S.cur.s) S.roundTrapN++;
+  stage.insertAdjacentHTML('beforeend', cardHTML(S.cur));
+  S.el = stage.lastElementChild; S.y = 0; S.mode = 'play'; lock(false);
+  place(); bindSwipe(S.el);
+}
+function place() {
+  const H = stage.clientHeight, h = S.el.offsetHeight;
+  S.el.style.top = (-h + (H + h) * S.y) + 'px';
+}
+function answer(saidSafe) {
+  if (S.mode !== 'play' || !S.cur) return;
+  const c = S.cur, right = saidSafe === !!c.s;
+  S.mode = 'anim'; lock(true);
+  if (right) {
+    S.streak++;
+    const mult = Math.min(3, 1 + Math.floor(S.streak / 3));
+    S.score += 10 * mult;
+    if (!c.s) { S.roundCaught++; S.roundTraps.push(c.ty); sfx.zap(); tip(`✓ Spąstai: ${TYPES[c.ty][1]}`); }
+    else { sfx.good(); tip('✓ Saugu'); }
+    S.el.classList.add(saidSafe ? 'out-safe' : 'out-trap');
+    hud(); setTimeout(nextCard, 380);
+  } else {
+    wrong(saidSafe === null);
+  }
+}
+function wrong(timeout) {
+  const c = S.cur; S.streak = 0; S.hp--; sfx.bad(); hud();
+  if (!c.s) S.roundTraps.push(c.ty);
+  S.mistakes.push(c);
+  S.el.classList.add('freeze');
+  $('wVerdict').textContent = (timeout ? 'Per lėtai! ' : '') + (c.s ? 'Tai buvo SAUGU' : 'Tai buvo SPĄSTAI');
+  $('wVerdict').className = 'verdict ' + (c.s ? 'good' : 'bad');
+  $('wCard').innerHTML = cardHTML(c);
+  $('wWhy').textContent = c.why;
+  S.mode = 'why';
+  setTimeout(() => { show('oWhy'); $('wOk').focus(); }, 250);
+}
+$('wOk').onclick = () => { show(null); nextCard(); };
+function endRound() {
+  S.mode = 'recap'; sfx.round();
+  if (S.round >= ROUNDS) return gameOver(true);
+  prog.maxRound = Math.max(prog.maxRound, S.round + 1); saveProg();
+  $('rTitle').textContent = `Raundas ${S.round} įveiktas!`;
+  $('rStats').textContent = `Pagauta spąstų: ${S.roundCaught} iš ${S.roundTrapN}. Taškai: ${S.score}.` + (S.hp < 3 ? ' Gauni vieną širdį atgal.' : '');
+  const types = [...new Set(S.roundTraps)];
+  $('rTypes').innerHTML = types.length ? types.map((t) => `<li><span>${TYPES[t][0]}</span><div><b>${esc(TYPES[t][1])}</b>${esc(TYPES[t][2])}</div></li>`).join('')
+    : '<li><span>🛡️</span><div><b>Šįkart be spąstų</b>Visos kortelės buvo saugios.</div></li>';
+  S.hp = Math.min(3, S.hp + 1);
+  show('oRecap'); $('rNext').focus();
+}
+$('rNext').onclick = () => { show(null); S.round++; S.mode = 'play'; startRound(); };
+function gameOver(won) {
+  S.mode = 'over'; if (S.el) { S.el.remove(); S.el = null; }
+  const rec = S.score > prog.best; if (rec) prog.best = S.score;
+  if (won) prog.maxRound = ROUNDS;
+  saveProg();
+  $('oTitle').textContent = won ? 'Spąstų meistras! 🏆' : 'Žaidimas baigtas';
+  $('oScore').textContent = S.score;
+  $('oSub').textContent = (won ? 'Įveikei visus 10 raundų!' : `Pasiekei ${S.round} raundą.`) + (rec ? ' Naujas rekordas!' : ` Rekordas: ${prog.best}.`);
+  const m = S.mistakes.slice(-4);
+  $('oMist').innerHTML = m.length ? m.map((c) => `<li><span>${c.s ? '✅' : TYPES[c.ty][0]}</span><div><b>${c.s ? 'Buvo saugu' : esc(TYPES[c.ty][1])}</b>${esc(c.why)}</div></li>`).join('')
+    : '<li><span>🛡️</span><div><b>Be klaidų!</b>Nė vienas triukas tavęs neapgavo.</div></li>';
+  show('oOver');
+  if (window.ZM) ZM.report('spastu-medziokle', { score: S.score, xp: Math.round(S.score / 2) });
+  renderRounds();
+}
+$('again').onclick = () => startGame(1);
+$('bSafe').onclick = () => answer(true);
+$('bTrap').onclick = () => answer(false);
+addEventListener('keydown', (e) => {
+  if (S.mode === 'play') { if (e.key === 'ArrowRight' || e.key === 's') answer(true); if (e.key === 'ArrowLeft' || e.key === 'p') answer(false); }
+});
+function bindSwipe(el) {
+  let x0 = null, id = null;
+  el.addEventListener('pointerdown', (e) => { x0 = e.clientX; id = e.pointerId; el.setPointerCapture(id); });
+  el.addEventListener('pointerup', (e) => { if (x0 === null) return; const dx = e.clientX - x0; x0 = null; if (Math.abs(dx) > 60) answer(dx > 0); });
+  el.addEventListener('pointercancel', () => { x0 = null; });
+}
+
+/* ---------- ciklas ---------- */
+function loop(t) {
+  const dt = Math.min(0.05, (t - (S.last || t)) / 1000); S.last = t;
+  if (S.mode === 'play' && S.el) {
+    S.y += S.speed * dt; place();
+    if (S.y >= 1) answer(null);
+  }
+  requestAnimationFrame(loop);
+}
+requestAnimationFrame(loop);
+addEventListener('resize', () => { if (S.el) place(); });
+
+/* ---------- pradžia ---------- */
+function renderRounds() {
+  if (pickRound > prog.maxRound) pickRound = 1;
+  $('rounds').innerHTML = Array.from({ length: ROUNDS }, (_, i) => i + 1)
+    .map((n) => `<button data-r="${n}" class="${n === pickRound ? 'on' : ''}" ${n > prog.maxRound ? 'disabled aria-label="Užrakinta"' : ''}>${n > prog.maxRound ? '🔒' : n}</button>`).join('');
+  $('rounds').querySelectorAll('button').forEach((b) => { b.onclick = () => { pickRound = +b.dataset.r; renderRounds(); }; });
+  $('best').textContent = prog.best;
+}
+$('play').onclick = () => startGame(pickRound);
+renderRounds(); hud();
+})();
+</script>
+</body>
+</html>
