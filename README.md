@@ -5,6 +5,7 @@ Small browser games for kids, playable on tablets and computers.
 - Unicorn Star Catch: catch falling stars.
 - Ore Rush: catch ore blocks, dodge TNT.
 - Key Siege: a typing game in Lithuanian and English.
+- Piešk, AI spės!: a Lithuanian Quick, Draw!. Kids draw a word with a finger, DoodleNet (ml5, runs in the browser with TensorFlow.js) guesses. 30/60/90 s per word, plus free drawing.
 
 Live at https://gytiskind.github.io/zaidimai/
 

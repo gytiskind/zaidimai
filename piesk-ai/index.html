@@ -1,0 +1,269 @@
+<!doctype html>
+<html lang="lt">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Piešk, AI spės!</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Nunito:wght@700;800;900&family=Pixelify+Sans:wght@700&display=swap">
+<link rel="stylesheet" href="../tikra-ar-ai/style.css">
+<script src="../zm.js"></script>
+<script src="zodziai.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs@4.22.0/dist/tf.min.js"></script>
+<style>
+/* Lithuanian Quick, Draw!: the kid draws a word with a finger, an AI model in the browser guesses it.
+   Same blocky stone theme as the rest of the site. */
+body { padding: calc(env(safe-area-inset-top, 0px) + 12px) 12px calc(env(safe-area-inset-bottom, 0px) + 12px); min-height: 100dvh; }
+main { max-width: 960px; margin: 0 auto; display: grid; gap: 14px; }
+.view { display: none; gap: 14px; }
+.view.on { display: grid; }
+.panel { background: var(--stone-lo); border: 4px solid; border-color: var(--stone-hi) #000 #000 var(--stone-hi);
+  box-shadow: 0 0 0 3px #000, 7px 7px 0 3px rgba(0,0,0,.45); padding: 18px; display: grid; gap: 14px; }
+h1 { font-size: clamp(2.4rem, 10vw, 4rem); }
+.lead { margin: 0; font-weight: 800; font-size: 1.2rem; color: var(--ink-dim); }
+.row { display: flex; gap: 10px; flex-wrap: wrap; align-items: center; }
+.lbl { font-weight: 900; font-size: 1.1rem; min-width: 90px; }
+.opt.on { background: var(--gem); color: #0d2a27; border-color: #9ff5ea #1a7f74 #1a7f74 #9ff5ea; }
+.status { font-weight: 800; color: var(--ink-dim); margin: 0; min-height: 1.4em; }
+.status.bad { color: #ff8a7a; }
+/* žaidimas */
+.top { display: grid; grid-template-columns: auto 1fr auto; gap: 10px; align-items: center; }
+.task { text-align: center; font-weight: 900; font-size: clamp(1.3rem, 5vw, 2.1rem); line-height: 1.1; }
+.task b { color: var(--gold); text-shadow: 3px 3px 0 #000; font-family: "Pixelify Sans", var(--word); letter-spacing: .03em; }
+.task small { display: block; font-size: .9rem; color: var(--ink-dim); }
+.timer { font: 700 clamp(1.6rem, 6vw, 2.4rem) "Pixelify Sans", monospace; min-width: 3ch; text-align: center; padding: 4px 12px;
+  background: #0f0d16; border: 4px solid; border-color: var(--stone-hi) #000 #000 var(--stone-hi); }
+.timer.low { color: #ff8a7a; }
+.board { position: relative; border: 6px solid #000; box-shadow: 0 0 0 4px var(--stone-hi), 8px 8px 0 4px rgba(0,0,0,.45); background: #fff; }
+canvas#pad { display: block; width: 100%; height: max(300px, min(calc(100dvh - 330px), 115vw)); touch-action: none; cursor: crosshair; }
+.flash { position: absolute; inset: 0; display: grid; place-items: center; pointer-events: none; font: 900 clamp(2rem, 8vw, 3.6rem) var(--word);
+  color: #fff; text-shadow: 4px 4px 0 #000; opacity: 0; transition: opacity .2s; text-align: center; padding: 10px; }
+.flash.ok { background: rgba(92,191,58,.82); opacity: 1; }
+.flash.no { background: rgba(224,64,46,.82); opacity: 1; }
+.bubble { display: grid; grid-template-columns: auto 1fr; gap: 12px; align-items: center; background: #0f0d16; padding: 12px 14px;
+  border: 4px solid; border-color: var(--stone-hi) #000 #000 var(--stone-hi); min-height: 72px; }
+.bot { font-size: 2.4rem; line-height: 1; }
+.says { font-weight: 900; font-size: clamp(1.1rem, 4.4vw, 1.6rem); }
+.says .alt { display: block; font-size: .95rem; color: var(--ink-dim); font-weight: 800; }
+.tools { display: flex; gap: 10px; justify-content: center; flex-wrap: wrap; }
+/* pabaiga */
+.score { font: 700 clamp(2rem, 8vw, 3rem) "Pixelify Sans", monospace; color: var(--gold); text-shadow: 3px 3px 0 #000; margin: 0; }
+.shots { display: grid; grid-template-columns: repeat(auto-fill, minmax(140px, 1fr)); gap: 12px; }
+.shot { background: #fff; border: 4px solid #000; color: #111; display: grid; }
+.shot img { width: 100%; aspect-ratio: 1; display: block; }
+.shot div { padding: 6px 8px; font-weight: 900; font-size: .95rem; background: var(--stone-lo); color: var(--ink); }
+.shot div span { display: block; font-weight: 800; font-size: .8rem; color: var(--ink-dim); }
+.shot.win { border-color: var(--good); } .shot.lose { border-color: var(--bad); }
+.foot { font-size: .8rem; color: var(--ink-dim); text-align: center; margin: 0; }
+</style>
+</head>
+<body>
+<main>
+  <!-- PRADŽIA -->
+  <section class="view on" id="vStart">
+    <div class="row"><a class="wbtn small" href="../">← Meniu</a></div>
+    <div class="panel">
+      <h1>Piešk, AI spės!</h1>
+      <p class="lead">Tu pieši pirštu, o dirbtinis intelektas bando atspėti, kas tai. Ar jis supras tavo piešinį?</p>
+      <div class="row"><span class="lbl">Laikas</span>
+        <button class="wbtn opt" data-time="30">30 s</button><button class="wbtn opt on" data-time="60">60 s</button><button class="wbtn opt" data-time="90">90 s</button>
+      </div>
+      <div class="row"><span class="lbl">Žodžių</span>
+        <button class="wbtn opt" data-n="4">4</button><button class="wbtn opt on" data-n="6">6</button><button class="wbtn opt" data-n="10">10</button>
+      </div>
+      <div class="row">
+        <button class="wbtn go" id="start" disabled>▶ Žaisti</button>
+        <button class="wbtn" id="free" disabled>✏️ Laisvas piešimas</button>
+      </div>
+      <p class="status" id="status">Kraunamas AI…</p>
+    </div>
+    <p class="foot">AI modelis veikia pačioje planšetėje, piešiniai niekur nesiunčiami. Modelis: DoodleNet (ml5.js), išmokytas iš Google Quick, Draw! piešinių.</p>
+  </section>
+
+  <!-- ŽAIDIMAS -->
+  <section class="view" id="vGame">
+    <div class="top">
+      <button class="wbtn small" id="quit">✕</button>
+      <div class="task" id="task"></div>
+      <div class="timer" id="timer"></div>
+    </div>
+    <div class="board"><canvas id="pad"></canvas><div class="flash" id="flash"></div></div>
+    <div class="bubble"><div class="bot">🤖</div><div class="says" id="says">Piešk! Aš žiūriu…</div></div>
+    <div class="tools">
+      <button class="wbtn" id="undo">↶ Atgal</button>
+      <button class="wbtn" id="clear">🧽 Trinti</button>
+      <button class="wbtn" id="skip">⏭ Praleisti</button>
+      <button class="wbtn small" id="sound" title="Garsas">🔊</button>
+    </div>
+  </section>
+
+  <!-- PABAIGA -->
+  <section class="view" id="vEnd">
+    <div class="panel">
+      <h1>Baigta!</h1>
+      <p class="score" id="score"></p>
+      <div class="shots" id="shots"></div>
+      <div class="row"><button class="wbtn go" id="again">▶ Dar kartą</button><a class="wbtn" href="../">← Meniu</a></div>
+    </div>
+  </section>
+</main>
+<script>
+(() => {
+const $ = (s) => document.querySelector(s);
+const MODEL = 'https://cdn.jsdelivr.net/gh/ml5js/ml5-data-and-models@main/models/doodlenet/model.json';
+const IDX = Object.fromEntries(CLASSES.map((c, i) => [c, i]));
+// Panašūs žodžiai skaitosi kaip atspėti: vaikas nupiešė puodelį, AI pasakė "kavos puodelis".
+const SAME = [['cup','mug','coffee_cup'],['car','police_car'],['face','smiley_face'],['bus','school_bus'],['cake','birthday_cake'],
+  ['clock','alarm_clock'],['sailboat','speedboat','canoe'],['ice_cream','popsicle'],['house','barn'],['television','computer','laptop'],
+  ['rabbit','kangaroo'],['spider','ant'],['telephone','cell_phone']];
+const sameAs = (a) => { const g = SAME.find((x) => x.includes(a)); return g ? g : [a]; };
+const LS = { get(k, d) { try { const v = localStorage.getItem(k); return v === null ? d : JSON.parse(v); } catch (e) { return d; } },
+             set(k, v) { try { localStorage.setItem(k, JSON.stringify(v)); } catch (e) {} } };
+
+let model = null, time = LS.get('pa-time', 60), count = LS.get('pa-n', 6), sound = LS.get('pa-sound', true);
+let mode = 'game', words = [], wi = 0, left = 0, tick = null, done = false, results = [];
+let strokes = [], cur = null, dirty = false, busy = false, lastTop = '', lastSpeak = 0;
+
+// ---------- nustatymai ----------
+document.querySelectorAll('[data-time]').forEach((b) => { b.classList.toggle('on', +b.dataset.time === time);
+  b.onclick = () => { time = +b.dataset.time; LS.set('pa-time', time); document.querySelectorAll('[data-time]').forEach((x) => x.classList.toggle('on', x === b)); }; });
+document.querySelectorAll('[data-n]').forEach((b) => { b.classList.toggle('on', +b.dataset.n === count);
+  b.onclick = () => { count = +b.dataset.n; LS.set('pa-n', count); document.querySelectorAll('[data-n]').forEach((x) => x.classList.toggle('on', x === b)); }; });
+const setSound = () => { $('#sound').textContent = sound ? '🔊' : '🔇'; };
+$('#sound').onclick = () => { sound = !sound; LS.set('pa-sound', sound); setSound(); if (!sound) speechSynthesis.cancel(); };
+setSound();
+
+// ---------- AI ----------
+(async () => {
+  try {
+    model = await tf.loadLayersModel(MODEL);
+    tf.tidy(() => model.predict(tf.zeros([1, 28, 28, 1])));
+    $('#status').textContent = 'AI pasiruošęs!';
+    $('#start').disabled = $('#free').disabled = false;
+  } catch (e) {
+    $('#status').textContent = 'Nepavyko užkrauti AI. Patikrink internetą ir perkrauk puslapį.';
+    $('#status').classList.add('bad');
+  }
+})();
+
+// Piešinys apkarpomas ir iš naujo nupiešiamas 28×28 taškų lauke plona linija.
+// Taip atrodo Quick, Draw! duomenys, iš kurių AI mokėsi (išbandyta: 11 iš 14 pirmu spėjimu).
+const small = document.createElement('canvas'); small.width = small.height = 28;
+function guess() {
+  const pts = strokes.flat(); if (pts.length < 2) return null;
+  let x0 = 1e9, y0 = 1e9, x1 = -1e9, y1 = -1e9;
+  pts.forEach(([x, y]) => { x0 = Math.min(x0, x); y0 = Math.min(y0, y); x1 = Math.max(x1, x); y1 = Math.max(y1, y); });
+  const w = Math.max(x1 - x0, y1 - y0, 1), pad = 28 * 0.08, s = (28 - 2 * pad) / w;
+  const ox = pad + ((28 - 2 * pad) - (x1 - x0) * s) / 2 - x0 * s, oy = pad + ((28 - 2 * pad) - (y1 - y0) * s) / 2 - y0 * s;
+  const g = small.getContext('2d');
+  g.fillStyle = '#fff'; g.fillRect(0, 0, 28, 28); g.strokeStyle = '#000'; g.lineWidth = 1.8; g.lineCap = g.lineJoin = 'round';
+  strokes.forEach((st) => { g.beginPath(); st.forEach(([x, y], i) => i ? g.lineTo(x * s + ox, y * s + oy) : g.moveTo(x * s + ox, y * s + oy));
+    if (st.length === 1) g.lineTo(st[0][0] * s + ox + 0.1, st[0][1] * s + oy); g.stroke(); });
+  const p = tf.tidy(() => model.predict(tf.scalar(1).sub(tf.browser.fromPixels(small).toFloat().div(255)).mean(2, true).reshape([1, 28, 28, 1])));
+  const d = p.dataSync(); p.dispose();
+  return [...d.keys()].sort((a, b) => d[b] - d[a]).slice(0, 5).map((i) => ({ i, c: CLASSES[i], p: d[i] }));
+}
+
+// ---------- piešimas ----------
+const pad = $('#pad'), ctx = pad.getContext('2d');
+function fit() {
+  const r = pad.getBoundingClientRect(), k = Math.min(devicePixelRatio || 1, 2);
+  pad.width = Math.round(r.width * k); pad.height = Math.round(r.height * k); redraw();
+}
+function redraw() {
+  ctx.fillStyle = '#fff'; ctx.fillRect(0, 0, pad.width, pad.height);
+  ctx.strokeStyle = '#111'; ctx.lineCap = ctx.lineJoin = 'round'; ctx.lineWidth = Math.max(6, pad.width * 0.012);
+  strokes.forEach((st) => { ctx.beginPath(); st.forEach(([x, y], i) => i ? ctx.lineTo(x * pad.width, y * pad.width) : ctx.moveTo(x * pad.width, y * pad.width));
+    if (st.length === 1) ctx.lineTo(st[0][0] * pad.width + 0.5, st[0][1] * pad.width); ctx.stroke(); });
+}
+// taškai saugomi kaip dalys nuo pločio, kad persukus planšetę piešinys nepasikeistų
+const at = (e) => { const r = pad.getBoundingClientRect(); return [(e.clientX - r.left) / r.width, (e.clientY - r.top) / r.width]; };
+pad.addEventListener('pointerdown', (e) => { if (done) return; pad.setPointerCapture(e.pointerId); cur = [at(e)]; strokes.push(cur); redraw(); });
+pad.addEventListener('pointermove', (e) => { if (!cur) return; const p = at(e), q = cur[cur.length - 1];
+  if (Math.hypot(p[0] - q[0], p[1] - q[1]) > 0.004) { cur.push(p); redraw(); dirty = true; } });
+const end = () => { if (cur) { cur = null; dirty = true; } };
+pad.addEventListener('pointerup', end); pad.addEventListener('pointercancel', end);
+addEventListener('resize', () => { if ($('#vGame').classList.contains('on')) fit(); });
+$('#clear').onclick = () => { strokes = []; redraw(); lastTop = ''; say('Piešk! Aš žiūriu…'); };
+$('#undo').onclick = () => { strokes.pop(); redraw(); dirty = true; if (!strokes.length) { lastTop = ''; say('Piešk! Aš žiūriu…'); } };
+
+// ---------- AI kalba ----------
+function say(main, alt) { $('#says').innerHTML = main + (alt ? `<span class="alt">${alt}</span>` : ''); }
+function speak(t, force) {
+  if (!sound || !('speechSynthesis' in window)) return;
+  const now = Date.now(); if (!force && now - lastSpeak < 2200) return; lastSpeak = now;
+  const v = speechSynthesis.getVoices().find((x) => /^lt/i.test(x.lang)); if (!v) return; // be lietuviško balso tylim
+  speechSynthesis.cancel(); const u = new SpeechSynthesisUtterance(t); u.voice = v; u.lang = v.lang; u.rate = 1.05; speechSynthesis.speak(u);
+}
+setInterval(() => {
+  if (!dirty || busy || !model || done || !$('#vGame').classList.contains('on')) return;
+  dirty = false; busy = true;
+  const top = guess(); busy = false; if (!top) return;
+  if (mode === 'game') {
+    const target = words[wi], ok = sameAs(CLASSES[target]);
+    const hit = top.slice(0, 3).find((t) => ok.includes(t.c));
+    if (hit) return win();
+  }
+  const names = top.slice(0, 3).map((t) => LT[t.i]);
+  say(`Gal tai ${names[0]}?`, `O gal ${names[1]} arba ${names[2]}…`);
+  if (names[0] !== lastTop) { lastTop = names[0]; speak(`Gal ${names[0]}?`); }
+}, 450);
+
+// ---------- eiga ----------
+function shuffle(a) { for (let i = a.length - 1; i > 0; i--) { const j = Math.floor(Math.random() * (i + 1)); [a[i], a[j]] = [a[j], a[i]]; } return a; }
+function show(id) { document.querySelectorAll('.view').forEach((v) => v.classList.toggle('on', v.id === id)); }
+function start(m) {
+  mode = m; results = []; wi = 0; show('vGame'); fit();
+  words = shuffle(EASY.slice()).slice(0, count);
+  $('#skip').style.display = $('#timer').style.display = m === 'game' ? '' : 'none';
+  next(true);
+}
+function next(first) {
+  strokes = []; redraw(); lastTop = ''; done = false; $('#flash').className = 'flash'; $('#flash').textContent = '';
+  clearInterval(tick);
+  if (mode === 'free') { $('#task').innerHTML = '<small>Laisvas piešimas</small><b>Piešk ką nori</b>'; say('Piešk! Aš spėsiu, kas tai.'); return; }
+  if (!first) wi++;
+  if (wi >= words.length) return finish();
+  const w = LT[words[wi]];
+  $('#task').innerHTML = `<small>${wi + 1} iš ${words.length}. Nupiešk:</small><b>${w.toUpperCase()}</b>`;
+  say('Piešk! Aš žiūriu…'); speak(`Nupiešk: ${w}`, true);
+  left = time; $('#timer').textContent = left; $('#timer').classList.remove('low');
+  tick = setInterval(() => { left--; $('#timer').textContent = Math.max(left, 0); $('#timer').classList.toggle('low', left <= 10);
+    if (left <= 0) lose(); }, 1000);
+}
+function snap() { const c = document.createElement('canvas'); c.width = c.height = 240; const g = c.getContext('2d');
+  g.fillStyle = '#fff'; g.fillRect(0, 0, 240, 240);
+  const s = Math.min(pad.width, pad.height); g.drawImage(pad, (pad.width - s) / 2, (pad.height - s) / 2, s, s, 0, 0, 240, 240); return c.toDataURL('image/png'); }
+function win() {
+  done = true; clearInterval(tick); const w = LT[words[wi]];
+  $('#flash').textContent = `Atspėjau! Tai ${w}!`; $('#flash').className = 'flash ok';
+  say(`Atspėjau! Tai ${w}!`); speak(`Atspėjau! Tai ${w}!`, true);
+  results.push({ w, ok: true, img: snap(), sec: Math.max(1, time - left) });
+  setTimeout(() => next(), 1900);
+}
+function lose(skipped) {
+  done = true; clearInterval(tick); const w = LT[words[wi]], top = strokes.length ? guess() : null;
+  const thought = top ? LT[top[0].i] : 'nieko';
+  $('#flash').textContent = skipped ? 'Praleista' : 'Laikas! Neatspėjau.'; $('#flash').className = 'flash no';
+  say(`Neatspėjau. Man atrodė: ${thought}.`); speak('Neatspėjau!', true);
+  results.push({ w, ok: false, img: snap(), thought });
+  setTimeout(() => next(), 2200);
+}
+$('#skip').onclick = () => { if (!done && mode === 'game') lose(true); };
+function finish() {
+  clearInterval(tick); show('vEnd');
+  const n = results.filter((r) => r.ok).length;
+  $('#score').textContent = `AI atspėjo ${n} iš ${results.length}`;
+  $('#shots').innerHTML = results.map((r) => `<div class="shot ${r.ok ? 'win' : 'lose'}"><img src="${r.img}" alt="${r.w}"><div>${r.ok ? '✓' : '✗'} ${r.w}<span>${r.ok ? `per ${r.sec} s` : `AI manė: ${r.thought}`}</span></div></div>`).join('');
+  if (window.ZM) ZM.report('piesk-ai', { score: n, xp: n * 20 });
+}
+$('#start').onclick = () => start('game');
+$('#free').onclick = () => start('free');
+$('#again').onclick = () => start('game');
+$('#quit').onclick = () => { clearInterval(tick); done = true; speechSynthesis.cancel(); show('vStart'); };
+if ('speechSynthesis' in window) speechSynthesis.getVoices();
+})();
+</script>
+</body>
+</html>
