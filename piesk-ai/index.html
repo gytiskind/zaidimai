@@ -14,98 +14,148 @@
 <script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs@4.22.0/dist/tf.min.js"></script>
 <style>
 /* Lithuanian Quick, Draw!: the kid draws a word with a finger, an AI model in the browser guesses it.
-   Same blocky stone theme as the rest of the site. */
-body { padding: calc(env(safe-area-inset-top, 0px) + 12px) 12px calc(env(safe-area-inset-bottom, 0px) + 12px); min-height: 100dvh; }
-main { max-width: 960px; margin: 0 auto; display: grid; gap: 14px; }
-.view { display: none; gap: 14px; }
+   Same blocky stone theme as the rest of the site. Every screen fits the viewport without scrolling:
+   on a landscape tablet the board is on the left and the task, AI guess and buttons on the right. */
+:root { --pad: 12px; --vh: calc(100dvh - 2 * var(--pad) - env(safe-area-inset-top, 0px) - env(safe-area-inset-bottom, 0px)); }
+html, body { overscroll-behavior: none; }
+body { padding: calc(env(safe-area-inset-top, 0px) + var(--pad)) var(--pad) calc(env(safe-area-inset-bottom, 0px) + var(--pad)); min-height: 0; }
+main { max-width: 1280px; margin: 0 auto; }
+.view { display: none; gap: 12px; }
 .view.on { display: grid; }
 .panel { background: var(--stone-lo); border: 4px solid; border-color: var(--stone-hi) #000 #000 var(--stone-hi);
-  box-shadow: 0 0 0 3px #000, 7px 7px 0 3px rgba(0,0,0,.45); padding: 18px; display: grid; gap: 14px; }
-h1 { font-size: clamp(2.4rem, 10vw, 4rem); }
-.lead { margin: 0; font-weight: 800; font-size: 1.2rem; color: var(--ink-dim); }
+  box-shadow: 0 0 0 3px #000, 7px 7px 0 3px rgba(0,0,0,.45); padding: 16px; display: grid; gap: 12px; }
+h1 { font-size: clamp(2rem, min(9vw, 9vh), 3.6rem); }
+.lead { margin: 0; font-weight: 800; font-size: 1.1rem; color: var(--ink-dim); }
 .row { display: flex; gap: 10px; flex-wrap: wrap; align-items: center; }
-.lbl { font-weight: 900; font-size: 1.1rem; min-width: 90px; }
+.lbl { font-weight: 900; font-size: 1.05rem; }
 .opt.on { background: var(--gem); color: #0d2a27; border-color: #9ff5ea #1a7f74 #1a7f74 #9ff5ea; }
 .status { font-weight: 800; color: var(--ink-dim); margin: 0; min-height: 1.4em; }
 .status.bad { color: #ff8a7a; }
-/* žaidimas */
-.top { display: grid; grid-template-columns: auto 1fr auto; gap: 10px; align-items: center; }
-.task { text-align: center; font-weight: 900; font-size: clamp(1.3rem, 5vw, 2.1rem); line-height: 1.1; }
+.foot { font-size: .75rem; color: var(--ink-dim); text-align: center; margin: 0; }
+/* lygiai */
+.levels { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 10px; }
+.lvl { display: grid; grid-template-columns: auto 1fr; grid-template-rows: auto auto; column-gap: 10px; align-items: center; text-align: left;
+  font: inherit; color: var(--ink); cursor: pointer; touch-action: manipulation; padding: 8px 12px; min-height: 64px;
+  background: var(--stone); border: 4px solid; border-color: var(--stone-hi) var(--stone-lo) var(--stone-lo) var(--stone-hi); box-shadow: 0 0 0 3px #000; }
+.lvl .n { grid-row: 1 / 3; font: 700 1.6rem "ZM Digits", "Pixelify Sans", monospace; color: var(--gold); text-shadow: 2px 2px 0 #000; }
+.lvl b { font-weight: 900; font-size: 1.05rem; line-height: 1.1; }
+.lvl small { font-weight: 800; font-size: .85rem; color: var(--ink-dim); }
+.lvl .st { color: var(--gold); letter-spacing: .05em; }
+.lvl.done { background: #2b4a2a; border-color: #5f8f4c #183018 #183018 #5f8f4c; }
+.lvl:disabled { opacity: .45; cursor: default; }
+.lvl:not(:disabled):hover { filter: brightness(1.15); }
+.lvl:focus-visible { outline: 4px solid var(--gem); outline-offset: 4px; }
+/* žaidimas: visada telpa į ekraną */
+#vGame.on { height: var(--vh); grid-template-columns: 1fr; grid-template-rows: auto minmax(0, 1fr) auto auto;
+  grid-template-areas: "top" "board" "bubble" "tools"; }
+.side { display: contents; }
+.top { grid-area: top; display: grid; grid-template-columns: auto 1fr auto; grid-template-areas: "quit task timer"; gap: 10px; align-items: center; }
+#quit { grid-area: quit; } .task { grid-area: task; } .timer { grid-area: timer; }
+.task { text-align: center; font-weight: 900; font-size: clamp(1.2rem, 4.6vw, 2rem); line-height: 1.1; }
 .task b { color: var(--gold); text-shadow: 3px 3px 0 #000; font-family: var(--word); font-weight: 900; letter-spacing: .03em; }
-.task small { display: block; font-size: .9rem; color: var(--ink-dim); }
-.timer { font: 700 clamp(1.6rem, 6vw, 2.4rem) "ZM Digits", "Pixelify Sans", monospace; min-width: 3ch; text-align: center; padding: 4px 12px;
+.task small { display: block; font-size: .85rem; color: var(--ink-dim); }
+.timer { font: 700 clamp(1.5rem, 5vw, 2.2rem) "ZM Digits", "Pixelify Sans", monospace; min-width: 3ch; text-align: center; padding: 4px 12px;
   background: #0f0d16; border: 4px solid; border-color: var(--stone-hi) #000 #000 var(--stone-hi); }
 .timer.low { color: #ff8a7a; }
-.board { position: relative; border: 6px solid #000; box-shadow: 0 0 0 4px var(--stone-hi), 8px 8px 0 4px rgba(0,0,0,.45); background: #fff; }
-canvas#pad { display: block; width: 100%; height: max(300px, min(calc(100dvh - 330px), 115vw)); touch-action: none; cursor: crosshair; }
-.flash { position: absolute; inset: 0; display: grid; place-items: center; pointer-events: none; font: 900 clamp(2rem, 8vw, 3.6rem) var(--word);
+.board { grid-area: board; position: relative; min-height: 0; border: 6px solid #000; box-shadow: 0 0 0 4px var(--stone-hi), 6px 6px 0 4px rgba(0,0,0,.45); background: #fff; }
+canvas#pad { position: absolute; inset: 0; width: 100%; height: 100%; display: block; touch-action: none; cursor: crosshair; }
+.flash { position: absolute; inset: 0; display: grid; place-items: center; pointer-events: none; font: 900 clamp(1.8rem, 6vw, 3.4rem) var(--word);
   color: #fff; text-shadow: 4px 4px 0 #000; opacity: 0; transition: opacity .2s; text-align: center; padding: 10px; }
 .flash.ok { background: rgba(92,191,58,.82); opacity: 1; }
 .flash.no { background: rgba(224,64,46,.82); opacity: 1; }
-.bubble { display: grid; grid-template-columns: auto 1fr; gap: 12px; align-items: center; background: #0f0d16; padding: 12px 14px;
-  border: 4px solid; border-color: var(--stone-hi) #000 #000 var(--stone-hi); min-height: 72px; }
-.bot { font-size: 2.4rem; line-height: 1; }
-.says { font-weight: 900; font-size: clamp(1.1rem, 4.4vw, 1.6rem); }
-.says .alt { display: block; font-size: .95rem; color: var(--ink-dim); font-weight: 800; }
-.tools { display: flex; gap: 10px; justify-content: center; flex-wrap: wrap; }
+.bubble { grid-area: bubble; display: grid; grid-template-columns: auto 1fr; gap: 12px; align-items: center; background: #0f0d16; padding: 10px 14px;
+  border: 4px solid; border-color: var(--stone-hi) #000 #000 var(--stone-hi); min-height: 68px; }
+.bot { font-size: 2.2rem; line-height: 1; }
+.says { font-weight: 900; font-size: clamp(1.05rem, 4vw, 1.5rem); }
+.says .alt { display: block; font-size: .9rem; color: var(--ink-dim); font-weight: 800; }
+.tools { grid-area: tools; display: flex; gap: 10px; justify-content: center; flex-wrap: wrap; }
 /* pabaiga */
-.score { font: 700 clamp(2rem, 8vw, 3rem) "ZM Digits", "Pixelify Sans", monospace; color: var(--gold); text-shadow: 3px 3px 0 #000; margin: 0; }
-.shots { display: grid; grid-template-columns: repeat(auto-fill, minmax(140px, 1fr)); gap: 12px; }
-.shot { background: #fff; border: 4px solid #000; color: #111; display: grid; }
+#vEnd .panel { gap: 10px; }
+.score { font: 700 clamp(1.5rem, 5vw, 2.4rem) "ZM Digits", "Pixelify Sans", monospace; color: var(--gold); text-shadow: 3px 3px 0 #000; margin: 0; }
+.verdict { margin: 0; font-weight: 900; font-size: 1.2rem; }
+.verdict .big { color: var(--gold); font-size: 1.6rem; letter-spacing: .08em; margin-right: 8px; }
+.shots { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; }
+.shot { background: #fff; border: 4px solid #000; color: #111; display: grid; min-width: 0; }
 .shot img { width: 100%; aspect-ratio: 1; display: block; }
-.shot div { padding: 6px 8px; font-weight: 900; font-size: .95rem; background: var(--stone-lo); color: var(--ink); }
-.shot div span { display: block; font-weight: 800; font-size: .8rem; color: var(--ink-dim); }
+.shot div { padding: 4px 6px; font-weight: 900; font-size: .85rem; background: var(--stone-lo); color: var(--ink); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.shot div span { display: block; font-weight: 800; font-size: .75rem; color: var(--ink-dim); overflow: hidden; text-overflow: ellipsis; }
 .shot.win { border-color: var(--good); } .shot.lose { border-color: var(--bad); }
-.foot { font-size: .8rem; color: var(--ink-dim); text-align: center; margin: 0; }
+@media (min-width: 600px) { .shots { grid-template-columns: repeat(6, 1fr); } }
+
+/* planšetė gulsčiai: lenta kairėje, viskas kita dešinėje */
+@media (orientation: landscape) and (min-width: 700px) {
+  #vGame.on { grid-template-columns: minmax(0, 1fr) clamp(260px, 30vw, 380px); grid-template-rows: minmax(0, 1fr); grid-template-areas: "board side"; gap: 16px; }
+  .side { grid-area: side; display: flex; flex-direction: column; gap: 12px; min-height: 0; }
+  .top { grid-template-columns: auto 1fr auto; grid-template-areas: "quit . timer" "task task task"; }
+  .task { font-size: clamp(1.2rem, 2.6vw, 2rem); }
+  .bubble { flex: 1 1 auto; align-items: start; align-content: start; }
+  .tools { display: grid; grid-template-columns: 1fr 1fr; }
+  .tools .wbtn { white-space: nowrap; padding: 6px 10px; font-size: 1.1rem; }
+  .levels { grid-template-columns: repeat(5, 1fr); }
+  .lvl { grid-template-columns: 1fr; grid-template-rows: auto; text-align: center; justify-items: center; row-gap: 2px; }
+  .lvl .n { grid-row: auto; }
+  .shots { grid-template-columns: repeat(6, 1fr); }
+  .shot img { max-height: calc(var(--vh) - 300px); object-fit: contain; }
+}
+/* žemas gulsčias ekranas: viskas kompaktiškiau */
+@media (orientation: landscape) and (max-height: 620px) {
+  .panel { padding: 12px; gap: 10px; }
+  .lead { font-size: 1rem; }
+  .lvl { min-height: 0; padding: 6px 8px; }
+  .wbtn { min-height: 46px; }
+  .bubble { padding: 8px 12px; }
+}
 </style>
 </head>
 <body>
 <main>
   <!-- PRADŽIA -->
   <section class="view on" id="vStart">
-    <div class="row"><a class="wbtn small" href="../">← Meniu</a></div>
     <div class="panel">
-      <h1>Piešk, AI spės!</h1>
-      <p class="lead">Tu pieši pirštu, o dirbtinis intelektas bando atspėti, kas tai. Ar jis supras tavo piešinį?</p>
-      <div class="row"><span class="lbl">Laikas</span>
-        <button class="wbtn opt" data-time="30">30 s</button><button class="wbtn opt on" data-time="60">60 s</button><button class="wbtn opt" data-time="90">90 s</button>
-      </div>
-      <div class="row"><span class="lbl">Žodžių</span>
-        <button class="wbtn opt" data-n="4">4</button><button class="wbtn opt on" data-n="6">6</button><button class="wbtn opt" data-n="10">10</button>
-      </div>
+      <div class="row" style="justify-content:space-between"><h1>Piešk, AI spės!</h1><a class="wbtn small" href="../">← Meniu</a></div>
+      <p class="lead">Nupiešk žodį pirštu. Dirbtinis intelektas bando atspėti, kas tai. Lygis įveiktas, kai AI atspėja bent 4 iš 6.</p>
+      <div class="levels" id="levels"></div>
       <div class="row">
-        <button class="wbtn go" id="start" disabled>▶ Žaisti</button>
+        <span class="lbl">Laikas 1-3 lygiams</span>
+        <button class="wbtn opt" data-time="30">30 s</button><button class="wbtn opt" data-time="60">60 s</button><button class="wbtn opt" data-time="90">90 s</button>
         <button class="wbtn" id="free" disabled>✏️ Laisvas piešimas</button>
       </div>
       <p class="status" id="status">Kraunamas AI…</p>
     </div>
-    <p class="foot">AI modelis veikia pačioje planšetėje, piešiniai niekur nesiunčiami. Modelis: DoodleNet (ml5.js), išmokytas iš Google Quick, Draw! piešinių.</p>
+    <p class="foot">AI veikia pačioje planšetėje, piešiniai niekur nesiunčiami. Modelis: DoodleNet (ml5.js), išmokytas iš Google Quick, Draw! piešinių.</p>
   </section>
 
   <!-- ŽAIDIMAS -->
   <section class="view" id="vGame">
-    <div class="top">
-      <button class="wbtn small" id="quit">✕</button>
-      <div class="task" id="task"></div>
-      <div class="timer" id="timer"></div>
-    </div>
     <div class="board"><canvas id="pad"></canvas><div class="flash" id="flash"></div></div>
-    <div class="bubble"><div class="bot">🤖</div><div class="says" id="says">Piešk! Aš žiūriu…</div></div>
-    <div class="tools">
-      <button class="wbtn" id="undo">↶ Atgal</button>
-      <button class="wbtn" id="clear">🧽 Trinti</button>
-      <button class="wbtn" id="skip">⏭ Praleisti</button>
-      <button class="wbtn small" id="sound" title="Garsas">🔊</button>
-    </div>
+    <aside class="side">
+      <div class="top">
+        <button class="wbtn small" id="quit" aria-label="Baigti">✕</button>
+        <div class="task" id="task"></div>
+        <div class="timer" id="timer"></div>
+      </div>
+      <div class="bubble"><div class="bot">🤖</div><div class="says" id="says">Piešk! Aš žiūriu…</div></div>
+      <div class="tools">
+        <button class="wbtn" id="undo">↶ Atgal</button>
+        <button class="wbtn" id="clear">🧽 Trinti</button>
+        <button class="wbtn" id="skip">⏭ Praleisti</button>
+        <button class="wbtn small" id="sound" title="Garsas">🔊</button>
+      </div>
+    </aside>
   </section>
 
   <!-- PABAIGA -->
   <section class="view" id="vEnd">
     <div class="panel">
-      <h1>Baigta!</h1>
       <p class="score" id="score"></p>
+      <p class="verdict" id="verdict"></p>
       <div class="shots" id="shots"></div>
-      <div class="row"><button class="wbtn go" id="again">▶ Dar kartą</button><a class="wbtn" href="../">← Meniu</a></div>
+      <div class="row">
+        <button class="wbtn go" id="nextLvl">▶ Kitas lygis</button>
+        <button class="wbtn" id="again">↻ Dar kartą</button>
+        <button class="wbtn" id="toLevels">Lygiai</button>
+        <a class="wbtn" href="../">← Meniu</a>
+      </div>
     </div>
   </section>
 </main>
@@ -113,35 +163,57 @@ canvas#pad { display: block; width: 100%; height: max(300px, min(calc(100dvh - 3
 (() => {
 const $ = (s) => document.querySelector(s);
 const MODEL = 'https://cdn.jsdelivr.net/gh/ml5js/ml5-data-and-models@main/models/doodlenet/model.json';
-const IDX = Object.fromEntries(CLASSES.map((c, i) => [c, i]));
 // Panašūs žodžiai skaitosi kaip atspėti: vaikas nupiešė puodelį, AI pasakė "kavos puodelis".
 const SAME = [['cup','mug','coffee_cup'],['car','police_car'],['face','smiley_face'],['bus','school_bus'],['cake','birthday_cake'],
   ['clock','alarm_clock'],['sailboat','speedboat','canoe'],['ice_cream','popsicle'],['house','barn'],['television','computer','laptop'],
-  ['rabbit','kangaroo'],['spider','ant'],['telephone','cell_phone']];
+  ['rabbit','kangaroo'],['spider','ant'],['telephone','cell_phone'],['firetruck','truck'],['bear','teddy-bear','panda'],['hand','finger']];
 const sameAs = (a) => { const g = SAME.find((x) => x.includes(a)); return g ? g : [a]; };
 const LS = { get(k, d) { try { const v = localStorage.getItem(k); return v === null ? d : JSON.parse(v); } catch (e) { return d; } },
              set(k, v) { try { localStorage.setItem(k, JSON.stringify(v)); } catch (e) {} } };
+const ns = (k) => (window.ZM ? ZM.ns(k) : k);
 
-let model = null, time = LS.get('pa-time', 60), count = LS.get('pa-n', 6), sound = LS.get('pa-sound', true);
-let mode = 'game', words = [], wi = 0, left = 0, tick = null, done = false, results = [];
+// Lygiai: 6 žodžiai, įveikta nuo 4 atspėtų. time: null = vaiko pasirinktas laikas (30/60/90 s).
+const WORDS = 6, PASS = 4;
+const LEVELS = [
+  { name: 'Lengvi', list: EASY, time: null },
+  { name: 'Vidutiniai', list: MEDIUM, time: null },
+  { name: 'Sunkūs', list: HARD, time: null },
+  { name: 'Žaibas', list: EASY.concat(MEDIUM), time: 20 },
+  { name: 'Meistras', list: HARD, time: 30 },
+];
+const starsFor = (n) => (n >= 6 ? 3 : n >= 5 ? 2 : n >= PASS ? 1 : 0);
+const getStars = () => LS.get(ns('pa-stars'), {});
+const unlocked = (i) => i === 0 || (getStars()[i] || 0) > 0;   // i: ankstesnio lygio numeris (1..)
+
+let model = null, pick = LS.get('pa-time', 60), sound = LS.get('pa-sound', true);
+let mode = 'game', level = 1, time = 60, words = [], wi = 0, left = 0, tick = null, done = false, results = [];
 let strokes = [], cur = null, dirty = false, busy = false, lastTop = '', lastSpeak = 0;
 
-// ---------- nustatymai ----------
-document.querySelectorAll('[data-time]').forEach((b) => { b.classList.toggle('on', +b.dataset.time === time);
-  b.onclick = () => { time = +b.dataset.time; LS.set('pa-time', time); document.querySelectorAll('[data-time]').forEach((x) => x.classList.toggle('on', x === b)); }; });
-document.querySelectorAll('[data-n]').forEach((b) => { b.classList.toggle('on', +b.dataset.n === count);
-  b.onclick = () => { count = +b.dataset.n; LS.set('pa-n', count); document.querySelectorAll('[data-n]').forEach((x) => x.classList.toggle('on', x === b)); }; });
-const setSound = () => { $('#sound').textContent = sound ? '🔊' : '🔇'; };
-$('#sound').onclick = () => { sound = !sound; LS.set('pa-sound', sound); setSound(); if (!sound) speechSynthesis.cancel(); };
-setSound();
+// ---------- pradžios ekranas ----------
+function renderLevels() {
+  const S = getStars();
+  $('#levels').innerHTML = LEVELS.map((L, i) => {
+    const n = i + 1, st = S[n] || 0, open = unlocked(i);
+    const t = L.time ? `${L.time} s` : `${pick} s`;
+    const stars = open ? '★'.repeat(st) + '☆'.repeat(3 - st) : '🔒';
+    return `<button class="lvl ${st ? 'done' : ''}" data-lvl="${n}" ${open && model ? '' : 'disabled'}>
+      <span class="n">${n}</span><b>${L.name}</b><small>${t} · <span class="st">${stars}</span></small></button>`;
+  }).join('');
+  document.querySelectorAll('[data-lvl]').forEach((b) => (b.onclick = () => start('game', +b.dataset.lvl)));
+}
+document.querySelectorAll('[data-time]').forEach((b) => { b.classList.toggle('on', +b.dataset.time === pick);
+  b.onclick = () => { pick = +b.dataset.time; LS.set('pa-time', pick); document.querySelectorAll('[data-time]').forEach((x) => x.classList.toggle('on', x === b)); renderLevels(); }; });
+const setSound = () => { $('#sound').textContent = sound ? '🔊 Garsas' : '🔇 Tyliai'; };
+$('#sound').onclick = () => { sound = !sound; LS.set('pa-sound', sound); setSound(); if (!sound && 'speechSynthesis' in window) speechSynthesis.cancel(); };
+setSound(); renderLevels();
 
 // ---------- AI ----------
 (async () => {
   try {
     model = await tf.loadLayersModel(MODEL);
     tf.tidy(() => model.predict(tf.zeros([1, 28, 28, 1])));
-    $('#status').textContent = 'AI pasiruošęs!';
-    $('#start').disabled = $('#free').disabled = false;
+    $('#status').textContent = 'AI pasiruošęs! Pasirink lygį.';
+    $('#free').disabled = false; renderLevels();
   } catch (e) {
     $('#status').textContent = 'Nepavyko užkrauti AI. Patikrink internetą ir perkrauk puslapį.';
     $('#status').classList.add('bad');
@@ -152,10 +224,14 @@ setSound();
 // Taip atrodo Quick, Draw! duomenys, iš kurių AI mokėsi (išbandyta: 11 iš 14 pirmu spėjimu).
 const small = document.createElement('canvas'); small.width = small.height = 28;
 if (/debug/.test(location.search)) { small.style.cssText = 'position:fixed;right:8px;bottom:8px;width:168px;height:168px;image-rendering:pixelated;border:3px solid #f0f;z-index:9'; document.body.appendChild(small); window.__pa = () => strokes; }
-function guess() {
-  const pts = strokes.flat(); if (pts.length < 2) return null;
+function bbox() {
   let x0 = 1e9, y0 = 1e9, x1 = -1e9, y1 = -1e9;
-  pts.forEach(([x, y]) => { x0 = Math.min(x0, x); y0 = Math.min(y0, y); x1 = Math.max(x1, x); y1 = Math.max(y1, y); });
+  strokes.flat().forEach(([x, y]) => { x0 = Math.min(x0, x); y0 = Math.min(y0, y); x1 = Math.max(x1, x); y1 = Math.max(y1, y); });
+  return { x0, y0, x1, y1 };
+}
+function guess() {
+  if (strokes.flat().length < 2) return null;
+  const { x0, y0, x1, y1 } = bbox();
   // taškai yra dalimis nuo lentos pločio (0..1), todėl apatinė riba maža, ne 1
   const w = Math.max(x1 - x0, y1 - y0, 0.02), pad = 28 * 0.08, s = (28 - 2 * pad) / w;
   const ox = pad + ((28 - 2 * pad) - (x1 - x0) * s) / 2 - x0 * s, oy = pad + ((28 - 2 * pad) - (y1 - y0) * s) / 2 - y0 * s;
@@ -172,22 +248,22 @@ function guess() {
 const pad = $('#pad'), ctx = pad.getContext('2d');
 function fit() {
   const r = pad.getBoundingClientRect(), k = Math.min(devicePixelRatio || 1, 2);
-  pad.width = Math.round(r.width * k); pad.height = Math.round(r.height * k); redraw();
+  pad.width = Math.max(1, Math.round(r.width * k)); pad.height = Math.max(1, Math.round(r.height * k)); redraw();
 }
 function redraw() {
   ctx.fillStyle = '#fff'; ctx.fillRect(0, 0, pad.width, pad.height);
-  ctx.strokeStyle = '#111'; ctx.lineCap = ctx.lineJoin = 'round'; ctx.lineWidth = Math.max(6, pad.width * 0.012);
+  ctx.strokeStyle = '#111'; ctx.lineCap = ctx.lineJoin = 'round'; ctx.lineWidth = Math.max(6, Math.min(pad.width, pad.height) * 0.014);
   strokes.forEach((st) => { ctx.beginPath(); st.forEach(([x, y], i) => i ? ctx.lineTo(x * pad.width, y * pad.width) : ctx.moveTo(x * pad.width, y * pad.width));
     if (st.length === 1) ctx.lineTo(st[0][0] * pad.width + 0.5, st[0][1] * pad.width); ctx.stroke(); });
 }
-// taškai saugomi kaip dalys nuo pločio, kad persukus planšetę piešinys nepasikeistų
+// taškai saugomi kaip dalys nuo lentos pločio (x ir y), kad persukus planšetę piešinys neišsikreiptų
 const at = (e) => { const r = pad.getBoundingClientRect(); return [(e.clientX - r.left) / r.width, (e.clientY - r.top) / r.width]; };
 pad.addEventListener('pointerdown', (e) => { if (done) return; pad.setPointerCapture(e.pointerId); cur = [at(e)]; strokes.push(cur); redraw(); });
 pad.addEventListener('pointermove', (e) => { if (!cur) return; const p = at(e), q = cur[cur.length - 1];
   if (Math.hypot(p[0] - q[0], p[1] - q[1]) > 0.004) { cur.push(p); redraw(); dirty = true; } });
 const end = () => { if (cur) { cur = null; dirty = true; } };
 pad.addEventListener('pointerup', end); pad.addEventListener('pointercancel', end);
-addEventListener('resize', () => { if ($('#vGame').classList.contains('on')) fit(); });
+new ResizeObserver(() => { if ($('#vGame').classList.contains('on')) fit(); }).observe(pad);
 $('#clear').onclick = () => { strokes = []; redraw(); lastTop = ''; say('Piešk! Aš žiūriu…'); };
 $('#undo').onclick = () => { strokes.pop(); redraw(); dirty = true; if (!strokes.length) { lastTop = ''; say('Piešk! Aš žiūriu…'); } };
 
@@ -204,9 +280,8 @@ setInterval(() => {
   dirty = false; busy = true;
   const top = guess(); busy = false; if (!top) return;
   if (mode === 'game') {
-    const target = words[wi], ok = sameAs(CLASSES[target]);
-    const hit = top.slice(0, 3).find((t) => ok.includes(t.c));
-    if (hit) return win();
+    const ok = sameAs(CLASSES[words[wi]]);
+    if (top.slice(0, 3).some((t) => ok.includes(t.c))) return win();
   }
   const names = top.slice(0, 3).map((t) => LT[t.i]);
   say(`Gal tai ${names[0]}?`, `O gal ${names[1]} arba ${names[2]}…`);
@@ -216,9 +291,10 @@ setInterval(() => {
 // ---------- eiga ----------
 function shuffle(a) { for (let i = a.length - 1; i > 0; i--) { const j = Math.floor(Math.random() * (i + 1)); [a[i], a[j]] = [a[j], a[i]]; } return a; }
 function show(id) { document.querySelectorAll('.view').forEach((v) => v.classList.toggle('on', v.id === id)); }
-function start(m) {
-  mode = m; results = []; wi = 0; show('vGame'); fit();
-  words = shuffle(EASY.slice()).slice(0, count);
+function start(m, lvl) {
+  mode = m; results = []; wi = 0;
+  if (m === 'game') { level = lvl || level; const L = LEVELS[level - 1]; time = L.time || pick; words = shuffle(L.list.slice()).slice(0, WORDS); }
+  show('vGame'); fit();
   $('#skip').style.display = $('#timer').style.display = m === 'game' ? '' : 'none';
   next(true);
 }
@@ -229,15 +305,23 @@ function next(first) {
   if (!first) wi++;
   if (wi >= words.length) return finish();
   const w = LT[words[wi]];
-  $('#task').innerHTML = `<small>${wi + 1} iš ${words.length}. Nupiešk:</small><b>${w.toUpperCase()}</b>`;
+  $('#task').innerHTML = `<small>${level} lygis · ${wi + 1} iš ${words.length}. Nupiešk:</small><b>${w.toUpperCase()}</b>`;
   say('Piešk! Aš žiūriu…'); speak(`Nupiešk: ${w}`, true);
-  left = time; $('#timer').textContent = left; $('#timer').classList.remove('low');
+  left = time; $('#timer').textContent = left; $('#timer').classList.toggle('low', left <= 10);
   tick = setInterval(() => { left--; $('#timer').textContent = Math.max(left, 0); $('#timer').classList.toggle('low', left <= 10);
     if (left <= 0) lose(); }, 1000);
 }
-function snap() { const c = document.createElement('canvas'); c.width = c.height = 240; const g = c.getContext('2d');
+// Nuotrauka pabaigos ekranui: kvadratas aplink piešinį, todėl lentos forma (plati ar aukšta) nesvarbi.
+function snap() {
+  const c = document.createElement('canvas'); c.width = c.height = 240; const g = c.getContext('2d');
   g.fillStyle = '#fff'; g.fillRect(0, 0, 240, 240);
-  const s = Math.min(pad.width, pad.height); g.drawImage(pad, (pad.width - s) / 2, (pad.height - s) / 2, s, s, 0, 0, 240, 240); return c.toDataURL('image/png'); }
+  if (strokes.flat().length) {
+    const { x0, y0, x1, y1 } = bbox(), W = pad.width, side = Math.max(x1 - x0, y1 - y0, 0.05) * W * 1.25;
+    const cx = (x0 + x1) / 2 * W, cy = (y0 + y1) / 2 * W;
+    g.drawImage(pad, cx - side / 2, cy - side / 2, side, side, 0, 0, 240, 240);
+  }
+  return c.toDataURL('image/png');
+}
 function win() {
   done = true; clearInterval(tick); const w = LT[words[wi]];
   $('#flash').textContent = `Atspėjau! Tai ${w}!`; $('#flash').className = 'flash ok';
@@ -256,15 +340,22 @@ function lose(skipped) {
 $('#skip').onclick = () => { if (!done && mode === 'game') lose(true); };
 function finish() {
   clearInterval(tick); show('vEnd');
-  const n = results.filter((r) => r.ok).length;
+  const n = results.filter((r) => r.ok).length, st = starsFor(n), S = getStars();
+  if (st > (S[level] || 0)) { S[level] = st; LS.set(ns('pa-stars'), S); }
+  const hasNext = level < LEVELS.length;
   $('#score').textContent = `AI atspėjo ${n} iš ${results.length}`;
+  $('#verdict').innerHTML = st
+    ? `<span class="big">${'★'.repeat(st)}${'☆'.repeat(3 - st)}</span>${level} lygis įveiktas!${hasNext ? ` Atrakintas ${level + 1} lygis: ${LEVELS[level].name}.` : ' Tu Meistras!'}`
+    : `Reikia bent ${PASS} iš ${WORDS}. Bandyk dar kartą!`;
+  $('#nextLvl').style.display = st && hasNext ? '' : 'none';
   $('#shots').innerHTML = results.map((r) => `<div class="shot ${r.ok ? 'win' : 'lose'}"><img src="${r.img}" alt="${r.w}"><div>${r.ok ? '✓' : '✗'} ${r.w}<span>${r.ok ? `per ${r.sec} s` : `AI manė: ${r.thought}`}</span></div></div>`).join('');
-  if (window.ZM) ZM.report('piesk-ai', { score: n, xp: n * 20 });
+  if (window.ZM) ZM.report('piesk-ai', { score: n, xp: n * 20 * level });
 }
-$('#start').onclick = () => start('game');
 $('#free').onclick = () => start('free');
-$('#again').onclick = () => start('game');
-$('#quit').onclick = () => { clearInterval(tick); done = true; speechSynthesis.cancel(); show('vStart'); };
+$('#again').onclick = () => start('game', level);
+$('#nextLvl').onclick = () => start('game', level + 1);
+$('#toLevels').onclick = () => { renderLevels(); show('vStart'); };
+$('#quit').onclick = () => { clearInterval(tick); done = true; if ('speechSynthesis' in window) speechSynthesis.cancel(); renderLevels(); show('vStart'); };
 if ('speechSynthesis' in window) speechSynthesis.getVoices();
 })();
 </script>

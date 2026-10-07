@@ -70,7 +70,7 @@ body {
 .top .hint { flex: 1 1 260px; min-width: 0; font-weight: 800; font-size: 1.05rem; color: var(--gem); }
 
 /* factory */
-.factory { position: relative; min-height: 0; overflow: auto; padding: 12px 12px 8px; display: grid; gap: 14px; align-content: center; justify-items: center; }
+.factory { position: relative; min-height: 0; overflow: auto; padding: 12px 12px 8px; display: grid; gap: 14px; align-content: safe center; justify-items: center; }
 .inbox { width: 100%; max-width: 980px; display: flex; align-items: center; gap: 8px; }
 .inbox .lab { font-weight: 900; font-size: 0.85rem; letter-spacing: 0.06em; text-transform: uppercase; color: var(--ink-dim); white-space: nowrap; }
 .queue { flex: 1; min-width: 0; display: flex; flex-wrap: wrap; gap: 4px; align-items: center; min-height: 60px; padding: 4px 8px; background: #0e0c14; border: 3px solid #000; }
@@ -217,6 +217,39 @@ h2 { font-size: clamp(2rem, 9vw, 2.6rem); color: var(--gem); text-shadow: 3px 3p
 @media (prefers-reduced-motion: reduce) {
   .belt.moving, .goal.filled, .goal.missing, .stars.big .star.on, .slot.empty { animation: none; }
 }
+
+/* Short landscape tablets: the factory fits without scrolling (signs, belt and bins get shorter). */
+@media (orientation: landscape) and (max-height: 640px) {
+  .top { padding-top: calc(env(safe-area-inset-top, 0px) + 4px); padding-bottom: 4px; }
+  .top .hint { font-size: 0.95rem; }
+  .factory { gap: 8px; padding: 6px 12px 4px; }
+  .queue { min-height: 48px; padding: 2px 6px; }
+  .item.B img { width: 40px; height: 40px; }
+  .item.S img { width: 26px; height: 26px; }
+  .plant { grid-template-rows: auto 64px 22px auto; }
+  .belt { height: 50px; }
+  .slot { width: 56px; height: 56px; }
+  .slot img { width: 32px; height: 32px; }
+  .slot.empty { font-size: 1.8rem; }
+  .sign-cell { padding-bottom: 4px; }
+  .sign::after { bottom: -12px; height: 8px; }
+  .chute { font-size: 1.2rem; }
+  .bin-body { min-height: 64px; padding: 4px; }
+  .goal { width: 34px; height: 34px; }
+  .goal.B img { width: 30px; height: 30px; }
+  .goal.S img { width: 20px; height: 20px; }
+  .controls { padding: 6px 12px calc(env(safe-area-inset-bottom, 0px) + 6px); }
+  .controls .play, .controls .btn:not(.play) { height: 48px; }
+}
+
+/* Short landscape tablets (Android, browser bars eat the height): a menu or result panel that does not
+   fit gets two columns instead of a scroll. The fitter script below adds .fit2 only when it is needed. */
+.overlay .fit2 { display: block; columns: 2; column-gap: 24px; max-width: min(880px, 96vw); padding-top: 12px; padding-bottom: 12px; }
+.fit2 > * { break-inside: avoid; margin: 0 auto 10px; width: fit-content; max-width: 100%; }
+.fit2 > :is(button, a) { display: block; }
+.fit2 > :last-child { margin-bottom: 0; }
+.fit2 > :is(.levels, .stats, .lvls, .grid, .icons, .legend) { width: 100%; }
+.fit2 h1 { font-size: clamp(1.9rem, 8vh, 2.8rem); }
 </style>
 
 <div id="app">
@@ -695,6 +728,28 @@ h2 { font-size: clamp(2rem, 9vw, 2.6rem); color: var(--gem); text-shadow: 3px 3p
   loadLevel(Math.min(unlockedUpTo(), LEVELS.length) - 1);
   applyLang();
   if (location.hash === '#test') window.__sf = { get signs() { return signs; }, LEVELS, binFor, get lvl() { return lvlIdx; } };
+})();
+</script>
+<script>
+/* Fits menu and result panels into short landscape screens: two columns when a panel is taller than its overlay. */
+(() => {
+  let queued = false;
+  const mo = new MutationObserver(() => schedule());
+  const watch = () => mo.observe(document.body, { subtree: true, attributes: true, attributeFilter: ['hidden', 'class', 'style'] });
+  function fit() {
+    queued = false; mo.disconnect();
+    document.querySelectorAll('.overlay > .panel, .overlay > .card').forEach((p) => {
+      const o = p.parentElement;
+      if (o.hidden || getComputedStyle(o).display === 'none') return;
+      p.classList.remove('fit2');
+      if (innerWidth > innerHeight && o.scrollHeight > o.clientHeight + 1) p.classList.add('fit2');
+    });
+    watch();
+  }
+  function schedule() { if (!queued) { queued = true; requestAnimationFrame(fit); } }
+  addEventListener('resize', schedule); addEventListener('load', schedule);
+  if (document.fonts) document.fonts.ready.then(schedule);
+  watch(); schedule();
 })();
 </script>
 

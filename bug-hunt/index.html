@@ -36,6 +36,8 @@
   color-scheme: dark;
 }
 [hidden] { display: none !important; }
+/* width includes padding and border, so 100% wide panels never poke past a phone screen */
+.bug, .panel, .picker { box-sizing: border-box; }
 html, body { height: 100%; }
 body {
   background: var(--night);
@@ -48,7 +50,8 @@ body {
   -webkit-touch-callout: none;
   -webkit-tap-highlight-color: transparent;
 }
-#app { position: fixed; inset: 0; display: grid; grid-template-rows: auto minmax(0, 1fr); }
+/* dvh follows the Android address bar; minmax(0, 1fr) stops the top bar's buttons from widening the whole layout */
+#app { position: fixed; top: 0; left: 0; right: 0; height: 100vh; height: 100dvh; display: grid; grid-template-rows: auto minmax(0, 1fr); grid-template-columns: minmax(0, 1fr); }
 
 .btn {
   font: inherit; font-weight: 700; color: var(--ink); cursor: pointer; touch-action: manipulation;
@@ -70,13 +73,20 @@ body {
 
 /* top bar */
 .top {
-  display: flex; align-items: center; gap: 10px;
+  display: flex; flex-wrap: wrap; align-items: center; gap: 6px 10px; min-width: 0;
   padding: calc(env(safe-area-inset-top, 0px) + 8px) 12px 8px;
   background: var(--stone-lo); border-bottom: 4px solid #000;
 }
 .top .title { font-family: var(--word); font-weight: 900; font-size: 1.2rem; text-shadow: 2px 2px 0 #000; white-space: nowrap; }
 .top .title b { color: var(--gold); }
 .top .hint { flex: 1; min-width: 0; font-family: var(--word); font-weight: 800; font-size: 1rem; color: var(--gem); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.top > * { flex-shrink: 0; }
+.top .hint { flex: 1 1 0; }
+/* narrow screens: the hint gets its own line under the buttons */
+@media (max-width: 760px) {
+  .top .hint { order: 10; flex-basis: 100%; white-space: normal; font-size: 0.95rem; }
+  .top .title { font-size: 1.05rem; }
+}
 .count { font-family: var(--word); font-weight: 900; font-size: 1rem; color: var(--ink); background: #000; padding: 4px 10px; white-space: nowrap; font-variant-numeric: tabular-nums; }
 
 /* main */
@@ -100,6 +110,8 @@ body {
   background: #0e0c14; border: 3px solid #000; box-shadow: inset 0 0 0 2px var(--stone);
   padding: 10px 8px 8px; display: flex; flex-wrap: wrap; gap: 8px; align-content: flex-start; align-items: flex-start;
 }
+/* wide screens: the program fills the side column (this rule must come after the .prog base rule) */
+@media (min-aspect-ratio: 5/4) { .prog { max-height: none; } }
 .chip {
   width: 56px; height: 56px; padding: 0; display: grid; place-items: center; cursor: pointer; color: #fff;
   border: 3px solid; box-shadow: 0 0 0 1.5px #000; touch-action: manipulation; position: relative;
@@ -169,7 +181,7 @@ body {
 
 /* overlays */
 .overlay {
-  position: fixed; inset: 0; z-index: 5; display: grid; place-items: center;
+  position: fixed; top: 0; left: 0; right: 0; height: 100vh; height: 100dvh; z-index: 5; display: grid; place-items: center;
   padding: calc(env(safe-area-inset-top, 0px) + 16px) 16px calc(env(safe-area-inset-bottom, 0px) + 16px);
   background: radial-gradient(ellipse at 50% 45%, rgba(12, 10, 24, 0.4), rgba(12, 10, 24, 0.85) 75%);
   overflow-y: auto;
@@ -188,7 +200,7 @@ h2 { font-size: clamp(2rem, 9vw, 2.6rem); color: var(--gem); text-shadow: 3px 3p
 .seg { display: flex; }
 .seg .btn { font-size: 0.95rem; padding: 4px 14px; }
 .seg .btn[aria-pressed="true"] { background: var(--gold); color: #2a1d00; border-color: #fff0a8 #b8861a #b8861a #fff0a8; }
-.levels { display: grid; grid-template-columns: repeat(5, 1fr); gap: 10px; width: 100%; }
+.levels { display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 10px; width: 100%; }
 .lvl {
   aspect-ratio: 1; max-width: 100%; display: grid; place-items: center; align-content: center; gap: 4px; padding: 4px;
   font-family: var(--pixel); font-weight: 700; font-size: 1.6rem; color: var(--ink);
@@ -209,6 +221,28 @@ h2 { font-size: clamp(2rem, 9vw, 2.6rem); color: var(--gem); text-shadow: 3px 3p
 .win-note b { color: var(--ink); }
 .row-btns { display: flex; gap: 10px; flex-wrap: wrap; justify-content: center; }
 .row-btns .btn { font-family: var(--word); font-weight: 900; font-size: 1.15rem; padding: 10px 22px; }
+/* phones: smaller blocks so a long program fits, smaller level buttons */
+@media (max-width: 520px) {
+  .chip, .loop .count-btn { width: 46px; min-width: 46px; height: 46px; }
+  .loop .count-btn { width: auto; font-size: 1.1rem; }
+  .chip svg { width: 26px; height: 26px; }
+  .prog, .loop .body { gap: 6px; }
+  .loop .body { min-width: 46px; min-height: 46px; }
+  .levels { gap: 7px; }
+  .lvl { font-size: 1.25rem; gap: 2px; }
+  .star { width: 10px; height: 10px; }
+}
+/* short landscape tablets (Android with the address bar): the level list fits without scrolling */
+@media (max-height: 680px) and (min-aspect-ratio: 5/4) {
+  #levelsOv .panel { max-width: min(100%, 960px); gap: 10px; padding: 12px 16px 14px; }
+  #levelsOv h1 { font-size: clamp(1.8rem, 7dvh, 2.6rem); }
+  #levelsOv h1 span { display: inline; }
+  #levelsOv .lead { max-width: none; font-size: 0.95rem; }
+  .levels { grid-template-columns: repeat(10, minmax(0, 1fr)); gap: 8px; }
+  .lvl { font-size: 1.35rem; }
+  .overlay { padding-top: calc(env(safe-area-inset-top, 0px) + 8px); padding-bottom: calc(env(safe-area-inset-bottom, 0px) + 8px); }
+  .stars.big .star { width: 34px; height: 34px; }
+}
 @media (prefers-reduced-motion: reduce) {
   .stars.big .star.on, .bug, .chip.fixed { animation: none; }
 }
@@ -310,13 +344,18 @@ h2 { font-size: clamp(2rem, 9vw, 2.6rem); color: var(--gem); text-shadow: 3px 3p
       },
       win: 'PATAISYTA!', again: 'Dar kartą', next: 'Kitas lygis',
       runs: (n) => `Paleidimai: <b>${n}</b>.`,
-      rule: '3 žvaigždės, jei pataisai per 2 paleidimus.',
+      rule: (n) => `3 žvaigždės, jei pataisai per ${n} paleidimus.`,
       perfect: 'Tikras klaidų medžiotojas!',
       hints: {
         1: 'Robotas pasuka ne į tą pusę.', 2: 'Paleisk ir žiūrėk, kur robotas suklysta.', 3: 'Viena rodyklė neteisinga.',
         4: 'Robotas sustoja per anksti.', 5: 'Robotas važiuoja per toli.', 6: 'Vienas žingsnis per daug.',
         7: 'Klaida slepiasi cikle.', 8: 'Cikle yra vienas nereikalingas blokas.',
         9: 'Kiek kartų reikia kartoti?', 10: 'Kelią užstoja akmenys.',
+        11: 'Ilga programa. Kur robotas pasuka ne ten?', 12: 'Saugokis lavos! Viena rodyklė veda į ją.',
+        13: 'Klaida cikle, bet ne pirmame bloke.', 14: 'Du ciklai. Kuris kartoja per mažai?',
+        15: 'Akmuo kelyje. Ko robotui trūksta?', 16: 'Aplink lava! Klaida slepiasi cikle.',
+        17: 'Ilga programa. Vienas posūkis per daug.', 18: 'Robotas nuvažiuoja per toli, į lavą.',
+        19: 'Dvi klaidos! Taisyk po vieną.', 20: 'Dvi klaidos: viena cikle, kita skaičiuje.',
       },
     },
     en: {
@@ -338,13 +377,18 @@ h2 { font-size: clamp(2rem, 9vw, 2.6rem); color: var(--gem); text-shadow: 3px 3p
       },
       win: 'FIXED!', again: 'Try again', next: 'Next level',
       runs: (n) => `Runs: <b>${n}</b>.`,
-      rule: '3 stars if you fix it within 2 runs.',
+      rule: (n) => `3 stars if you fix it within ${n} runs.`,
       perfect: 'A real bug hunter!',
       hints: {
         1: 'The robot turns the wrong way.', 2: 'Run it and watch where it goes wrong.', 3: 'One arrow is wrong.',
         4: 'The robot stops too early.', 5: 'The robot drives too far.', 6: 'One step too many.',
         7: 'The bug hides inside the loop.', 8: 'The loop has one extra block.',
         9: 'How many times should it repeat?', 10: 'Stones block the way.',
+        11: 'A long program. Where does it turn the wrong way?', 12: 'Watch out for lava! One arrow leads into it.',
+        13: 'The bug is in the loop, but not the first block.', 14: 'Two loops. Which one repeats too few times?',
+        15: 'A stone in the way. What does the robot need?', 16: 'Lava all around! The bug hides in the loop.',
+        17: 'A long program. One turn too many.', 18: 'The robot drives too far, into the lava.',
+        19: 'Two bugs! Fix them one at a time.', 20: 'Two bugs: one in the loop, one in the number.',
       },
     },
   };
@@ -352,7 +396,7 @@ h2 { font-size: clamp(2rem, 9vw, 2.6rem); color: var(--gem); text-shadow: 3px 3p
   /* ---------- levels ----------
      # wall, . floor, s stone (mineable), L lava, D diamond, R robot start. dir: 0 up, 1 right, 2 down, 3 left.
      prog: the buggy program ('FLRM' letters, {P: n, b: 'letters'} = repeat n times).
-     fix: one way to repair it (used by the self-check), never shown to the player. */
+     fix: one way to repair it, checked by check-levels.js (node check-levels.js), never shown to the player. */
   const LEVELS = [
     { g: ['######', '####D#', '####.#', '#R...#', '######'], dir: 1, prog: 'FFFRFF', fix: [{ p: '3', to: 'L' }] },
     { g: ['######', '#R...#', '####.#', '####D#', '######'], dir: 1, prog: 'FFFLFF', fix: [{ p: '3', to: 'R' }] },
@@ -364,6 +408,18 @@ h2 { font-size: clamp(2rem, 9vw, 2.6rem); color: var(--gem); text-shadow: 3px 3p
     { g: ['######', '#R..##', '###.##', '#D..##', '######'], dir: 1, prog: [{ P: 3, b: 'FFFR' }], fix: [{ p: '0.2', op: 'del' }] },
     { g: ['##########', '#R......D#', '##########'], dir: 1, prog: [{ P: 5, b: 'F' }], fix: [{ n: 0, to: 7 }] },
     { g: ['##########', '#R.s.s.sD#', '##########'], dir: 1, prog: [{ P: 3, b: 'FF' }, 'F'], mine: true, fix: [{ p: '0.0', op: 'dup' }, { p: '0.1', to: 'M' }] },
+    // 11-20: longer programs, lava traps, two loops, and two bugs at once at the end. bugs = how many fixes it needs.
+    { g: ['#########', '#R..#####', '###.#####', '###....##', '######.##', '######.D#', '#########'], dir: 1, prog: 'FFRFFLFFFLFFLF', fix: [{ p: '9', to: 'R' }] },
+    { g: ['#######', '#R...L#', '#LLL.L#', '#LLL..#', '#LLLL.#', '#D....#', '#######'], dir: 1, prog: 'FFFRFFRFRFFRFFFF', fix: [{ p: '6', to: 'L' }] },
+    { g: ['########', '#R.#####', '##..####', '###..###', '####..##', '#####.D#', '########'], dir: 1, prog: [{ P: 4, b: 'FRFR' }, 'F'], fix: [{ p: '0.3', to: 'L' }] },
+    { g: ['#########', '#R......#', '#######.#', '#######.#', '#######D#', '#########'], dir: 1, prog: [{ P: 4, b: 'F' }, 'R', { P: 3, b: 'F' }], fix: [{ n: 0, to: 6 }] },
+    { g: ['########', '#R.s.###', '####.###', '####s###', '####.D##', '########'], dir: 1, prog: 'FMFFRFFFFLF', mine: true, fix: [{ p: '6', to: 'M' }] },
+    { g: ['########', '#R..LLL#', '#LL.LLL#', '#LL...L#', '#LLLL.L#', '#LLLL.D#', '########'], dir: 1, prog: [{ P: 2, b: 'FFRFFR' }, 'F'], fix: [{ p: '0.5', to: 'L' }] },
+    { g: ['#########', '#R....###', '#####.###', '#D....###', '#########'], dir: 1, prog: 'FFFFRFFRLFFFF', fix: [{ p: '8', op: 'del' }] },
+    { g: ['#########', '#R....LL#', '#####.###', '#####.###', '#####D###', '#########'], dir: 1, prog: [{ P: 6, b: 'F' }, 'R', { P: 3, b: 'F' }], fix: [{ n: 0, to: 4 }] },
+    { g: ['########', '#R.s.###', '####.###', '####..D#', '########'], dir: 1, prog: 'FFFFRFFRFF', mine: true, bugs: 2, fix: [{ p: '1', to: 'M' }, { p: '7', to: 'L' }] },
+    { g: ['##########', '#R..LLLLL#', '#LL.LLLLL#', '#LL...LLL#', '#LLLL.LLL#', '#LLLL...L#', '#LLLLLL.L#', '#LLLLLL.D#', '##########'], dir: 1,
+      prog: [{ P: 2, b: 'FFLFFL' }, 'F'], bugs: 2, fix: [{ p: '0.2', to: 'R' }, { n: 0, to: 3 }] },
   ];
   const DX = [0, 1, 0, -1], DY = [-1, 0, 1, 0];
   const buildProg = (p) => (typeof p === 'string' ? [p] : p).flatMap((x) =>
@@ -800,7 +856,9 @@ h2 { font-size: clamp(2rem, 9vw, 2.6rem); color: var(--gem); text-shadow: 3px 3p
     setRunLabel();
   }
 
-  const starsFor = (n) => (n <= 2 ? 3 : n <= 4 ? 2 : 1);
+  // one run to see the bug plus one per fix; levels with two bugs get one more run for 3 stars
+  const parRuns = () => (L.bugs || 1) + 1;
+  const starsFor = (n) => (n <= parRuns() ? 3 : n <= parRuns() + 2 ? 2 : 1);
   function win() {
     run.active = false;
     document.body.classList.remove('busy');
@@ -819,7 +877,7 @@ h2 { font-size: clamp(2rem, 9vw, 2.6rem); color: var(--gem); text-shadow: 3px 3p
       s.classList.remove('on'); void s.offsetWidth;
       s.classList.toggle('on', i < stars);
     });
-    $('winNote').innerHTML = TXT[lang].runs(runs) + ' ' + (stars === 3 ? TXT[lang].perfect : TXT[lang].rule);
+    $('winNote').innerHTML = TXT[lang].runs(runs) + ' ' + (stars === 3 ? TXT[lang].perfect : TXT[lang].rule(parRuns()));
     const last = lvlIdx >= LEVELS.length - 1;
     $('next').textContent = last ? TXT[lang].levels : TXT[lang].next;
     sfx.win();
