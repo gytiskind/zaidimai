@@ -7,6 +7,7 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Nunito:wght@700;800;900&family=Pixelify+Sans:wght@700&display=swap">
+<link rel="stylesheet" href="../fonts/zm-digits.css">
 <link rel="stylesheet" href="../tikra-ar-ai/style.css">
 <script src="../zm.js"></script>
 <script src="zodziai.js"></script>
@@ -30,9 +31,9 @@ h1 { font-size: clamp(2.4rem, 10vw, 4rem); }
 /* žaidimas */
 .top { display: grid; grid-template-columns: auto 1fr auto; gap: 10px; align-items: center; }
 .task { text-align: center; font-weight: 900; font-size: clamp(1.3rem, 5vw, 2.1rem); line-height: 1.1; }
-.task b { color: var(--gold); text-shadow: 3px 3px 0 #000; font-family: "Pixelify Sans", var(--word); letter-spacing: .03em; }
+.task b { color: var(--gold); text-shadow: 3px 3px 0 #000; font-family: var(--word); font-weight: 900; letter-spacing: .03em; }
 .task small { display: block; font-size: .9rem; color: var(--ink-dim); }
-.timer { font: 700 clamp(1.6rem, 6vw, 2.4rem) "Pixelify Sans", monospace; min-width: 3ch; text-align: center; padding: 4px 12px;
+.timer { font: 700 clamp(1.6rem, 6vw, 2.4rem) "ZM Digits", "Pixelify Sans", monospace; min-width: 3ch; text-align: center; padding: 4px 12px;
   background: #0f0d16; border: 4px solid; border-color: var(--stone-hi) #000 #000 var(--stone-hi); }
 .timer.low { color: #ff8a7a; }
 .board { position: relative; border: 6px solid #000; box-shadow: 0 0 0 4px var(--stone-hi), 8px 8px 0 4px rgba(0,0,0,.45); background: #fff; }
@@ -48,7 +49,7 @@ canvas#pad { display: block; width: 100%; height: max(300px, min(calc(100dvh - 3
 .says .alt { display: block; font-size: .95rem; color: var(--ink-dim); font-weight: 800; }
 .tools { display: flex; gap: 10px; justify-content: center; flex-wrap: wrap; }
 /* pabaiga */
-.score { font: 700 clamp(2rem, 8vw, 3rem) "Pixelify Sans", monospace; color: var(--gold); text-shadow: 3px 3px 0 #000; margin: 0; }
+.score { font: 700 clamp(2rem, 8vw, 3rem) "ZM Digits", "Pixelify Sans", monospace; color: var(--gold); text-shadow: 3px 3px 0 #000; margin: 0; }
 .shots { display: grid; grid-template-columns: repeat(auto-fill, minmax(140px, 1fr)); gap: 12px; }
 .shot { background: #fff; border: 4px solid #000; color: #111; display: grid; }
 .shot img { width: 100%; aspect-ratio: 1; display: block; }
