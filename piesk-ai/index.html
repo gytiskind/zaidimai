@@ -150,11 +150,13 @@ setSound();
 // Piešinys apkarpomas ir iš naujo nupiešiamas 28×28 taškų lauke plona linija.
 // Taip atrodo Quick, Draw! duomenys, iš kurių AI mokėsi (išbandyta: 11 iš 14 pirmu spėjimu).
 const small = document.createElement('canvas'); small.width = small.height = 28;
+if (/debug/.test(location.search)) { small.style.cssText = 'position:fixed;right:8px;bottom:8px;width:168px;height:168px;image-rendering:pixelated;border:3px solid #f0f;z-index:9'; document.body.appendChild(small); window.__pa = () => strokes; }
 function guess() {
   const pts = strokes.flat(); if (pts.length < 2) return null;
   let x0 = 1e9, y0 = 1e9, x1 = -1e9, y1 = -1e9;
   pts.forEach(([x, y]) => { x0 = Math.min(x0, x); y0 = Math.min(y0, y); x1 = Math.max(x1, x); y1 = Math.max(y1, y); });
-  const w = Math.max(x1 - x0, y1 - y0, 1), pad = 28 * 0.08, s = (28 - 2 * pad) / w;
+  // taškai yra dalimis nuo lentos pločio (0..1), todėl apatinė riba maža, ne 1
+  const w = Math.max(x1 - x0, y1 - y0, 0.02), pad = 28 * 0.08, s = (28 - 2 * pad) / w;
   const ox = pad + ((28 - 2 * pad) - (x1 - x0) * s) / 2 - x0 * s, oy = pad + ((28 - 2 * pad) - (y1 - y0) * s) / 2 - y0 * s;
   const g = small.getContext('2d');
   g.fillStyle = '#fff'; g.fillRect(0, 0, 28, 28); g.strokeStyle = '#000'; g.lineWidth = 1.8; g.lineCap = g.lineJoin = 'round';
