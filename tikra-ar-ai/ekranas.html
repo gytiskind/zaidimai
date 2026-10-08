@@ -75,6 +75,7 @@ body { height: 100vh; overflow: hidden; }
 .big { font-weight: 900; font-size: 5.6vh; margin: 0; }
 .big b { color: var(--gem); }
 .verdict { font-weight: 900; font-size: 4vh; color: var(--gold); margin: 0; }
+.ver.need-mac { display: block; color: #fff; background: #e0402e; border: 3px solid #000; padding: 8px 12px; font-size: 1.05rem; max-width: 34em; }
 /* podium: 2nd, 1st, 3rd; places appear one by one, 3rd first */
 .podium { display: grid; grid-template-columns: repeat(3, 22vw); gap: 1.4vw; align-items: end; margin-top: 2vh; }
 .step { display: grid; gap: 1vh; justify-items: center; align-content: end; }
@@ -347,7 +348,7 @@ body { height: 100vh; overflow: hidden; }
         : '<span class="empty">Laukiam planšečių...</span>';
       const nr = nextRound();
       $('rounds').innerHTML = ROUNDS.map((r, i) =>
-        `<button class="wbtn ${i + 1 === nr ? 'go' : ''}" data-round="${i + 1}">${ROUNDS.length > 1 ? (i + 1) + ' raundas' : 'Pradėti'} ▶ <small>(${r.length})</small></button>`).join('');
+        `<button class="wbtn ${i + 1 === nr && r.length ? 'go' : ''}" data-round="${i + 1}" ${r.length ? '' : 'disabled'}>${ROUNDS.length > 1 ? (i + 1) + ' raundas' : 'Pradėti'} ▶ <small>(${r.length})</small></button>`).join('');
       $('offline').textContent = S.offlinePick ? '✓ Be planšečių (tik ekranas)' : 'Be planšečių';
       $('offline').classList.toggle('go', !!S.offlinePick);
       return;
@@ -457,6 +458,8 @@ body { height: 100vh; overflow: hidden; }
   wake();
 
   $('ver').textContent = FULL ? GAME.fullNote : GAME.publicNote;
+  // viešoje versijoje šis žaidimas neturi paveikslėlių: aiškiai pasakom, kaip jį paleisti
+  if (!ROUNDS.some((r) => r.length)) { $('ver').classList.add('need-mac'); $('ver').innerHTML = '⚠ Čia paveikslėlių nėra. Mac\'e du kartus spustelėk <b>„Saugu ar apgavystė ekranas“</b> (aplanke pamokos-vaikams). Planšetės jungiasi kaip įprasta.'; }
   document.title = GAME.title + ' Ekranas';
   document.querySelectorAll('[data-title]').forEach((el) => { el.textContent = GAME.title; });
   $('urlhint').textContent = `→ ${GAME.title} → įvesk kodą`;

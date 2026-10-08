@@ -136,6 +136,18 @@ h1, h2 { margin: 0; font-weight: 900; line-height: 1.05; color: var(--gold); tex
 .types li { display: grid; grid-template-columns: auto 1fr; gap: 10px; align-items: center; background: #0f0d16; padding: 6px 10px; border: 2px solid #000; font-weight: 800; }
 .types li span { font-size: 1.4rem; }
 .types li b { display: block; color: var(--gold); }
+.types li { grid-template-columns: auto 1fr auto; }
+.types li.ok { border-color: var(--good, #5cbf3a); }
+.types li.bad { border-color: var(--bad, #e0402e); }
+.types .res { font: 700 .95rem var(--pixel); padding: 4px 8px; white-space: nowrap; border: 2px solid #000; }
+.types li.ok .res { background: var(--good, #5cbf3a); color: #0d2a0d; }
+.types li.bad .res { background: var(--bad, #e0402e); color: #fff; }
+.rounds button { position: relative; }
+.rounds button .mk { position: absolute; right: -4px; top: -6px; font: 900 .8rem var(--word, sans-serif); line-height: 1; padding: 2px 3px; border: 2px solid #000; }
+.rounds button .mk.done { background: var(--good, #5cbf3a); color: #0d2a0d; }
+.rounds button .mk.perfect { background: var(--gold, #ffcc33); color: #2a1d00; }
+.rounds button .mk.fail { background: var(--bad, #e0402e); color: #fff; }
+.rlegend { margin: 0; font-size: .8rem; color: var(--ink-dim); font-weight: 800; }
 .big { font: 700 2.2rem var(--pixel); color: var(--gold); text-shadow: 3px 3px 0 #000; }
 .links { display: flex; gap: 10px; flex-wrap: wrap; align-items: center; }
 
@@ -195,6 +207,7 @@ h1, h2 { margin: 0; font-weight: 900; line-height: 1.05; color: var(--gold); tex
     <div style="display:grid;gap:10px">
       <span class="lbl">Pradėk nuo raundo</span>
       <div class="rounds" id="rounds"></div>
+      <p class="rlegend">✓ įveikta · ⭐ be klaidų · ✗ nepavyko</p>
       <div class="row"><button class="wbtn go" id="play">▶ ŽAISTI</button><span class="stat"><small>REKORDAS</small><span id="best">0</span></span></div>
       <div class="links"><a class="zm-back" href="../">← Meniu</a></div>
     </div>
@@ -393,7 +406,7 @@ function startGame(r) {
   show(null); startRound();
 }
 function startRound() {
-  S.deck = buildDeck(S.round); S.roundTraps = []; S.roundCaught = 0; S.roundTrapN = 0;
+  S.deck = buildDeck(S.round); S.roundTraps = []; S.roundCaught = 0; S.roundTrapN = 0; S.roundRes = [];
   S.speed = 1 / FALL(S.round); hud(); nextCard();
 }
 function nextCard() {
@@ -418,6 +431,7 @@ function answer(saidSafe) {
     S.streak++;
     const mult = Math.min(3, 1 + Math.floor(S.streak / 3));
     S.score += 10 * mult;
+    S.roundRes.push({ c, ok: true });
     if (!c.s) { S.roundCaught++; S.roundTraps.push(c.ty); sfx.zap(); tip(`✓ Spąstai: ${TYPES[c.ty][1]}`); }
     else { sfx.good(); tip('✓ Saugu'); }
     S.el.classList.add(saidSafe ? 'out-safe' : 'out-trap');
@@ -428,6 +442,7 @@ function answer(saidSafe) {
 }
 function wrong(timeout) {
   const c = S.cur; S.streak = 0; S.hp--; sfx.bad(); hud();
+  S.roundRes.push({ c, ok: false });
   if (!c.s) S.roundTraps.push(c.ty);
   S.mistakes.push(c);
   S.el.classList.add('freeze');
@@ -443,17 +458,25 @@ function endRound() {
   S.mode = 'recap'; sfx.round();
   if (S.round >= ROUNDS) return gameOver(true);
   prog.maxRound = Math.max(prog.maxRound, S.round + 1); saveProg();
-  $('rTitle').textContent = `Raundas ${S.round} įveiktas!`;
-  $('rStats').textContent = `Pagauta spąstų: ${S.roundCaught} iš ${S.roundTrapN}. Taškai: ${S.score}.` + (S.hp < 3 ? ' Gauni vieną širdį atgal.' : '');
-  const types = [...new Set(S.roundTraps)];
-  $('rTypes').innerHTML = types.length ? types.map((t) => `<li><span>${TYPES[t][0]}</span><div><b>${esc(TYPES[t][1])}</b>${esc(TYPES[t][2])}</div></li>`).join('')
-    : '<li><span>🛡️</span><div><b>Šįkart be spąstų</b>Visos kortelės buvo saugios.</div></li>';
+  const errs = S.roundRes.filter((r) => !r.ok).length;
+  markRound(S.round, errs ? 'done' : 'perfect');
+  $('rTitle').textContent = errs ? `Raundas ${S.round} įveiktas ✓` : `Raundas ${S.round}: be klaidų! ⭐`;
+  $('rStats').textContent = `Teisingai: ${S.roundRes.length - errs} iš ${S.roundRes.length}. Pagauta spąstų: ${S.roundCaught} iš ${S.roundTrapN}. Taškai: ${S.score}.` + (S.hp < 3 ? ' Gauni vieną širdį atgal.' : '');
+  // kiekviena spąstų rūšis ir saugios kortelės: ✓ jei visos teisingai, ✗ jei buvo klaida
+  const groups = new Map();
+  S.roundRes.forEach(({ c, ok }) => { const k = c.s ? 'safe' : c.ty; const g = groups.get(k) || { n: 0, ok: 0 }; g.n++; if (ok) g.ok++; groups.set(k, g); });
+  const row = (k, g) => {
+    const good = g.ok === g.n, [ic, name, txt] = k === 'safe' ? ['✅', 'Saugios kortelės', 'Tikri mygtukai ir žinutės nuo pažįstamų žmonių.'] : TYPES[k];
+    return `<li class="${good ? 'ok' : 'bad'}"><span>${ic}</span><div><b>${esc(name)}</b>${esc(txt)}</div><em class="res">${good ? '✓' : '✗'} ${g.ok}/${g.n}</em></li>`;
+  };
+  $('rTypes').innerHTML = [...groups].sort((a, b) => (a[1].ok === a[1].n) - (b[1].ok === b[1].n)).map(([k, g]) => row(k, g)).join('');
   S.hp = Math.min(3, S.hp + 1);
   show('oRecap'); $('rNext').focus();
 }
 $('rNext').onclick = () => { show(null); S.round++; S.mode = 'play'; startRound(); };
 function gameOver(won) {
   S.mode = 'over'; if (S.el) { S.el.remove(); S.el = null; }
+  if (!won) markRound(S.round, 'fail');
   const rec = S.score > prog.best; if (rec) prog.best = S.score;
   if (won) prog.maxRound = ROUNDS;
   saveProg();
@@ -493,15 +516,21 @@ requestAnimationFrame(loop);
 addEventListener('resize', () => { if (S.el) place(); });
 
 /* ---------- pradžia ---------- */
+// raundo būsena: perfect (be klaidų) > done (įveikta) > fail (nepavyko); geresnė niekada nepakeičiama blogesne
+const RANK = { fail: 1, done: 2, perfect: 3 };
+function markRound(n, st) { prog.rounds = prog.rounds || {}; if ((RANK[st] || 0) > (RANK[prog.rounds[n]] || 0)) prog.rounds[n] = st; saveProg(); }
+const MK = { done: '✓', perfect: '⭐', fail: '✗' };
 function renderRounds() {
   if (pickRound > prog.maxRound) pickRound = 1;
   $('rounds').innerHTML = Array.from({ length: ROUNDS }, (_, i) => i + 1)
-    .map((n) => `<button data-r="${n}" class="${n === pickRound ? 'on' : ''}" ${n > prog.maxRound ? 'disabled aria-label="Užrakinta"' : ''}>${n > prog.maxRound ? '🔒' : n}</button>`).join('');
+    .map((n) => { const st = (prog.rounds || {})[n];
+      return `<button data-r="${n}" class="${n === pickRound ? 'on' : ''}" ${n > prog.maxRound ? 'disabled aria-label="Užrakinta"' : ''}>${n > prog.maxRound ? '🔒' : n}${st && n <= prog.maxRound ? `<i class="mk ${st}">${MK[st]}</i>` : ''}</button>`; }).join('');
   $('rounds').querySelectorAll('button').forEach((b) => { b.onclick = () => { pickRound = +b.dataset.r; renderRounds(); }; });
   $('best').textContent = prog.best;
 }
 $('play').onclick = () => startGame(pickRound);
 renderRounds(); hud();
+if (/debug/.test(location.search)) window.__sm = () => S; // testams
 })();
 </script>
 </body>
