@@ -210,10 +210,18 @@ body { height: 100vh; overflow: hidden; }
   }
   let S;
   try { S = JSON.parse(localStorage.getItem(KEY) || 'null'); } catch (e) {}
+  // ?new=1 (iš Mac paleidiklio): žaidimas visada prasideda iš naujo, su nauju kodu ir be senų žaidėjų.
+  // Parametras iškart nuimamas, kad perkrovus puslapį žaidimas būtų tęsiamas, o ne pradėtas vėl.
+  const qs = new URLSearchParams(location.search);
+  if (qs.has('new')) {
+    S = null; qs.delete('new'); qs.delete('t');
+    history.replaceState(null, '', location.pathname + (qs.toString() ? '?' + qs : ''));
+  }
   if (!S || !S.code) S = fresh();
   useRound(S.round);
   if (S.idx >= N) { S.phase = 'lobby'; S.idx = 0; }
   const save = () => { try { localStorage.setItem(KEY, JSON.stringify(S)); } catch (e) {} };
+  save();   // kitaip po ?new=1 perkrovus puslapį grįžtų senas žaidimas
 
   let net = null;
   function connect() {
@@ -229,7 +237,7 @@ body { height: 100vh; overflow: hidden; }
   function publicState() {
     const players = {}, score = {};
     for (const [pid, p] of Object.entries(S.players)) { players[pid] = p.name; score[pid] = p.score; }
-    const st = { t: 'state', seq: Date.now(), phase: S.phase, idx: S.idx, n: N, round: S.round, rounds: ROUNDS.length, players, score,
+    const st = { t: 'state', seq: Date.now(), phase: S.phase, idx: S.idx, n: N, round: S.round, rounds: ROUNDS.length, gid: S.gid || 0, players, score,
                  game: { id: GAME.id, title: GAME.title, a: GAME.a, b: GAME.b },
                  got: Object.keys(S.answers), offline: S.offline };
     if (S.phase === 'reveal') { st.answer = ITEMS[S.idx].answer; st.res = S.res; }
@@ -277,6 +285,7 @@ body { height: 100vh; overflow: hidden; }
     S.offline = !!S.offlinePick; S.phase = 'q'; S.idx = 0; S.answers = {}; S.res = {}; S.classPts = 0; S.classMax = 0;
     for (const p of Object.values(S.players)) { p.score = 0; p.time = 0; }
     S.qStart = Date.now(); S.atime = {}; S.podium = []; S.podStep = 0;
+    S.gid = Date.now();   // kiekvienas žaidimas gauna savo numerį: planšetės pagal jį skiria atsakymus
     save(); render(true); publish();
   }
   function reveal() {
