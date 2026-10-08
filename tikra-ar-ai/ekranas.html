@@ -75,6 +75,8 @@ body { height: 100vh; overflow: hidden; }
 .big { font-weight: 900; font-size: 5.6vh; margin: 0; }
 .big b { color: var(--gem); }
 .verdict { font-weight: 900; font-size: 4vh; color: var(--gold); margin: 0; }
+.ver.need-mac .cmd { display: block; margin: 8px 0; padding: 8px 10px; background: #111; color: #7ee04f; font: 700 0.95rem ui-monospace, Menlo, monospace; user-select: all; word-break: break-all; }
+.ver.need-mac .cmdNote { display: block; margin-top: 6px; }
 .ver.need-mac { display: block; color: #fff; background: #e0402e; border: 3px solid #000; padding: 8px 12px; font-size: 1.05rem; max-width: 34em; }
 /* podium: 2nd, 1st, 3rd; places appear one by one, 3rd first */
 .podium { display: grid; grid-template-columns: repeat(3, 22vw); gap: 1.4vw; align-items: end; margin-top: 2vh; }
@@ -459,7 +461,18 @@ body { height: 100vh; overflow: hidden; }
 
   $('ver').textContent = FULL ? GAME.fullNote : GAME.publicNote;
   // viešoje versijoje šis žaidimas neturi paveikslėlių: aiškiai pasakom, kaip jį paleisti
-  if (!ROUNDS.some((r) => r.length)) { $('ver').classList.add('need-mac'); $('ver').innerHTML = '⚠ Čia paveikslėlių nėra. Mac\'e du kartus spustelėk <b>„Saugu ar apgavystė ekranas“</b> (aplanke pamokos-vaikams). Planšetės jungiasi kaip įprasta.'; }
+  if (!ROUNDS.some((r) => r.length)) {
+    const cmd = 'open "$HOME/PProjects/pamokos-vaikams/Saugu ar apgavystė ekranas.command"';
+    $('ver').classList.add('need-mac');
+    $('ver').innerHTML = '⚠ Čia paveikslėlių nėra. Mac\'e du kartus spustelėk <b>„Saugu ar apgavystė ekranas“</b> (aplanke pamokos-vaikams) arba paleisk Terminale:'
+      + '<code class="cmd" id="cmd"></code><button class="wbtn small" id="cmdCopy" type="button">Kopijuoti komandą</button>'
+      + '<span class="cmdNote">Planšetės jungiasi kaip įprasta.</span>';
+    $('cmd').textContent = cmd;
+    $('cmdCopy').onclick = async () => {
+      try { await navigator.clipboard.writeText(cmd); $('cmdCopy').textContent = 'Nukopijuota ✓'; }
+      catch (e) { const r = document.createRange(); r.selectNodeContents($('cmd')); getSelection().removeAllRanges(); getSelection().addRange(r); $('cmdCopy').textContent = 'Pažymėta: spausk Cmd+C'; }
+    };
+  }
   document.title = GAME.title + ' Ekranas';
   document.querySelectorAll('[data-title]').forEach((el) => { el.textContent = GAME.title; });
   $('urlhint').textContent = `→ ${GAME.title} → įvesk kodą`;

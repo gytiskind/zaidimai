@@ -16,7 +16,7 @@ A class game in `tikra-ar-ai/`, written directly in the repo (not built by build
 - `ekranas.html`: the teacher screen on the Mac. Shows a join code, the pictures and videos, and the answers. Space = next.
 - `index.html`: the tablet page. Join with the code, then tap TIKRA or AI.
 - Screen and tablets talk through two public MQTT brokers (`net.js`), so no server is needed.
-- `g/saugu/data.js`: config of the second game, "Saugu ar apgavystė?" (Roblox scams). Its pictures are recreated Roblox screens, so they live only on the Mac in `g/saugu/local/` (gitignored); open `ekranas.html?g=saugu` from the Mac.
+- `g/saugu/data.js`: config of the second game, "Saugu ar apgavystė?" (Roblox scams). Its pictures are recreated Roblox screens, so they live only on the Mac in `g/saugu/local/` (gitignored); open `ekranas.html?g=saugu` from the Mac. Start it with: `open "$HOME/PProjects/pamokos-vaikams/Saugu ar apgavystė ekranas.command"` (starts the local server on :8847 and opens Chrome).
 - `data.js`: two rounds (max 20 each) with answers, explanations and credits, generated from the teacher's picks by `pamokos-vaikams/tikra-ar-ai-select/build_game.py` (not in this repo). Media is from Wikimedia Commons plus one OpenAI Sora sample; credits are on the end screen.
 
 ## Mokomės ir Saugiai internete (2026-10)
