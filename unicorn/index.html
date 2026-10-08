@@ -179,7 +179,8 @@ h2 { font-size: clamp(2.2rem, 10vw, 3rem); }
     const safe = $('safe').offsetHeight;
     ground = H - safe - Math.max(28, H * 0.08);
     k = Math.max(0.75, Math.min(1.35, Math.min(W, H) / 560));
-    uni.s = Math.max(88, Math.min(150, W * 0.24));
+    // dydis nuo trumpesnės ekrano kraštinės: plačioje planšetėje vienaragis nebeišsipučia
+    uni.s = Math.round(Math.max(70, Math.min(120, Math.min(W, H) * 0.17)));
     if (!uni.x) uni.x = uni.tx = W / 2;
     uni.x = Math.min(uni.x, W); uni.tx = Math.min(uni.tx, W);
 

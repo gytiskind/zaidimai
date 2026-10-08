@@ -496,8 +496,11 @@ h2 { font-size: clamp(2.6rem, 13vw, 3.4rem); color: var(--tnt); text-shadow: 4px
     cvs.width = bgc.width = Math.round(W * dpr);
     cvs.height = bgc.height = Math.round(H * dpr);
     k = Math.max(0.8, Math.min(1.35, Math.min(W, H) / 560));
-    B = Math.round(Math.max(38, Math.min(62, W * 0.11)));
-    heroW = Math.max(118, Math.min(190, W * 0.32));
+    // dydžiai nuo trumpesnės ekrano kraštinės: plačioje planšetėje blokai ir vagonėlis nebeišsipučia,
+    // lieka vietos važinėti ir matyti, kas krenta
+    const m = Math.min(W, H);
+    B = Math.round(Math.max(34, Math.min(58, m * 0.085)));
+    heroW = Math.round(Math.max(80, Math.min(140, B * 2.4)));
     const safe = $('safe').offsetHeight;
     ground = Math.round(H - safe - Math.max(B * 1.3, H * 0.1));
     if (!uni.x) uni.x = uni.tx = W / 2;

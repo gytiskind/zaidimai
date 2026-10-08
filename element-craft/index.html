@@ -164,6 +164,31 @@ h1 span { display: block; color: var(--gold); text-shadow: 4px 4px 0 #8a5a12, 8p
   .slots { gap: 6px; }
 }
 
+/* Gulsčia planšetė: stalas kairėje, elementai dešinėje mažesnėmis plytelėmis, kad matytųsi beveik visi */
+@media (orientation: landscape) and (min-width: 700px) {
+  #app { max-width: none; grid-template-columns: clamp(260px, 30vw, 360px) minmax(0, 1fr); grid-template-rows: auto minmax(0, 1fr); gap: 10px 14px; }
+  .top { grid-column: 1 / -1; gap: 6px 8px; }
+  .top .small, .top .seg .btn { padding: 4px 8px; font-size: 0.85rem; }
+  .brand { font-size: 1.25rem; }
+  .bench { grid-column: 1; grid-row: 2; align-self: start; padding: 10px 8px; }
+  .slots { gap: 4px; }
+  .slot { width: clamp(64px, 7.5vw, 92px); padding: 4px; }
+  .slot span { font-size: 0.75rem; }
+  .op { font-size: 1.5rem; }
+  .fact { font-size: 0.95rem; min-height: 0; }
+  .inv { grid-column: 2; grid-row: 2; grid-template-columns: repeat(auto-fill, minmax(clamp(70px, 12dvh, 104px), 1fr)); gap: 6px; padding-bottom: 10px; }
+  .tile { padding: 4px 2px 5px; gap: 2px; }
+  .tile img, .tile.locked .q { width: clamp(34px, 7.5dvh, 58px); height: clamp(34px, 7.5dvh, 58px); }
+  .tile.locked .q { font-size: 1.4rem; }
+  .tile span { font-size: clamp(0.68rem, 2.1dvh, 0.9rem); }
+}
+/* Stačia planšetė ir telefonas: daugiau elementų eilėje */
+@media (orientation: portrait) {
+  .inv { grid-template-columns: repeat(auto-fill, minmax(76px, 1fr)); gap: 8px; }
+  .tile img, .tile.locked .q { width: 44px; height: 44px; }
+  .tile span { font-size: 0.8rem; }
+}
+
 /* Short landscape tablets (Android, browser bars eat the height): a menu or result panel that does not
    fit gets two columns instead of a scroll. The fitter script below adds .fit2 only when it is needed. */
 .overlay .fit2 { display: block; columns: 2; column-gap: 24px; max-width: min(880px, 96vw); padding-top: 12px; padding-bottom: 12px; }
