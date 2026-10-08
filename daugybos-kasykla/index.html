@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <style>body{margin:0}.zm-back{display:inline-flex;align-items:center;justify-self:center;align-self:center;font:900 0.95rem "Nunito","Arial Rounded MT Bold",system-ui,sans-serif;color:#f3f0f7;text-decoration:none;background:#3b3846;border:3px solid;border-color:#6e6a7c #1f1c27 #1f1c27 #6e6a7c;box-shadow:0 0 0 2px #000;padding:5px 12px;touch-action:manipulation;white-space:nowrap}.zm-back:focus-visible{outline:3px solid #4de8d6;outline-offset:3px}</style>
 <script src="../zm.js"></script>
-<title>Daugybos kasykla</title>
+<title>Skaičių kasykla</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Pixelify+Sans:wght@400;600;700&display=swap">
@@ -193,8 +193,14 @@ h2 { font-size: clamp(2.6rem, 13vw, 3.4rem); color: var(--tnt); text-shadow: 4px
 .pick > span { font-size: 0.82rem; color: var(--ink-dim); letter-spacing: 0.08em; }
 .trow { display: grid; grid-template-columns: repeat(5, 1fr); gap: 6px; }
 .drow { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; }
+.orow { display: grid; grid-template-columns: repeat(4, 1fr); gap: 6px; }
+.rrow { display: grid; grid-template-columns: repeat(3, 1fr); gap: 6px; }
+.obtn { font-size: 1.5rem; padding: 4px 2px 2px; }
+.pick[hidden] { display: none; }
+.op, .obtn { font-family: var(--word), "Nunito", system-ui, sans-serif; font-weight: 900; }
+.obtn { font-size: 1.7rem; line-height: 1; }
 .tbtn, .dbtn { font-size: 1.05rem; padding: 7px 2px 5px; }
-.tbtn[aria-pressed="true"], .dbtn[aria-pressed="true"] {
+.tbtn[aria-pressed="true"], .dbtn[aria-pressed="true"], .obtn[aria-pressed="true"] {
   background: var(--diamond); color: #0d2a27; border-color: #b6fff4 #1d9c8f #1d9c8f #b6fff4;
 }
 .tbtn.all { font-size: 0.85rem; }
@@ -206,7 +212,7 @@ h2 { font-size: clamp(2.6rem, 13vw, 3.4rem); color: var(--tnt); text-shadow: 4px
 .exq { margin: 0; font-size: 1.6rem; color: var(--ink); text-shadow: 2px 2px 0 #000; }
 .exq em { font-style: normal; color: var(--gold); }
 #start h1 { order: 1; } #start .lead { order: 2; } #start .exq { order: 3; } #start .ex { order: 4; } #start .tip { order: 5; }
-#pickTables { order: 6; } #pickSpeed { order: 7; } #start .play { order: 8; } #start .best { order: 9; } #start .links { order: 10; }
+#pickOps { order: 6; } #pickRange { order: 6; } #pickTables { order: 6; } #start .warn { order: 6; } #pickSpeed { order: 7; } #start .play { order: 8; } #start .best { order: 9; } #start .links { order: 10; }
 .warn { margin: 0; color: var(--tnt); font-size: 0.9rem; min-height: 1.1em; }
 /* game over: what to practise */
 .review { display: grid; gap: 4px; width: 100%; }
@@ -222,10 +228,20 @@ h2 { font-size: clamp(2.6rem, 13vw, 3.4rem); color: var(--tnt); text-shadow: 4px
   #start .ex canvas { width: clamp(36px, 8dvh, 56px); height: clamp(36px, 8dvh, 56px); }
   #start .exq { font-size: clamp(1.1rem, 4dvh, 1.6rem); }
   .tbtn, .dbtn { font-size: clamp(0.85rem, 3dvh, 1.05rem); padding: clamp(4px, 1dvh, 7px) 2px; }
+  .obtn { font-size: clamp(1.2rem, 5dvh, 1.7rem); padding: clamp(1px, 0.4dvh, 4px) 2px; }
+  .trow { grid-template-columns: repeat(10, 1fr); gap: 4px; }
+  .trow .tbtn { font-size: clamp(0.7rem, 2.6dvh, 0.95rem); padding: clamp(3px, 0.9dvh, 6px) 0; }
+  .trow .tbtn.all { font-size: clamp(0.55rem, 2dvh, 0.8rem); }
+  .pick { gap: clamp(2px, 0.6dvh, 6px); }
+  .pick > span { font-size: clamp(0.65rem, 2.2dvh, 0.82rem); }
+  #start .warn { min-height: 0; }
   #over .panel { max-width: 760px; grid-template-columns: 1fr 1fr; align-items: center; gap: 0 24px; }
   #over .col { display: grid; gap: clamp(6px, 1.8dvh, 14px); justify-items: center; align-content: center; }
   .review p { font-size: clamp(1rem, 3.6dvh, 1.25rem); }
 }
+/* maži ekranai: pavyzdžiai nebūtini, svarbiau, kad tilptų mygtukai */
+@media (orientation: portrait) and (max-width: 520px) { #start .ex, #start .tip { display: none; } }
+@media (orientation: landscape) and (max-height: 430px) { #start .ex, #start .tip { display: none; } #start h1 { font-size: 1.7rem; } }
 @media (orientation: portrait) and (max-width: 520px) {
   .question { top: calc(env(safe-area-inset-top, 0px) + 104px); }
   .tbtn, .dbtn { font-size: 0.95rem; }
@@ -251,15 +267,18 @@ h2 { font-size: clamp(2.6rem, 13vw, 3.4rem); color: var(--tnt); text-shadow: 4px
   </div>
 </div>
 <div class="question" id="question" hidden>
-  <div class="qbox" id="qbox" aria-live="polite">6 × 7 = <em>?</em></div>
+  <div class="qbox" id="qbox" aria-live="polite">7 + 5 = <em>?</em></div>
   <div class="fb" id="fb" hidden></div>
 </div>
 
 <div class="overlay" id="start">
   <div class="panel">
    <div class="col">
-    <h1>DAUGYBOS <span>KASYKLA</span></h1>
-    <div class="pick" id="pickTables"><span>KURIOS LENTELĖS?</span><div class="trow" id="tables"></div><p class="warn" id="warn"></p></div>
+    <h1>SKAIČIŲ <span>KASYKLA</span></h1>
+    <div class="pick" id="pickOps"><span>VEIKSMAI</span><div class="orow" id="ops"></div></div>
+    <div class="pick" id="pickRange"><span>SUDĖTIS IR ATIMTIS: SKAIČIAI IKI</span><div class="rrow" id="ranges"></div></div>
+    <div class="pick" id="pickTables"><span>DAUGYBA IR DALYBA: LENTELĖS</span><div class="trow" id="tables"></div></div>
+    <p class="warn" id="warn"></p>
     <div class="pick" id="pickSpeed"><span>GREITIS</span><div class="drow">
       <button class="btn dbtn" type="button" data-speed="slow">LĖTAI</button>
       <button class="btn dbtn" type="button" data-speed="fast">GREITAI</button>
@@ -270,11 +289,11 @@ h2 { font-size: clamp(2.6rem, 13vw, 3.4rem); color: var(--tnt); text-shadow: 4px
    </div>
    <div class="col">
     <p class="lead">Viršuje klausimas. Vairuok vagonėlį pirštu ir pagauk blokelį su <b>teisingu atsakymu</b>.</p>
-    <p class="exq">6 × 7 = <em>?</em></p>
+    <p class="exq">7 <span class="op">+</span> 5 = <em>?</em></p>
     <ul class="ex">
-      <li><canvas data-n="42" data-kind="gold" width="112" height="112"></canvas><b>+10</b>teisingai</li>
-      <li class="bad"><canvas data-n="48" data-kind="iron" width="112" height="112"></canvas><b>-½ širdelės</b>neteisingai</li>
-      <li class="bad"><canvas data-n="42" data-kind="diamond" data-miss="1" width="112" height="112"></canvas><b>-½ širdelės</b>praleidai</li>
+      <li><canvas data-n="12" data-kind="gold" width="112" height="112"></canvas><b>+10</b>teisingai</li>
+      <li class="bad"><canvas data-n="13" data-kind="iron" width="112" height="112"></canvas><b>-½ širdelės</b>neteisingai</li>
+      <li class="bad"><canvas data-n="12" data-kind="diamond" data-miss="1" width="112" height="112"></canvas><b>-½ širdelės</b>praleidai</li>
     </ul>
     <p class="tip">10 teisingų iš eilės = x2 taškų.<br>Kas 10 teisingų: naujas lygis!</p>
    </div>
@@ -457,12 +476,17 @@ h2 { font-size: clamp(2.6rem, 13vw, 3.4rem); color: var(--tnt); text-shadow: 4px
     q: null, pause: 0, needQ: false, sinceRight: 0, missed: {}, review: [], heartDue: false,
   };
   const ALL = [2, 3, 4, 5, 6, 7, 8, 9, 10];
-  let tables = ALL.slice(), speed = 'slow';
+  const OPS = ['+', '−', '×', '÷'], RANGES = [10, 20, 100];
+  let tables = ALL.slice(), speed = 'slow', ops = ['+', '−'], range = 20;
   try {
     S.best = Number(localStorage.getItem(NS('dk-best'))) || 0;
     const t = JSON.parse(localStorage.getItem(NS('dk-tables')) || 'null');
     if (Array.isArray(t) && t.length && t.every((n) => ALL.includes(n))) tables = t;
     if (localStorage.getItem(NS('dk-speed')) === 'fast') speed = 'fast';
+    const o = JSON.parse(localStorage.getItem(NS('dk-ops')) || 'null');
+    if (Array.isArray(o) && o.length && o.every((x) => OPS.includes(x))) ops = o;
+    const r = Number(localStorage.getItem(NS('dk-range')));
+    if (RANGES.includes(r)) range = r;
   } catch (e) {}
 
   /* ---------- sizing + static background ---------- */
@@ -748,32 +772,49 @@ h2 { font-size: clamp(2.6rem, 13vw, 3.4rem); color: var(--tnt); text-shadow: 4px
   };
 
   /* ---------- questions ---------- */
-  const factKey = (a, b) => (a <= b ? `${a} × ${b}` : `${b} × ${a}`);
+  // Klausimas: {op, a, b, ans}. Sudėtis ir daugyba sukeičiamos, todėl 3 + 5 ir 5 + 3 yra tas pats faktas.
+  const factKey = (q) => ((q.op === '+' || q.op === '×') && q.a > q.b ? `${q.b} ${q.op} ${q.a}` : `${q.a} ${q.op} ${q.b}`);
+  const qText = (q) => `${q.a} ${q.op} ${q.b}`;
+  const qHtml = (q) => `${q.a} <span class="op">${q.op}</span> ${q.b}`;
   const rnd = (n) => (Math.random() * n) | 0;
+  const needTables = () => ops.includes('×') || ops.includes('÷');
+  const needRange = () => ops.includes('+') || ops.includes('−');
+  function makeQ(op) {
+    if (op === '+') { const a = 1 + rnd(range - 1), b = 1 + rnd(range - a); return { op, a, b, ans: a + b }; }
+    if (op === '−') { const a = 2 + rnd(range - 1), b = 1 + rnd(a); return { op, a, b, ans: a - b }; }
+    const t = tables[rnd(tables.length)], m = 2 + rnd(9);
+    if (op === '×') return Math.random() < 0.5 ? { op, a: t, b: m, ans: t * m } : { op, a: m, b: t, ans: t * m };
+    return { op, a: t * m, b: t, ans: m }; // ÷: 42 ÷ 6 = 7, visada be liekanos
+  }
   function newQuestion() {
     const prev = S.q;
-    let a, b, tries = 0;
+    const can = ops.filter((o) => (o === '×' || o === '÷') ? tables.length : true);
+    let q, tries = 0;
     do {
-      // a fact that was missed comes back after a few other questions
+      // klaida grįžta po kelių kitų klausimų
       const due = S.review.find((r) => r.due <= 0);
-      if (due && tries === 0) { a = due.a; b = due.b; S.review.splice(S.review.indexOf(due), 1); }
-      else { a = tables[rnd(tables.length)]; b = 2 + rnd(9); if (Math.random() < 0.5) [a, b] = [b, a]; }
+      if (due && tries === 0) { q = due.q; S.review.splice(S.review.indexOf(due), 1); }
+      else q = makeQ(can[rnd(can.length)]);
       tries++;
-    } while (prev && tries < 8 && factKey(a, b) === factKey(prev.a, prev.b));
+    } while (prev && tries < 8 && factKey(q) === factKey(prev));
     S.review.forEach((r) => { r.due--; });
-    S.q = { a, b, ans: a * b };
+    S.q = q;
     S.sinceRight = 0;
-    const qb = $('qbox');
-    qb.innerHTML = `${a} × ${b} = <em>?</em>`;
-    qb.classList.remove('pop'); void qb.offsetWidth; qb.classList.add('pop');
+    const qbx = $('qbox');
+    qbx.innerHTML = `${qHtml(q)} = <em>?</em>`;
+    qbx.classList.remove('pop'); void qbx.offsetWidth; qbx.classList.add('pop');
   }
-  // wrong answers that a child could really pick: a neighbouring fact or one off
-  function distractors(a, b) {
-    const ans = a * b, set = new Set();
-    [[a, b + 1], [a, b - 1], [a + 1, b], [a - 1, b]].forEach(([x, y]) => { if (x > 0 && y > 0) set.add(x * y); });
-    [1, -1, 2, -2, 10, -10].forEach((d) => set.add(ans + d));
+  // neteisingi atsakymai, kuriuos vaikas tikrai galėtų pasirinkti
+  function distractors(q) {
+    const { op, a, b, ans } = q, set = new Set();
+    [1, -1, 2, -2].forEach((d) => set.add(ans + d));
+    if (ans >= 10) [10, -10].forEach((d) => set.add(ans + d));
+    if (op === '+') { set.add(Math.abs(a - b)); }
+    if (op === '−') { set.add(a + b); }
+    if (op === '×') [[a, b + 1], [a, b - 1], [a + 1, b], [a - 1, b]].forEach(([x, y]) => { if (x > 0 && y > 0) set.add(x * y); });
+    if (op === '÷') { set.add(b); set.add(ans * 2); }
     set.delete(ans);
-    return [...set].filter((v) => v > 0);
+    return [...set].filter((v) => v >= 0);
   }
 
   /* ---------- rules ---------- */
@@ -811,7 +852,7 @@ h2 { font-size: clamp(2.6rem, 13vw, 3.4rem); color: var(--tnt); text-shadow: 4px
     let n;
     if (!onScreen.has(S.q.ans) && (S.sinceRight >= 2 || Math.random() < 0.4)) n = S.q.ans;
     else {
-      const opts = distractors(S.q.a, S.q.b).filter((v) => !onScreen.has(v));
+      const opts = distractors(S.q).filter((v) => !onScreen.has(v));
       if (!opts.length) return;
       n = opts[rnd(opts.length)];
     }
@@ -846,14 +887,15 @@ h2 { font-size: clamp(2.6rem, 13vw, 3.4rem); color: var(--tnt); text-shadow: 4px
   }
   function feedback(text, good) {
     const fb = $('fb');
-    fb.textContent = text; fb.classList.toggle('bad', !good); fb.hidden = false;
+    fb.innerHTML = text.replace(/ ([+−×÷]) /, ' <span class="op">$1</span> '); fb.classList.toggle('bad', !good); fb.hidden = false;
     clearTimeout(feedback.t);
     feedback.t = setTimeout(() => { fb.hidden = true; }, good ? 900 : 2200);
   }
   function rememberMiss() {
-    const { a, b } = S.q, key = factKey(a, b);
+    const q = S.q, key = factKey(q);
     S.missed[key] = (S.missed[key] || 0) + 1;
-    if (!S.review.some((r) => factKey(r.a, r.b) === key)) S.review.push({ a, b, due: 3 });
+    S.missedQ = S.missedQ || {}; S.missedQ[key] = q;
+    if (!S.review.some((r) => factKey(r.q) === key)) S.review.push({ q, due: 3 });
   }
   function nextAfter(sec) { S.pause = sec; S.needQ = true; }
 
@@ -871,14 +913,14 @@ h2 { font-size: clamp(2.6rem, 13vw, 3.4rem); color: var(--tnt); text-shadow: 4px
     debris(blk.x, blk.y, [o.main, o.hi, STONE[0], STONE[3]], 14);
     S.load.push(blk.type); if (S.load.length > 4) S.load.shift();
     if (!play || S.pause > 0) return;
-    const { a, b, ans } = S.q;
+    const { ans } = S.q, txt = qText(S.q);
     if (blk.n === ans) {
       S.streak++; S.correct++;
       setMult();
       const pts = 10 * S.mult;
       S.score += pts;
       floatText('+' + pts, blk.x, blk.y - 10, '#ffcc33', 34);
-      feedback(`${a} × ${b} = ${ans}`, true);
+      feedback(`${txt} = ${ans}`, true);
       sfx.right(S.streak);
       clearRound();
       if (S.correct % 10 === 0) {
@@ -891,7 +933,7 @@ h2 { font-size: clamp(2.6rem, 13vw, 3.4rem); color: var(--tnt); text-shadow: 4px
       nextAfter(0.7);
     } else {
       floatText(blk.n + ' ✗', blk.x, blk.y - 10, '#e0402e', 30);
-      lose(`Teisingai: ${a} × ${b} = ${ans}`);
+      lose(`Teisingai: ${txt} = ${ans}`);
     }
   }
   function lose(text) {
@@ -910,7 +952,7 @@ h2 { font-size: clamp(2.6rem, 13vw, 3.4rem); color: var(--tnt); text-shadow: 4px
     if (!play || S.mode !== 'play' || S.pause > 0 || blk.n !== S.q.ans) return;
     floatText('PRALEIDAI', blk.x, ground - B * 0.9, '#ff6b74', 22);
     sfx.miss();
-    lose(`Teisingai: ${S.q.a} × ${S.q.b} = ${S.q.ans}`);
+    lose(`Teisingai: ${qText(S.q)} = ${S.q.ans}`);
   }
 
   /* ---------- loop ---------- */
@@ -1063,10 +1105,10 @@ h2 { font-size: clamp(2.6rem, 13vw, 3.4rem); color: var(--tnt); text-shadow: 4px
   }
 
   function start() {
-    if (!tables.length) return;
+    if (!canPlay()) return;
     ensureAudio();
     Object.assign(S, { mode: 'play', score: 0, hp: 6, streak: 0, mult: 1, level: 1, correct: 0,
-                       spawn: 0.8, invuln: 0, banner: null, pause: 0, needQ: false, missed: {}, review: [], heartDue: false, q: null });
+                       spawn: 0.8, invuln: 0, banner: null, pause: 0, needQ: false, missed: {}, missedQ: {}, review: [], heartDue: false, q: null });
     S.blocks.length = 0; S.load.length = 0;
     newQuestion();
     $('fb').hidden = true;
@@ -1087,8 +1129,8 @@ h2 { font-size: clamp(2.6rem, 13vw, 3.4rem); color: var(--tnt); text-shadow: 4px
     const worst = Object.entries(S.missed).sort((x, y) => y[1] - x[1]).slice(0, 3);
     $('review').innerHTML = worst.length
       ? '<span>PASIKARTOK</span>' + worst.map(([key]) => {
-          const [a, b] = key.split(' × ').map(Number);
-          return `<p>${a} × ${b} = <em>${a * b}</em></p>`;
+          const q = S.missedQ[key];
+          return `<p>${qHtml(q)} = <em>${q.ans}</em></p>`;
         }).join('')
       : '<p class="ok">Nė vienos klaidos!</p>';
     $('bestOver').textContent = S.best;
@@ -1123,8 +1165,39 @@ h2 { font-size: clamp(2.6rem, 13vw, 3.4rem); color: var(--tnt); text-shadow: 4px
     all.setAttribute('aria-pressed', String(tables.length === ALL.length));
     all.addEventListener('click', () => { tables = tables.length === ALL.length ? [] : ALL.slice(); saveTables(); renderTables(); });
     row.appendChild(all);
-    $('warn').textContent = tables.length ? '' : 'Pasirink bent vieną lentelę.';
-    $('play').disabled = !tables.length;
+    renderState();
+  }
+  function canPlay() { return ops.length && (!needTables() || tables.length); }
+  function renderState() {
+    $('pickTables').hidden = !needTables();
+    $('pickRange').hidden = !needRange();
+    $('warn').textContent = !ops.length ? 'Pasirink bent vieną veiksmą.' : (needTables() && !tables.length ? 'Pasirink bent vieną lentelę.' : '');
+    $('play').disabled = !canPlay();
+  }
+  function renderOps() {
+    const row = $('ops'); row.innerHTML = '';
+    OPS.forEach((op) => {
+      const b = document.createElement('button');
+      b.type = 'button'; b.className = 'btn obtn'; b.textContent = op;
+      b.setAttribute('aria-label', { '+': 'sudėtis', '−': 'atimtis', '×': 'daugyba', '÷': 'dalyba' }[op]);
+      b.setAttribute('aria-pressed', String(ops.includes(op)));
+      b.addEventListener('click', () => {
+        ops = ops.includes(op) ? ops.filter((x) => x !== op) : OPS.filter((x) => x === op || ops.includes(x));
+        try { localStorage.setItem(NS('dk-ops'), JSON.stringify(ops)); } catch (e) {}
+        renderOps(); renderState();
+      });
+      row.appendChild(b);
+    });
+  }
+  function renderRanges() {
+    const row = $('ranges'); row.innerHTML = '';
+    RANGES.forEach((r) => {
+      const b = document.createElement('button');
+      b.type = 'button'; b.className = 'btn tbtn'; b.textContent = String(r);
+      b.setAttribute('aria-pressed', String(range === r));
+      b.addEventListener('click', () => { range = r; try { localStorage.setItem(NS('dk-range'), String(r)); } catch (e) {} renderRanges(); });
+      row.appendChild(b);
+    });
   }
   function saveTables() { try { localStorage.setItem(NS('dk-tables'), JSON.stringify(tables)); } catch (e) {} }
   function renderSpeed() {
@@ -1135,7 +1208,7 @@ h2 { font-size: clamp(2.6rem, 13vw, 3.4rem); color: var(--tnt); text-shadow: 4px
     try { localStorage.setItem(NS('dk-speed'), speed); } catch (e) {}
     renderSpeed();
   }));
-  renderTables(); renderSpeed();
+  renderOps(); renderRanges(); renderTables(); renderSpeed();
 
   $('play').addEventListener('click', start);
   $('again').addEventListener('click', start);

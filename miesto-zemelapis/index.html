@@ -362,6 +362,8 @@ h2 { font-family: var(--word); font-weight: 900; font-size: clamp(1.8rem, 8vw, 2
     const grass = () => { P(0, 0, 16, 16, '#4f9a3a'); for (let i = 0; i < 18; i++) P((r() * 16) | 0, (r() * 16) | 0, 1, 1, r() < 0.5 ? '#5cbf3a' : '#3f7f2e'); };
     const road = () => {
       P(0, 0, 16, 16, '#4a4752'); for (let i = 0; i < 14; i++) P((r() * 16) | 0, (r() * 16) | 0, 1, 1, r() < 0.5 ? '#55525e' : '#403d48');
+      // plytelės kraštai: šviesus viršus ir kairė, tamsus apačia ir dešinė, kad žingsnius būtų galima suskaičiuoti
+      P(0, 0, 16, 1, '#6e6a7c'); P(0, 0, 1, 16, '#6e6a7c'); P(0, 15, 16, 1, '#26232c'); P(15, 0, 1, 16, '#26232c');
       const at = (dx, dy) => { const row = cells[y + dy]; const n = row && row[x + dx]; return n && (isRoadish(n) || WALK.has(n)); };
       // geltonos linijos kelio viduryje į tas puses, kur kelias tęsiasi
       if (at(0, -1)) P(7, 0, 2, 3, '#f2d24a'), P(7, 5, 2, 2, '#f2d24a');
@@ -607,6 +609,12 @@ h2 { font-family: var(--word); font-weight: 900; font-size: clamp(1.8rem, 8vw, 2
     const wave = Math.floor(t * 2) % 2;
     ctx.fillStyle = 'rgba(160,200,255,0.5)';
     for (let y = 0; y < rows; y++) for (let x = 0; x < cols; x++) if (L.g[y][x] === '~') ctx.fillRect(x * T + ((wave + x) % 2) * T * 0.4 + T * 0.1, y * T + T * 0.45, T * 0.3, T * 0.07);
+    // tinklelis: vienas langelis = vienas žingsnis
+    ctx.strokeStyle = 'rgba(0,0,0,0.38)'; ctx.lineWidth = Math.max(1, T * 0.03);
+    ctx.beginPath();
+    for (let x = 1; x < cols; x++) { ctx.moveTo(x * T, 0); ctx.lineTo(x * T, rows * T); }
+    for (let y = 1; y < rows; y++) { ctx.moveTo(0, y * T); ctx.lineTo(cols * T, y * T); }
+    ctx.stroke();
     // pėdsakas
     ctx.fillStyle = 'rgba(255,204,51,0.85)';
     for (const p of trail) ctx.fillRect((p.x + 0.5) * T - T * 0.08, (p.y + 0.5) * T - T * 0.08, T * 0.16, T * 0.16);
