@@ -189,6 +189,7 @@ input:focus { outline: none; border-color: var(--gem); }
   function onMsg(sub, m) {
     if (sub !== 'state' || m.t !== 'state' || m.seq < lastSeq) return;
     lastSeq = m.seq; st = m;
+    if (m.phase === 'lobby' || m.phase === 'end') myAns = {};
     applyGame(m.game);
     joined = !!(m.players && m.players[pid]);
     render();
@@ -198,12 +199,15 @@ input:focus { outline: none; border-color: var(--gem); }
   setInterval(() => {
     if (!net || !code) return;
     if (!joined) net.send('up', { t: 'join', pid, name });
-    else if (st && st.phase === 'q' && myAns[st.idx] && !st.got.includes(pid)) net.send('up', { t: 'ans', pid, name, idx: st.idx, a: myAns[st.idx] });
+    else if (st && st.phase === 'q' && myAns[ak()] && !st.got.includes(pid)) net.send('up', { t: 'ans', pid, name, idx: st.idx, a: myAns[ak()] });
   }, 2500);
 
+  // atsakymo raktas: raundas ir klausimas. Vien klausimo numerio neužtenka: 2 raunde numeriai vėl prasideda nuo 1,
+  // ir planšetė pažymėdavo bei pati išsiųsdavo 1 raundo atsakymą.
+  const ak = () => (st ? (st.gid || st.round) + ':' + st.idx : '');
   document.querySelectorAll('.pick').forEach((b) => b.addEventListener('click', () => {
     if (!st || st.phase !== 'q') return;
-    myAns[st.idx] = b.dataset.a;
+    myAns[ak()] = b.dataset.a;
     net.send('up', { t: 'ans', pid, name, idx: st.idx, a: b.dataset.a });
     if (navigator.vibrate) navigator.vibrate(30);
     render();
@@ -219,7 +223,7 @@ input:focus { outline: none; border-color: var(--gem); }
       view('v-wait'); $('hello').textContent = 'Sveikas, ' + name + '!'; $('wmsg').textContent = 'Tu prisijungei. Laukiam, kol prasidės žaidimas.';
     } else if (st.phase === 'q') {
       view('v-q');
-      const a = myAns[st.idx];
+      const a = myAns[ak()];
       $('qn').textContent = `${st.rounds > 1 ? st.round + ' raundas · ' : ''}${st.idx + 1} / ${st.n}  ·  Žiūrėk į ekraną!`;
       document.querySelectorAll('.pick').forEach((b) => {
         b.classList.toggle('chosen', a === b.dataset.a);
