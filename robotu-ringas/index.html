@@ -1,0 +1,345 @@
+<!doctype html>
+<html lang="lt">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Robotų ringas</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Nunito:wght@700;800;900&family=Pixelify+Sans:wght@400;700&display=swap">
+<link rel="stylesheet" href="../fonts/zm-digits.css">
+<link rel="stylesheet" href="style.css">
+<script src="../zm.js"></script>
+<script src="https://unpkg.com/mqtt@5.16.0/dist/mqtt.min.js"></script>
+<script src="net.js"></script>
+<script src="engine.js"></script>
+<script src="art.js"></script>
+</head>
+<body>
+<div id="app"></div>
+<script>
+/* Planšetė: robotas, smegenys, sparingas, kopėčios prieš kompiuterį ir prisijungimas prie ringo ekrane. */
+(() => {
+const { R, ROBOTS, CPU, Round, hintFor, cleanRobot, P } = RR;
+const app = $('#app');
+const FAST = new URLSearchParams(location.search).has('fast') ? 8 : 1;   // testams
+const ZM = window.ZM || null;
+const NS = (k) => (ZM ? ZM.ns(k) : k);
+const LS = { get(k) { try { return localStorage.getItem(k); } catch (e) { return null; } }, set(k, v) { try { localStorage.setItem(k, v); } catch (e) {} } };
+let pid = LS.get('rr-pid'); if (!pid) { pid = 'k' + Math.random().toString(36).slice(2, 10); LS.set('rr-pid', pid); }
+const kidName = () => (ZM && ZM.player() ? ZM.player().name : '');
+
+/* ---------- mano robotas ---------- */
+const W1 = ['Geležinis', 'Greitasis', 'Ugninis', 'Ledinis', 'Šokantis', 'Tylusis'], W2 = ['Kumštis', 'Snaiperis', 'Tankas', 'Žaibas', 'Drakonas', 'Robotas'];
+const COLS = ['#f2c230', '#4de8d6', '#ff6fa8', '#8ee35f', '#b58cff', '#ff8a3a'];
+let MY = null;
+try { MY = JSON.parse(LS.get(NS('rr-robot')) || 'null'); } catch (e) {}
+const fresh = !MY;
+if (!MY) MY = { w1: W1[(Math.random() * 6) | 0], w2: W2[(Math.random() * 6) | 0], col: COLS[(Math.random() * 6) | 0], trait: 'stiprus', rules: P('arti>smugis,visada>pirmyn') };
+const saveMy = () => LS.set(NS('rr-robot'), JSON.stringify(MY));
+const myDef = () => cleanRobot({ kid: kidName(), name: MY.w1 + ' ' + MY.w2, col: MY.col, trait: MY.trait, rules: MY.rules });
+let ladder = +(LS.get(NS('rr-ladder')) || 0);
+
+/* ---------- ekranų karkasas ---------- */
+let loopFns = [], cur = '', ctx = null;
+let lastT = performance.now();
+(function raf(now) { const dt = Math.min(.05, (now - lastT) / 1000); lastT = now; loopFns.slice().forEach((f) => f(dt)); requestAnimationFrame(raf); })(lastT);
+const S = {};
+function go(id, arg) { cur = id; loopFns = []; app.innerHTML = '<div class="scr" id="scr"></div>'; S[id]($('#scr'), arg); ringBanner(); }
+addEventListener('resize', () => { if (['spar', 'cpu', 'watch'].includes(cur)) return; if (cur) go(cur); });
+const back = (to, label) => `<button class="btn small" data-back="${to}">${label}</button>`;
+app.addEventListener('click', (e) => { const b = e.target.closest('[data-back]'); if (b) go(b.dataset.back); });
+function toast(t) { const d = document.createElement('div'); d.className = 'toast'; d.textContent = t; app.append(d); setTimeout(() => d.remove(), 2600); }
+
+/* ---------- režimas ---------- */
+S.mode = (el) => {
+  el.innerHTML = `<div class="top"><a class="btn small" href="../">← Meniu</a><div class="title">ROBOTŲ <b>RINGAS</b></div><div class="sub">Su kuo kovos tavo robotas?</div>
+    <button class="btn small" id="gar">Garažas</button><button class="btn small" id="brn">Smegenys</button></div>
+  <div class="modes"><button class="btn mode" data-m="pvp"><div id="c1"></div><h3>Prieš draugą</h3><p>Tavo robotas kovoja su draugo robotu dideliame ekrane. Tarp raundų taisai smegenis.</p></button>
+  <button class="btn mode" data-m="cpu"><div id="c2"></div><h3>Prieš kompiuterį</h3><p>4 kompiuterio robotai, vis sunkesni. Paskutinis yra Čempionas.</p></button></div>`;
+  const pair = (a, b) => makeCanvas(260, 130, (g) => { drawFighter(g, 70, 125, 110, a.col, 'punch', 1, 0, { boss: a.boss }); drawFighter(g, 190, 125, 110, b.col, 'block', -1, 0, { boss: b.boss }); });
+  $('#c1', el).append(pair(myDef(), ROBOTS[1])); $('#c2', el).append(pair(myDef(), CPU[3]));
+  el.querySelectorAll('[data-m]').forEach((b) => b.onclick = () => { ctx = b.dataset.m; go(ctx === 'pvp' ? (net ? 'lobby' : 'join') : 'ladder'); });
+  $('#gar', el).onclick = () => go('garage'); $('#brn', el).onclick = () => go('brain');
+};
+
+/* ---------- garažas ---------- */
+S.garage = (el) => {
+  el.innerHTML = `<div class="top">${back('mode', '← Atgal')}<div class="title">GARA<b>ŽAS</b></div><div class="sub">Sukurk savo kovos robotą.</div></div>
+  <div class="garage"><section><canvas id="pv" width="520" height="560" style="width:260px;height:280px"></canvas><div class="rname" id="nm"></div></section>
+  <section><p class="label">Vardas</p><div class="words" id="w1"></div><div class="words" id="w2"></div>
+    <p class="label">Spalva</p><div class="cols" id="cl"></div>
+    <p class="label">Ypatybė (tik viena)</p><div class="traits" id="tr"></div>
+    <button class="btn play bigbtn" id="next">SMEGENYS ▶</button></section></div>`;
+  function draw() {
+    $('#w1', el).innerHTML = W1.map((w) => `<button class="btn word${w === MY.w1 ? ' on' : ''}" data-a="${w}">${w}</button>`).join('');
+    $('#w2', el).innerHTML = W2.map((w) => `<button class="btn word${w === MY.w2 ? ' on' : ''}" data-b="${w}">${w}</button>`).join('');
+    $('#cl', el).innerHTML = COLS.map((c) => `<button class="btn sw${c === MY.col ? ' on' : ''}" data-c="${c}" style="background:${c}" aria-label="spalva"></button>`).join('');
+    $('#tr', el).innerHTML = RR.TRAITS.map((k) => { const v = TRAIT[k]; return `<button class="btn trait${k === MY.trait ? ' on' : ''}" data-t="${k}"><b>${v.n}</b><small>${v.d}</small>
+      ${['Greitis', 'Jėga', 'Gyvybės'].map((n, i) => `<span class="sbar">${n}<i style="--v:${v.s[i] * 33.3}%"></i></span>`).join('')}</button>`; }).join('');
+    $('#nm', el).textContent = MY.w1 + ' ' + MY.w2;
+  }
+  el.addEventListener('click', (e) => { const b = e.target.closest('button'); if (!b) return; if (b.dataset.a) MY.w1 = b.dataset.a; if (b.dataset.b) MY.w2 = b.dataset.b; if (b.dataset.c) MY.col = b.dataset.c; if (b.dataset.t) MY.trait = b.dataset.t; if (b.dataset.a || b.dataset.b || b.dataset.c || b.dataset.t) { saveMy(); sendRobot(); draw(); } });
+  $('#next', el).onclick = () => { saveMy(); go('brain'); };
+  const g = $('#pv', el).getContext('2d'); let t = 0;
+  const POSES = ['idle', 'windup', 'punch', 'idle', 'block', 'jump', 'aim', 'shoot'];
+  loopFns.push((dt) => { t += dt; g.setTransform(2, 0, 0, 2, 0, 0); g.clearRect(0, 0, 260, 280); g.fillStyle = 'rgba(0,0,0,.35)'; g.beginPath(); g.ellipse(130, 262, 70, 10, 0, 0, 7); g.fill();
+    const p = POSES[Math.floor(t / .6) % POSES.length]; drawFighter(g, 130, p === 'jump' ? 230 : 262, 220, MY.col, p, 1, t); });
+  draw();
+};
+
+/* ---------- smegenys ---------- */
+S.brain = (el) => {
+  const nextTxt = ctx === 'pvp' ? 'Į RINGĄ ▶' : ctx === 'cpu' ? 'Į KOPĖČIAS ▶' : 'TOLIAU ▶';
+  el.innerHTML = `<div class="top">${back('garage', '← Garažas')}<div class="title">ROBOTO <b>SMEGENYS</b></div><div class="sub">Skaito iš viršaus. Suveikia pirma tinkama.</div><div class="count" id="cnt"></div></div>
+  <div class="brain"><div class="rules" id="rules"></div>
+  <div class="side"><div class="me" id="me"></div>
+    <div class="note">Ringe tu <b>nieko neliesi</b>. Robotas kovoja pats. Tarp raundų turėsi laiko pataisymui.</div>
+    <button class="btn play bigbtn" id="spar">SPARINGAS ▶</button><button class="btn play gold bigbtn" id="go2">${nextTxt}</button></div></div><div id="ov"></div>`;
+  const me = $('#me', el); me.append(portrait(myDef(), 96)); me.insertAdjacentHTML('beforeend', `<div class="nm">${esc(myDef().name)}</div><small>${TRAIT[MY.trait].n}</small>`);
+  ruleEditor($('#rules', el), $('#ov', el), MY.rules, () => { $('#cnt', el).textContent = MY.rules.length + ' / 5'; saveMy(); sendRobot(); });
+  $('#spar', el).onclick = () => go('spar');
+  $('#go2', el).onclick = () => go(ctx === 'pvp' ? (net ? 'lobby' : 'join') : ctx === 'cpu' ? 'ladder' : 'mode');
+};
+
+/* ---------- kova planšetėje (sparingas ir kopėčios) ---------- */
+function tabletFight(el, opp, opts) {
+  const A = myDef(), w = Round(A, opp, opts.seed || 3);
+  el.innerHTML = `<div class="top">${opts.topLeft}<div class="title">${opts.title}</div><div class="sub">${opts.sub}</div>${opts.topRight || ''}</div>
+  <div class="tfight"><div class="left"><div class="mini">${fpHTML('fa', '')}${fpHTML('fb', 'r')}</div><div class="ringWrap"><canvas id="cv"></canvas>${opts.splash || ''}</div></div>
+  <div class="tside"><div class="trules" id="tr"></div><div class="controls" id="ctl"></div></div></div><div id="ov"></div>`;
+  fpInit($('#fa', el), w.f[0], A); fpInit($('#fb', el), w.f[1], opp);
+  el.querySelectorAll('.strip').forEach((s) => s.remove());
+  const upd = () => { $('#tr', el).innerHTML = truleHTML(A.rules, w.f[0]); fpUpdate($('#fa', el), w.f[0]); fpUpdate($('#fb', el), w.f[1]); };
+  const rn = runner(w, opts.onEnd ? () => opts.onEnd(w) : null, { onTick: upd });
+  rn.speed = FAST;
+  const cv = $('#cv', el), g = cv.getContext('2d'); let W = 400, H = 300;
+  requestAnimationFrame(() => { [W, H] = fitCanvas(cv); });
+  loopFns.push((dt) => { rn.frame(dt); g.setTransform(2, 0, 0, 2, 0, 0); drawRing(g, W, H, w, rn.frac, rn.t, { fh: .42 }); });
+  upd();
+  return { w, rn, upd };
+}
+S.spar = (el) => {
+  const F = tabletFight(el, CPU[0], { seed: (Math.random() * 1e9) | 0, topLeft: back('brain', '← Smegenys'), title: 'SPARIN<b>GAS</b>', sub: 'Žiūrėk, kuri taisyklė suveikia kiekvieną tiką.' });
+  $('#ctl', el).innerHTML = '<button class="btn play" id="run">PALEISTI</button><button class="btn" id="step">Žingsnis</button><button class="btn" id="rst">Iš naujo</button>';
+  const lbl = () => { $('#run', el).textContent = F.rn.running ? 'STOP' : 'PALEISTI'; $('#run', el).classList.toggle('stop', F.rn.running); };
+  $('#run', el).onclick = () => { if (F.w.over) { go('spar'); return; } F.rn.running = !F.rn.running; lbl(); };
+  $('#step', el).onclick = () => { F.rn.running = false; lbl(); if (!F.w.over) F.rn.step(); };
+  $('#rst', el).onclick = () => go('spar');
+};
+
+/* kopėčios: 4 kompiuterio robotai, mačas iki 2 laimėtų raundų */
+let CM = null;
+S.ladder = (el) => {
+  ctx = 'cpu';
+  el.innerHTML = `<div class="top">${back('mode', '← Atgal')}<div class="title">PRIEŠ <b>KOMPIUTERĮ</b></div><div class="sub">Įveik visus 4. Mačas iki 2 laimėtų raundų.</div><button class="btn small" id="brn">Smegenys</button><div class="count gold">${Math.min(ladder, 4)} / 4</div></div>
+  <div class="ladder"><div class="steps" id="st"></div><div class="ladbar"><span class="lead" id="vs"></span><button class="btn play bigbtn" id="go" style="padding:0 34px"></button></div></div>`;
+  CPU.forEach((c, i) => {
+    const b = document.createElement('div'); b.className = 'btn step' + (i < ladder ? '' : i === ladder ? ' next' : ' lock');
+    b.append(portrait(c, 90 + i * 22, i === 3 ? 'punch' : 'idle'));
+    b.insertAdjacentHTML('beforeend', `<b style="color:${c.col}">${c.name}</b><small>${c.lvl}</small>${i < ladder ? '<span class="ck">✓</span>' : ''}`);
+    $('#st', el).append(b);
+  });
+  const nx = Math.min(ladder, 3);
+  $('#vs', el).innerHTML = ladder >= 4 ? 'Įveikei visus! <b>Tu čempionas.</b>' : `Kitas: <b>${CPU[nx].name}</b>. ${nx === 3 ? 'Jam reikia tikrai gerų smegenų.' : ''}`;
+  $('#go', el).textContent = ladder >= 4 ? 'DAR KARTĄ SU ČEMPIONU' : 'KOVA ▶';
+  $('#go', el).onclick = () => { CM = { ib: nx, wins: [0, 0], round: 1, seed: (Math.random() * 1e6) | 0 }; go('cpu'); };
+  $('#brn', el).onclick = () => go('brain');
+};
+S.cpu = (el) => {
+  const M = CM, opp = CPU[M.ib];
+  const F = tabletFight(el, opp, {
+    seed: M.seed + M.round * 7, topLeft: '<button class="btn small" id="quit">← Kopėčios</button>', title: `RAUNDAS <b>${M.round}</b>`,
+    sub: `prieš ${opp.acc} (${opp.lvl})`, topRight: `<div class="count">${M.wins[0]} : ${M.wins[1]}</div><button class="btn small" id="spd">x1</button>`,
+    splash: `<div class="splash" id="sp"><div class="panel"><div style="display:flex;gap:18px;align-items:center" id="vsrow"></div><button class="btn play bigbtn" id="go" style="padding:0 34px">KOVA! ▶</button></div></div>`,
+    onEnd: (w) => {
+      if (w.winner >= 0) M.wins[w.winner]++;
+      M.last = w; M.round++;
+      if (!(M.wins[0] >= 2 || M.wins[1] >= 2 || M.round > 3)) { go('cpufix'); return; }
+      const won = M.wins[0] > M.wins[1];
+      if (won && M.ib + 1 > ladder) { ladder = M.ib + 1; LS.set(NS('rr-ladder'), String(ladder)); }
+      if (ZM) ZM.report('robotu-ringas', { score: ladder, xp: won ? 20 + M.ib * 15 : 5 });
+      $('#ov', el).innerHTML = `<div class="ov"><div class="panel"><h2>${won ? 'LAIMĖJAI!' : M.wins[0] === M.wins[1] ? 'LYGIOSIOS' : 'PRALAIMĖJAI'}</h2><p class="lead">${M.wins[0]} : ${M.wins[1]} prieš <b>${opp.acc}</b></p>
+        ${won ? '' : `<div class="hint"><b>PATARIMAS</b>${hintFor(w.f[0], w.f[1])}</div>`}
+        <button class="btn play bigbtn" id="lad" style="padding:0 30px">${won ? 'KOPĖČIOS ▶' : 'TAISYK SMEGENIS'}</button></div></div>`;
+      $('#lad', el).onclick = () => { CM = null; go(won ? 'ladder' : 'brain'); };
+    },
+  });
+  $('#vsrow', el).append(portrait(myDef(), 90, 'punch')); $('#vsrow', el).insertAdjacentHTML('beforeend', '<span class="vs">VS</span>'); $('#vsrow', el).append(portrait(opp, 90, 'block'));
+  $('#ctl', el).innerHTML = '<div class="note">Kovoja tavo smegenys. Žiūrėk, kuri taisyklė dega.</div>';
+  $('#go', el).onclick = () => { $('#sp', el).hidden = true; F.rn.running = true; };
+  $('#spd', el).onclick = () => { F.rn.speed = F.rn.speed === FAST ? FAST * 2 : FAST; $('#spd', el).textContent = 'x' + F.rn.speed / FAST; };
+  $('#quit', el).onclick = () => { CM = null; go('ladder'); };
+};
+// pataisymas tarp raundų: tas pats ekranas kopėčioms ir ringui
+function fixScreen(el, o) {
+  el.innerHTML = `<div class="top"><div class="title">PATAI<b>SYMAS</b></div><div class="sub">${o.sub}</div><div class="count ${o.won ? 'gold' : 'red'}">${o.won ? 'Raundą laimėjai' : o.draw ? 'Lygiosios' : 'Raundą pralaimėjai'}</div></div>
+  <div class="fix"><div class="rules" id="rules"></div>
+  <div class="side">${o.timer ? '<div class="cd" id="cd"></div>' : ''}<div class="hint"><b>PATARIMAS PO RAUNDO</b>${esc(o.hint)}</div>
+    ${o.note ? `<div class="note">${o.note}</div>` : ''}
+    <button class="btn play bigbtn" id="ok">PARUOŠTA!</button></div></div><div id="ov"></div>`;
+  ruleEditor($('#rules', el), $('#ov', el), MY.rules, () => { saveMy(); o.onEdit && o.onEdit(); }, true);
+  $('#ok', el).onclick = o.onReady;
+}
+S.cpufix = (el) => {
+  const M = CM, w = M.last, me = w.f[0];
+  fixScreen(el, { sub: `Raundas ${M.round - 1} baigtas · ${M.wins[0]} : ${M.wins[1]} prieš ${CPU[M.ib].acc}`, won: w.winner === 0, draw: w.winner < 0,
+    hint: hintFor(me, w.f[1]), note: `Gavai <b>${me.st.taken}</b> žalos, padarei <b>${me.st.dealt}</b>. Pavargai <b>${me.st.tired}</b> k.`, onReady: () => go('cpu') });
+};
+
+/* ================= RINGAS (prieš draugą) ================= */
+let koSeen = '';
+let net = null, code = '', st = null, lastSeq = 0, online = 0, sentV = '', liveTick = null, knownMatch = '';
+const robotV = () => { const d = myDef(); return d.name + '|' + d.col + '|' + d.trait + '|' + d.rules.map((r) => r.c + r.a).join(','); };
+const iFight = () => st && st.match && (st.match.a === pid || st.match.b === pid);
+const mySide = () => (st && st.match ? (st.match.a === pid ? 0 : st.match.b === pid ? 1 : -1) : -1);
+function sendRobot(extra) {
+  if (!net) return;
+  net.send('up', Object.assign({ t: 'robot', pid, v: robotV(), robot: myDef() }, extra || {}));
+  sentV = robotV();
+}
+S.join = (el) => {
+  let k = code || '';
+  el.innerHTML = `<div class="top">${back('mode', '← Atgal')}<div class="title">PRIE <b>RINGO</b></div><div class="sub">Įvesk kodą iš didelio ekrano.</div></div>
+  <div class="joinL"><div style="display:grid;gap:14px;justify-items:center"><div class="me" id="me"></div><p class="msg" id="jm">Kodas yra dideliame ekrane.</p></div>
+    <div style="display:grid;gap:14px;justify-items:center"><div class="codebox" id="kb"></div><div class="pad" id="pad"></div><button class="btn play bigbtn" id="jn" style="width:272px">JUNGTIS ▶</button></div></div>`;
+  const me = $('#me', el); me.append(portrait(myDef(), 120, 'windup')); me.insertAdjacentHTML('beforeend', `<div class="nm">${esc(myDef().name)}</div>`);
+  const show = () => { $('#kb', el).textContent = (k + '····').slice(0, 4); $('#jn', el).disabled = k.length !== 4; };
+  $('#pad', el).innerHTML = ['1', '2', '3', '4', '5', '6', '7', '8', '9', '⌫', '0', ''].map((d) => d ? `<button class="btn" data-d="${d}">${d}</button>` : '<span></span>').join('');
+  $('#pad', el).onclick = (e) => { const b = e.target.closest('[data-d]'); if (!b) return; if (b.dataset.d === '⌫') k = k.slice(0, -1); else if (k.length < 4) k += b.dataset.d; show(); };
+  $('#jn', el).onclick = () => { join(k); $('#jm', el).textContent = 'Jungiamasi...'; $('#jm', el).className = 'msg';
+    setTimeout(() => { if (!st && cur === 'join') { $('#jm', el).textContent = 'Ekranas neatsako. Patikrink kodą.'; $('#jm', el).className = 'msg bad'; } }, 9000); };
+  show();
+};
+function join(k) {
+  if (net) net.close();
+  code = k; st = null; lastSeq = 0; sentV = ''; knownMatch = '';
+  LS.set('rr-last', k);
+  net = Net(code, onMsg, (on) => { online = on; const n = $('#netst'); if (n) { n.classList.toggle('ok', on > 0); n.textContent = on ? 'Ryšys veikia' : 'Nėra ryšio...'; } });
+  sendRobot({ hello: 1 });
+  history.replaceState(null, '', '?k=' + code);
+}
+// belsimės, kol ekranas mus išvys, ir persiųsim robotą, jei ekranas turi seną versiją
+setInterval(() => {
+  if (!net) return;
+  const p = st && st.players && st.players[pid];
+  if (!p || p.v !== robotV()) sendRobot({ hello: 1 });
+}, 2500);
+
+function onMsg(sub, m) {
+  if (sub === 'tick') { if (st && st.match && m.mid === st.match.mid) { liveTick = m; if (cur === 'watch') drawLive(); } return; }
+  if (sub !== 'state' || m.t !== 'state' || m.seq < lastSeq) return;
+  lastSeq = m.seq; const prev = st; st = m;
+  if (cur === 'join') { go('lobby'); return; }
+  route(prev);
+}
+// ekrano būsena nusprendžia, ką rodo kovotojo planšetė
+function route(prev) {
+  if (!st) return;
+  const mid = st.match ? st.match.mid + ':' + st.match.round + ':' + st.phase : '';
+  const changed = mid !== knownMatch; knownMatch = mid;
+  if (iFight() && (st.phase === 'vs' || st.phase === 'fight')) { if (cur !== 'watch') { if (cur !== 'lobby') toast('Tavo kova! Žiūrėk į ekraną.'); go('watch'); } else drawLive(); return; }
+  if (iFight() && st.phase === 'fix') { if (cur !== 'pvpfix' || changed) go('pvpfix'); else fixClock(); return; }
+  if (iFight() && st.phase === 'ko' && koSeen !== st.match.mid) { if (cur !== 'pvpko' || changed) go('pvpko'); return; }
+  if (['watch', 'pvpfix', 'pvpko'].includes(cur)) { go('lobby'); return; }
+  if (cur === 'lobby') lobbyInfo();
+  ringBanner();
+}
+function ringBanner() {
+  const old = $('.banner-ring'); if (old) old.remove();
+  if (!st || !st.match || iFight() || !['vs', 'fight', 'fix'].includes(st.phase) || ['lobby', 'join'].includes(cur)) return;
+  const P2 = st.players, a = P2[st.match.a], b = P2[st.match.b];
+  if (!a || !b) return;
+  app.insertAdjacentHTML('beforeend', `<div class="banner-ring">Ringe: <span style="color:${a.col}">${esc(a.n)}</span> VS <span style="color:${b.col}">${esc(b.n)}</span></div>`);
+}
+S.lobby = (el) => {
+  ctx = 'pvp';
+  el.innerHTML = `<div class="top">${back('mode', '← Atgal')}<div class="title">ROBOTŲ <b>RINGAS</b></div><div class="sub" id="lsub"></div><span class="net" id="netst">${online ? 'Ryšys veikia' : 'Jungiamasi...'}</span><div class="count">Kodas ${esc(code)}</div></div>
+  <div class="lobbyT"><div class="mainc"><div class="me" id="me"></div><div class="bigt" id="lbig" style="font-size:1.8rem"></div><p class="lead" id="lmsg"></p>
+    <div class="acts"><button class="btn" id="brn">SMEGENYS</button><button class="btn" id="spr">SPARINGAS</button><button class="btn" id="lad">PRIEŠ KOMPIUTERĮ</button></div></div>
+  <div class="side"><p class="label">Ringe</p><div class="joined" id="pl" style="grid-template-columns:1fr"></div></div></div>`;
+  if (online) $('#netst', el).classList.add('ok');
+  const me = $('#me', el); me.append(portrait(myDef(), 120, 'idle')); me.insertAdjacentHTML('beforeend', `<div class="nm">${esc(myDef().name)}</div><small>${TRAIT[MY.trait].n}</small>`);
+  $('#brn', el).onclick = () => go('brain'); $('#spr', el).onclick = () => go('spar'); $('#lad', el).onclick = () => go('ladder');
+  lobbyInfo();
+};
+function lobbyInfo() {
+  if (cur !== 'lobby') return;
+  const el = $('#scr'), p = st && st.players && st.players[pid];
+  const big = $('#lbig', el), msg = $('#lmsg', el);
+  if (!st) { big.textContent = 'Jungiamasi...'; msg.textContent = ''; return; }
+  if (!p) { big.textContent = 'Siunčiam robotą...'; msg.textContent = ''; }
+  else if (st.phase === 'lobby') { big.textContent = 'Tavo robotas ringe ✓'; msg.innerHTML = 'Laukiam turnyro pradžios. Kol kas gali taisyti smegenis.'; }
+  else if (st.phase === 'end') { big.textContent = 'Turnyras baigtas!'; msg.innerHTML = `Tavo robotas laimėjo <b>${p.w || 0}</b> mač.`; }
+  else {
+    const nx = st.next; const mine = nx && (nx.a === pid || nx.b === pid);
+    big.textContent = mine ? 'Tavo kova kita!' : 'Turnyras vyksta';
+    msg.innerHTML = mine ? 'Pasitikrink smegenis. Ekranas tuoj pakvies.' : 'Kol lauki, treniruokis prieš kompiuterį.';
+  }
+  $('#lsub', el).textContent = p && p.v !== robotV() ? 'Siunčiami pakeitimai...' : 'Robotas ekrane naujausias.';
+  $('#pl', el).innerHTML = Object.entries(st.players || {}).map(([id, q]) => `<div class="jrow"${id === pid ? ' style="outline:3px solid var(--gold)"' : ''}><span class="pt" data-c="${q.col}"></span><div class="tx"><b style="color:${q.col}">${esc(q.n)}</b><small>${esc(q.k || '')}${q.w ? ' · ' + '★'.repeat(q.w) : ''}</small></div></div>`).join('');
+  $('#pl', el).querySelectorAll('.pt').forEach((s) => s.append(portrait({ col: s.dataset.c }, 48)));
+}
+// kova vyksta ekrane: planšetėje tavo taisyklės dega gyvai
+S.watch = (el) => {
+  const s = mySide(), M = st.match, opp = st.players[s === 0 ? M.b : M.a] || { n: '?', col: '#888' };
+  el.innerHTML = `<div class="top"><div class="title">TAVO <b>KOVA</b></div><div class="sub">Raundas ${M.round} · ${M.wins[s]} : ${M.wins[1 - s]} · VS ${esc(opp.n)}</div><span class="net" id="netst">${online ? 'Ryšys veikia' : 'Nėra ryšio...'}</span></div>
+  <div class="watch"><div class="mini">${fpHTML('fa', '')}${fpHTML('fb', 'r')}</div><div class="big"><div class="lookup"><div id="pp"></div><div class="bigt">ŽIŪRĖK Į EKRANĄ!</div><p class="lead">Kovoja tavo smegenys. Čia matai, kuri taisyklė dega.</p></div>
+  <div class="tside mylive"><div class="trules" id="tr"></div></div></div></div>`;
+  if (online) $('#netst', el).classList.add('ok');
+  fpInit($('#fa', el), null, myDef()); fpInit($('#fb', el), null, { name: opp.n, kid: opp.k, col: opp.col, rules: [] });
+  el.querySelectorAll('.strip').forEach((x) => x.remove());
+  $('#pp', el).append(portrait(myDef(), 130, 'windup'));
+  liveTick = liveTick && liveTick.mid === M.mid && liveTick.round === M.round ? liveTick : null;
+  drawLive();
+};
+function drawLive() {
+  if (cur !== 'watch') return;
+  const el = $('#scr'), s = mySide(), t = liveTick;
+  const rules = (st.robots && st.robots[pid] && st.robots[pid].rules) || myDef().rules;
+  if (!t || t.round !== st.match.round) { $('#tr', el).innerHTML = truleHTML(rules, null); return; }
+  const me = t.f[s], op = t.f[1 - s];
+  $('#tr', el).innerHTML = truleHTML(rules, { fired: me.fi, checked: me.ck });
+  fpUpdate($('#fa', el), { hp: me.hp, max: me.mx, en: me.en, fired: -1 }); fpUpdate($('#fb', el), { hp: op.hp, max: op.mx, en: op.en, fired: -1 });
+}
+let fixLeft = 0, fixAt = 0;
+S.pvpfix = (el) => {
+  const M = st.match, s = mySide(), opp = st.players[s === 0 ? M.b : M.a] || { n: '?' };
+  const last = M.last || {}, ready = (M.ready || []).includes(pid);
+  fixScreen(el, { sub: `Raundas ${M.round - 1} baigtas · ${M.wins[s]} : ${M.wins[1 - s]} · VS ${esc(opp.n)}`, won: last.winner === s, draw: last.winner < 0, timer: true,
+    hint: (M.hints && M.hints[pid]) || 'Pakeisk vieną taisyklę ir žiūrėk, kas bus.',
+    note: last.dealt ? `Gavai <b>${last.taken[s]}</b> žalos, padarei <b>${last.dealt[s]}</b>.` : '',
+    onEdit: () => sendRobot(),
+    onReady: () => { sendRobot({ ready: M.mid + ':' + M.round }); $('#ok', el).disabled = true; $('#ok', el).textContent = 'LAUKIAM DRAUGO...'; } });
+  if (ready) { $('#ok', el).disabled = true; $('#ok', el).textContent = 'LAUKIAM DRAUGO...'; }
+  fixLeft = st.left || 0; fixAt = performance.now();
+  loopFns.push(() => fixClock());
+  fixClock();
+};
+function fixClock() {
+  if (cur !== 'pvpfix') return;
+  if (st && st.phase === 'fix' && typeof st.left === 'number' && Math.abs(st.left - (fixLeft - (performance.now() - fixAt) / 1000)) > 2) { fixLeft = st.left; fixAt = performance.now(); }
+  const s = Math.max(0, Math.ceil(fixLeft - (performance.now() - fixAt) / 1000)), cd = $('#cd');
+  if (cd) { cd.textContent = '0:' + String(s).padStart(2, '0'); cd.classList.toggle('low', s <= 10); }
+}
+let reportedMatch = LS.get('rr-reported') || '';
+S.pvpko = (el) => {
+  const M = st.match, s = mySide(), won = M.winner === s, draw = M.winner < 0;
+  el.innerHTML = `<div class="top"><div class="title">MAČAS <b>BAIGTAS</b></div><div class="sub">${M.wins[s]} : ${M.wins[1 - s]}</div></div>
+  <div class="center" style="display:grid;place-items:center;padding:16px"><div class="panel"><h2>${won ? 'LAIMĖJAI!' : draw ? 'LYGIOSIOS' : 'PRALAIMĖJAI'}</h2><div id="pp"></div>
+    ${!won && M.hints && M.hints[pid] ? `<div class="hint"><b>PATARIMAS</b>${esc(M.hints[pid])}</div>` : '<p class="lead">Puikios smegenys! Gali jas dar patobulinti.</p>'}
+    <div class="row-btns" style="display:flex;gap:12px"><button class="btn bigbtn" id="brn" style="padding:0 22px">SMEGENYS</button><button class="btn play bigbtn" id="lob" style="padding:0 26px">TOLIAU ▶</button></div></div></div>`;
+  $('#pp', el).append(portrait(myDef(), 120, won ? 'punch' : 'tired'));
+  $('#brn', el).onclick = () => { koSeen = M.mid; go('brain'); }; $('#lob', el).onclick = () => { koSeen = M.mid; go('lobby'); };
+  if (ZM && reportedMatch !== M.mid) { reportedMatch = M.mid; LS.set('rr-reported', M.mid); ZM.report('robotu-ringas', { score: ladder, xp: won ? 40 : 15 }); }
+};
+
+/* ---------- pradžia ---------- */
+const qk = (new URLSearchParams(location.search).get('k') || '').replace(/\D/g, '').slice(0, 4);
+if (qk.length === 4) { ctx = 'pvp'; join(qk); go(fresh ? 'garage' : 'lobby'); }
+else go(fresh ? 'garage' : 'mode');
+window.__rr = { get st() { return st; }, get cur() { return cur; }, pid, MY, saveMy, sendRobot, go };
+})();
+</script>
+</body>
+</html>

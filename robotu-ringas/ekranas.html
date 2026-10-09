@@ -1,0 +1,286 @@
+<!doctype html>
+<html lang="lt">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Robotų ringas: ekranas</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Nunito:wght@700;800;900&family=Pixelify+Sans:wght@400;700&display=swap">
+<link rel="stylesheet" href="../fonts/zm-digits.css">
+<link rel="stylesheet" href="style.css">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
+<script src="https://unpkg.com/mqtt@5.16.0/dist/mqtt.min.js"></script>
+<script src="net.js"></script>
+<script src="engine.js"></script>
+<script src="art.js"></script>
+</head>
+<body class="screen">
+<div id="app"></div>
+<script>
+/* Klasės ekranas (Mac): kodas ir QR, turnyras kiekvienas su kiekvienu, kovos, pataisymo pertraukos.
+   Kovą skaičiuoja tik šis ekranas. Planšetės siunčia robotus ir "paruošta", ekranas siunčia būseną ir kovos tikus. */
+(() => {
+const { R, ROBOTS, Round, hintFor, cleanRobot, seedFor } = RR;
+const app = $('#app');
+const qs = new URLSearchParams(location.search);
+const FAST = qs.has('fast') ? 8 : 1;                       // testams: kovos 8 kartus greičiau
+const FIX_S = Math.max(5, +(qs.get('fix') || 45));          // pataisymo pertrauka sekundėmis
+const KEY = 'rr-host';
+const newCode = () => String(1000 + Math.floor(Math.random() * 9000));
+const fresh = (code) => ({ code: code || newCode(), gid: Date.now(), phase: 'lobby', players: {}, order: [], res: {}, last: {}, n: 0, match: null, next: null });
+let S = null;
+try { S = JSON.parse(localStorage.getItem(KEY) || 'null'); } catch (e) {}
+if (qs.has('new')) { S = null; qs.delete('new'); history.replaceState(null, '', location.pathname + (qs.toString() ? '?' + qs : '')); }
+if (!S || !S.code) S = fresh();
+// perkrovus puslapį vidury raundo, raundas pradedamas iš naujo
+if (S.phase === 'fight') S.phase = 'vs';
+const save = () => { try { localStorage.setItem(KEY, JSON.stringify(S)); } catch (e) {} };
+save();
+
+/* ---------- tinklas ---------- */
+let net = null, online = 0;
+function connect() {
+  if (net) net.close();
+  net = Net(S.code, onMsg, (on, all) => { online = on; const n = $('#netst'); if (n) { n.classList.toggle('ok', on > 0); n.textContent = on ? `Ryšys veikia (${on} iš ${all})` : 'Nėra ryšio'; } });
+  publish();
+}
+const pl = (id) => S.players[id];
+function publicState() {
+  const players = {};
+  S.order.forEach((id) => { const p = pl(id); if (p) players[id] = { n: p.robot.name, k: p.robot.kid, col: p.robot.col, v: p.v, w: wins(id) }; });
+  const st = { t: 'state', seq: Date.now(), gid: S.gid, phase: S.phase, players, next: S.next };
+  const M = S.match;
+  if (M) {
+    st.match = { mid: M.mid, a: M.a, b: M.b, round: M.round, wins: M.wins, ready: M.ready || [], hints: M.hints || {}, last: M.lastSum || null, winner: M.winner };
+    st.robots = { [M.a]: pl(M.a) && pl(M.a).robot, [M.b]: pl(M.b) && pl(M.b).robot };
+  }
+  if (S.phase === 'fix') st.left = Math.max(0, Math.round((S.fixEnd - Date.now()) / 1000));
+  return st;
+}
+let pubTimer = null;
+function publish() {
+  if (!net) return;
+  clearTimeout(pubTimer);
+  net.send('state', publicState(), true);
+  pubTimer = setTimeout(publish, 4000);
+}
+function onMsg(sub, m) {
+  if (sub !== 'up' || !m.pid || m.t !== 'robot') return;
+  const robot = cleanRobot(m.robot);
+  if (!robot || !robot.rules.length) return;
+  const id = String(m.pid).slice(0, 20);
+  // kovos metu robotas nekeičiamas: naujos smegenys įsigalios kitame raunde
+  let p = pl(id);
+  if (!p) {
+    // perkrauta planšetė su tuo pačiu robotu ir vaiku perima seną vietą lentelėje
+    const dup = S.order.find((o) => pl(o) && !pl(o).cpu && pl(o).robot.name === robot.name && pl(o).robot.kid === robot.kid);
+    if (dup) { S.players[id] = pl(dup); delete S.players[dup]; S.order[S.order.indexOf(dup)] = id; renameRes(dup, id); }
+    else { S.players[id] = { robot, v: m.v }; S.order.push(id); }
+    p = pl(id);
+  }
+  p.robot = robot; p.v = String(m.v || '').slice(0, 300);
+  const M = S.match;
+  if (m.ready && M && S.phase === 'fix' && m.ready === M.mid + ':' + M.round && (id === M.a || id === M.b)) {
+    M.ready = M.ready || []; if (!M.ready.includes(id)) M.ready.push(id);
+  }
+  save(); publish(); refresh();
+}
+function renameRes(from, to) {
+  const n = {}; for (const [k, v] of Object.entries(S.res)) { const [a, b] = k.split('|'); n[(a === from ? to : a) + '|' + (b === from ? to : b)] = v; } S.res = n;
+  if (S.last[from] !== undefined) { S.last[to] = S.last[from]; delete S.last[from]; }
+}
+
+/* ---------- turnyras ---------- */
+const ids = () => S.order.filter((id) => pl(id));
+const res = (a, b) => S.res[a + '|' + b];
+const setRes = (a, b, w) => { S.res[a + '|' + b] = w; S.res[b + '|' + a] = [w[1], w[0]]; };
+const wins = (id) => ids().reduce((n, o) => { const r = res(id, o); return n + (r && r[0] > r[1] ? 1 : 0); }, 0);
+function pending() { const L = ids(), out = []; for (let i = 0; i < L.length; i++) for (let j = i + 1; j < L.length; j++) if (!res(L[i], L[j])) out.push([L[i], L[j]]); return out; }
+// kitas mačas: tie, kurie seniausiai kovojo, kad niekas nekovotų du kartus iš eilės
+function pickNext() {
+  const p = pending(); if (!p.length) { S.next = null; return; }
+  const rest = (id) => (S.last[id] === undefined ? -1 : S.last[id]);
+  p.sort((x, y) => Math.max(rest(x[0]), rest(x[1])) - Math.max(rest(y[0]), rest(y[1])));
+  S.next = { a: p[0][0], b: p[0][1] };
+}
+let cpuN = 0;
+function addCpu() {
+  const used = new Set(ids().map((id) => pl(id).robot.name));
+  const d = ROBOTS.find((r) => !used.has(r.name)) || ROBOTS[cpuN % ROBOTS.length];
+  const id = 'cpu' + Date.now().toString(36) + (cpuN++);
+  S.players[id] = { cpu: true, robot: cleanRobot({ ...d, kid: 'Kompiuteris' }), v: 'cpu' };
+  S.order.push(id);
+}
+
+/* ---------- ekranai ---------- */
+let loopFns = [], cur = '';
+let lastT = performance.now();
+(function raf(now) { const dt = Math.min(.05, (now - lastT) / 1000); lastT = now; loopFns.slice().forEach((f) => f(dt)); requestAnimationFrame(raf); })(lastT);
+const V = {};
+let primary = null;   // tarpo klavišas spaudžia pagrindinį mygtuką
+function show(id) { cur = id; loopFns = []; primary = null; app.innerHTML = '<div class="scr" id="scr"></div>'; V[id]($('#scr')); }
+function refresh() { if (cur === 'lobby') V.lobbyList(); else if (cur === 'tour') show('tour'); else if (cur === 'fix') V.fixStatus(); }
+addEventListener('keydown', (e) => { if ((e.code === 'Space' || e.code === 'Enter') && primary && !e.repeat) { e.preventDefault(); primary(); } });
+const top = (sub, right = '') => `<div class="top"><div class="title">ROBOTŲ <b>RINGAS</b></div><div class="sub">${sub}</div>${right}<span class="net${online ? ' ok' : ''}" id="netst">${online ? 'Ryšys veikia' : 'Jungiamasi...'}</span><div class="count">Kodas ${S.code}</div></div>`;
+
+V.lobby = (el) => {
+  el.innerHTML = top('Prisijunkite planšetėmis.') + `<div class="lobbyS"><section><p class="label">Kodas</p><div class="code">${S.code}</div>
+    <div class="qr-row"><div id="qr"></div><div class="url">Nuskenuok planšete<br>arba atidaryk<br><b>gytiskind.github.io/zaidimai</b><br>→ Robotų ringas → Prieš draugą</div></div></section>
+  <section><p class="label" id="cnt"></p><div class="joined" id="jn"></div>
+    <div class="rowbtn wrap"><button class="btn small2" id="cpu">+ Kompiuterio robotas</button><button class="btn small2" id="nc">Naujas kodas</button>${S.n ? '<button class="btn small2" id="tr">Turnyro lentelė</button>' : ''}</div>
+    <button class="btn play bigbtn" id="go" style="width:100%">PRADĖTI TURNYRĄ ▶</button></section></div>`;
+  const url = (location.hostname.endsWith('github.io') ? new URL('./', location.href).href : 'https://gytiskind.github.io/zaidimai/robotu-ringas/') + '?k=' + S.code;
+  try { new QRCode($('#qr', el), { text: url, width: 300, height: 300, correctLevel: QRCode.CorrectLevel.M }); } catch (e) {}
+  $('#qr', el).title = url;
+  $('#cpu', el).onclick = () => { addCpu(); save(); publish(); V.lobbyList(); };
+  $('#nc', el).onclick = () => { if (net) net.clearRetained(); S = fresh(); save(); connect(); show('lobby'); };
+  if ($('#tr', el)) $('#tr', el).onclick = () => { S.phase = 'tour'; pickNext(); save(); publish(); show('tour'); };
+  $('#go', el).onclick = primary = () => { if (ids().length < 2) return; S.phase = 'tour'; pickNext(); save(); publish(); show('tour'); };
+  V.lobbyList();
+};
+V.lobbyList = () => {
+  const el = $('#scr'), box = $('#jn', el); if (!box) return;
+  const L = ids();
+  $('#cnt', el).textContent = `Ringe: ${L.length} robotai`;
+  box.innerHTML = L.map((id) => { const r = pl(id).robot; return `<div class="jrow" data-id="${id}"><span class="pt"></span><div class="tx"><b style="color:${r.col}">${esc(r.name)}</b><small>${esc(r.kid || '')} · ${TRAIT[r.trait].n}</small></div><button class="btn x" data-x="${id}" aria-label="Pašalinti">✕</button></div>`; }).join('')
+    + (L.length < 2 ? '<div class="jrow wait"><div class="tx"><b>Laukiam robotų...</b></div></div>' : '');
+  box.querySelectorAll('.jrow[data-id]').forEach((row) => row.querySelector('.pt').append(portrait(pl(row.dataset.id).robot, 48)));
+  box.onclick = (e) => { const b = e.target.closest('[data-x]'); if (!b) return; delete S.players[b.dataset.x]; S.order = S.order.filter((x) => x !== b.dataset.x); save(); publish(); V.lobbyList(); };
+  $('#go', el).disabled = L.length < 2;
+};
+
+V.tour = (el) => {
+  const L = ids(), n = L.length;
+  el.innerHTML = top('Turnyras: kiekvienas robotas kovoja su kiekvienu.') + `<div class="tour"><div class="cards5 n${Math.max(5, n)}" id="c5"></div><div class="tourBot"><table class="rr" id="rr"></table><div class="next" id="nx"></div></div></div>`;
+  L.forEach((id) => { const d = pl(id).robot, c = document.createElement('div'); c.className = 'kc'; c.append(portrait(d, n > 6 ? 70 : 92)); c.insertAdjacentHTML('beforeend', `<div class="nm" style="color:${d.col}">${esc(d.name)}</div><small>${esc(d.kid || '')} · ${TRAIT[d.trait].n}</small><div class="wst">${'<i></i>'.repeat(wins(id))}</div>`); $('#c5', el).append(c); });
+  let h = '<tr><th></th>' + L.map((_, j) => `<th data-h="${j}"></th>`).join('') + '</tr>';
+  L.forEach((a, i) => { h += `<tr><th data-r="${i}"></th>` + L.map((b, j) => { if (i === j) return '<td class="x"></td>'; const r = res(a, b); if (r) return `<td class="${r[0] > r[1] ? 'w' : r[0] < r[1] ? 'l' : ''}">${r[0]}:${r[1]}</td>`; const sel = S.next && ((S.next.a === a && S.next.b === b) || (S.next.a === b && S.next.b === a)); return `<td class="p${sel ? ' sel' : ''}" data-a="${a}" data-b="${b}">${sel ? 'KITAS' : 'laukia'}</td>`; }).join('') + '</tr>'; });
+  $('#rr', el).innerHTML = h;
+  el.querySelectorAll('[data-h],[data-r]').forEach((th) => th.append(portrait(pl(L[+(th.dataset.h ?? th.dataset.r)]).robot, n > 6 ? 24 : 30)));
+  $('#rr', el).onclick = (e) => { const td = e.target.closest('td.p'); if (!td) return; S.next = { a: td.dataset.a, b: td.dataset.b }; save(); publish(); show('tour'); };
+  const nx = $('#nx', el);
+  if (!S.next) {
+    nx.innerHTML = `<div class="bigt">Turnyras baigtas!</div><p class="lead">Visi robotai sukovojo su visais.</p><div class="rowbtn wrap"><button class="btn bigbtn small2" id="lob">← Prisijungimas</button><button class="btn play bigbtn" id="again" style="padding:0 26px">NAUJAS TURNYRAS</button></div>`;
+    S.phase = 'end'; save(); publish();
+    $('#lob', el).onclick = () => { S.phase = 'lobby'; save(); publish(); show('lobby'); };
+    $('#again', el).onclick = primary = () => { S.res = {}; S.last = {}; S.match = null; S.gid = Date.now(); S.phase = 'tour'; pickNext(); save(); publish(); show('tour'); };
+    return;
+  }
+  const A = pl(S.next.a).robot, B = pl(S.next.b).robot;
+  nx.innerHTML = `<p class="label">KITAS MAČAS</p><div class="pair"><div id="pa"></div><span class="vs">VS</span><div id="pb"></div></div>
+    <p class="lead"><b>${esc(A.name)}</b> VS <b>${esc(B.name)}</b></p><div class="rowbtn"><button class="btn small2" id="lob">← Prisijungimas</button><button class="btn play bigbtn" id="start" style="padding:0 40px">START ▶</button></div>`;
+  $('#pa', el).append(portrait(A, 120, 'windup')); $('#pa', el).insertAdjacentHTML('beforeend', `<b style="color:${A.col}">${esc(A.kid || A.name)}</b><small>${TRAIT[A.trait].n}</small>`);
+  const pb = portrait(B, 120, 'block'); pb.style.transform = 'scaleX(-1)'; $('#pb', el).append(pb); $('#pb', el).insertAdjacentHTML('beforeend', `<b style="color:${B.col}">${esc(B.kid || B.name)}</b><small>${TRAIT[B.trait].n}</small>`);
+  $('#lob', el).onclick = () => { S.phase = 'lobby'; save(); publish(); show('lobby'); };
+  $('#start', el).onclick = primary = () => startMatch(S.next.a, S.next.b);
+};
+function startMatch(a, b) {
+  S.n++;
+  S.match = { mid: S.gid + '-' + S.n, a, b, round: 1, wins: [0, 0], ready: [], hints: {}, winner: -1 };
+  S.phase = 'vs'; save(); publish(); show('fight');
+}
+
+V.fight = (el) => {
+  const M = S.match, A = pl(M.a).robot, B = pl(M.b).robot;
+  // šio raundo smegenys užfiksuojamos: pakeitimai planšetėje įsigalios kitam raundui
+  M.A = A; M.B = B;
+  const w = Round(A, B, seedFor(M.mid, M.round));
+  el.innerHTML = `<div class="top"><div class="title">ROBOTŲ <b>RINGAS</b></div><div class="sub">Niekas neliečia planšečių. Kovoja jūsų programos.</div><button class="btn small" id="spd">Greitis x1</button><span class="net${online ? ' ok' : ''}" id="netst">${online ? 'Ryšys veikia' : 'Nėra ryšio'}</span></div>
+  <div class="fightL"><div class="hud">${fpHTML('fa', '')}<div class="mid"><div class="rnd">RAUNDAS ${M.round}</div><div class="clock" id="clk">20</div><div class="dots" id="dots"></div></div>${fpHTML('fb', 'r')}</div>
+  <div class="ringWrap"><canvas id="cv"></canvas><div class="splash" id="sp"><div class="panel"><div style="display:flex;gap:26px;align-items:center" id="vsrow"></div><h2>Raundas ${M.round}</h2><button class="btn play bigbtn" id="go" style="padding:0 40px">KOVA! ▶</button></div></div></div></div>`;
+  fpInit($('#fa', el), w.f[0], A); fpInit($('#fb', el), w.f[1], B);
+  $('#dots', el).style.setProperty('--dotA', A.col); $('#dots', el).style.setProperty('--dotB', B.col);
+  $('#dots', el).innerHTML = [0, 1, 2].map((i) => `<i class="dot ${i < M.wins[0] ? 'a' : i < M.wins[0] + M.wins[1] ? 'b' : ''}"></i>`).join('');
+  $('#vsrow', el).append(portrait(A, 120, 'windup')); $('#vsrow', el).insertAdjacentHTML('beforeend', '<span class="vs">VS</span>'); const pb = portrait(B, 120, 'block'); pb.style.transform = 'scaleX(-1)'; $('#vsrow', el).append(pb);
+  const sendTick = () => net && net.send('tick', { t: 'tick', mid: M.mid, round: M.round, n: w.t,
+    f: w.f.map((f) => ({ fi: f.fired, ck: f.checked, hp: f.hp, mx: f.max, en: Math.round(f.en), act: f.act })) });
+  const upd = () => { fpUpdate($('#fa', el), w.f[0]); fpUpdate($('#fb', el), w.f[1]); $('#clk', el).textContent = Math.max(0, Math.ceil((R.TICKS - w.t) * .5)); };
+  const rn = runner(w, () => endRound(w), { onTick: () => { upd(); sendTick(); } });
+  rn.speed = FAST;
+  const cv = $('#cv', el), g = cv.getContext('2d'); let W = 800, H = 500;
+  requestAnimationFrame(() => { [W, H] = fitCanvas(cv); });
+  const begin = () => { if (!$('#sp', el).hidden) { $('#sp', el).hidden = true; rn.running = true; S.phase = 'fight'; save(); publish(); primary = null; } };
+  $('#go', el).onclick = primary = begin;
+  $('#spd', el).onclick = () => { rn.speed = rn.speed === FAST ? FAST * 2 : FAST; $('#spd', el).textContent = 'Greitis x' + rn.speed / FAST; };
+  loopFns.push((dt) => { rn.frame(dt); g.setTransform(2, 0, 0, 2, 0, 0); drawRing(g, W, H, w, rn.frac, rn.t); });
+  upd();
+};
+function endRound(w) {
+  const M = S.match;
+  if (w.winner >= 0) M.wins[w.winner]++;
+  M.hints = { [M.a]: hintFor(w.f[0], w.f[1]), [M.b]: hintFor(w.f[1], w.f[0]) };
+  M.lastSum = { winner: w.winner, ko: w.ko, dealt: [w.f[0].st.dealt, w.f[1].st.dealt], taken: [w.f[0].st.taken, w.f[1].st.taken], hp: [w.f[0].hp, w.f[1].hp], max: [w.f[0].max, w.f[1].max] };
+  M.round++;
+  if (M.wins[0] >= 2 || M.wins[1] >= 2 || M.round > 3) {
+    M.winner = M.wins[0] > M.wins[1] ? 0 : M.wins[1] > M.wins[0] ? 1 : -1;
+    setRes(M.a, M.b, M.wins); S.last[M.a] = S.last[M.b] = S.n;
+    S.phase = 'ko'; pickNext(); save(); publish(); show('ko'); return;
+  }
+  M.ready = [M.a, M.b].filter((id) => pl(id) && pl(id).cpu);
+  S.fixEnd = Date.now() + FIX_S * 1000;
+  S.phase = 'fix'; save(); publish(); show('fix');
+}
+
+V.fix = (el) => {
+  const M = S.match, s = M.lastSum, wn = s.winner >= 0 ? [M.A, M.B][s.winner] : null;
+  el.innerHTML = top(`Raundas ${M.round - 1} baigtas. Programuotojai taiso smegenis.`, `<div class="count">${M.wins[0]} : ${M.wins[1]}</div>`) + `
+  <div class="pause"><div class="bigt">${wn ? `Raundą laimėjo ${esc(wn.name)}${s.ko ? ' (K.O.)' : ''}` : 'Lygiosios!'}</div>
+    <div class="cd" id="cd" style="font-size:5.5rem"></div><div class="coders" id="cds"></div>
+    <button class="btn play bigbtn" id="go" style="padding:0 40px">RAUNDAS ${M.round} ▶</button></div>`;
+  [[M.a, M.A, 0], [M.b, M.B, 1]].forEach(([id, d, i]) => {
+    const c = document.createElement('div'); c.className = 'coder'; c.dataset.id = id; c.append(portrait(d, 110, s.winner === i ? 'punch' : 'tired'));
+    c.insertAdjacentHTML('beforeend', `<b style="color:${d.col}">${esc(d.kid || d.name)}</b><span style="font-weight:800;color:var(--ink-dim)">${esc(d.name)} · ${s.hp[i]}/${s.max[i]} gyvybių po raundo</span><span class="st wip">Galvoja...</span><div class="hint" style="grid-column:1/-1;font-size:.95rem"><b>PATARIMAS PLANŠETĖJE</b>${esc(M.hints[id])}</div>`);
+    $('#cds', el).append(c);
+  });
+  const go = () => { if (cur !== 'fix') return; S.phase = 'vs'; save(); publish(); show('fight'); };
+  $('#go', el).onclick = primary = go;
+  let readyAt = 0;
+  loopFns.push(() => {
+    const left = (S.fixEnd - Date.now()) / 1000, sec = Math.max(0, Math.ceil(left));
+    $('#cd', el).textContent = 'PATAISYMAS 0:' + String(sec).padStart(2, '0'); $('#cd', el).classList.toggle('low', sec <= 10);
+    const both = (M.ready || []).length >= 2;
+    if (both && !readyAt) readyAt = Date.now();
+    if (left <= 0 || (readyAt && Date.now() - readyAt > 1500)) go();
+  });
+  V.fixStatus();
+};
+V.fixStatus = () => {
+  const M = S.match, el = $('#scr');
+  el.querySelectorAll('.coder').forEach((c) => {
+    const id = c.dataset.id, p = pl(id), sp = c.querySelector('.st'), d = id === M.a ? M.A : M.B;
+    const changed = p && JSON.stringify(p.robot.rules) !== JSON.stringify(d.rules);
+    if ((M.ready || []).includes(id)) { sp.className = 'st ok'; sp.textContent = p && p.cpu ? '✓ Kompiuteris paruoštas' : changed ? '✓ Pakeitė taisykles. Paruošta!' : '✓ Paruošta!'; }
+    else { sp.className = 'st wip'; sp.textContent = changed ? 'Taiso taisykles...' : 'Galvoja...'; }
+  });
+};
+
+V.ko = (el) => {
+  const M = S.match, s = M.lastSum, wi = M.winner, D = [M.A, M.B];
+  el.innerHTML = top('Mačas baigtas', `<div class="count gold">${M.wins[0]} : ${M.wins[1]}</div>`) + `
+  <div style="position:relative;min-height:0;height:calc(100% - 56px)"><div class="ko"><div class="kotitle">${s.ko ? 'K.O.!' : wi < 0 ? 'LYGIOSIOS' : 'LAIMĖJO!'}</div><div class="kostage"><canvas id="cv"></canvas></div>
+    <div class="bigt" style="font-size:2rem">${wi >= 0 ? `${esc(D[wi].name)} <span style="color:var(--ink)">${D[wi].kid ? '(' + esc(D[wi].kid) + ')' : ''}</span>` : 'Abu robotai lygūs'}</div>
+    ${wi >= 0 ? `<div class="hint coach"><b>PATARIMAS ${esc((D[1 - wi].kid || D[1 - wi].name).toUpperCase())}</b>${esc(M.hints[wi ? M.a : M.b])}</div>` : ''}
+    <div class="rowbtn"><button class="btn" id="re">Revanšas</button><button class="btn play" id="tour">TURNYRAS ▶</button></div></div></div>`;
+  const cv = $('#cv', el), g = cv.getContext('2d'); let W = 800, H = 260, t = 0;
+  requestAnimationFrame(() => { [W, H] = fitCanvas(cv); });
+  loopFns.push((dt) => {
+    t += dt; g.setTransform(2, 0, 0, 2, 0, 0); g.clearRect(0, 0, W, H);
+    const fy = H * .96, h = H * .86;
+    for (let i = 0; i < 26; i++) { const a = i / 26 * Math.PI * 2 + t * .4; g.fillStyle = ['#ffcc33', '#4de8d6', '#ff6fa8', '#8ee35f'][i % 4]; g.fillRect(W / 2 + Math.cos(a) * W * .3 * ((t * .3 + i * .13) % 1), H * .45 + Math.sin(a) * H * .4 * ((t * .3 + i * .13) % 1), 6, 6); }
+    if (wi >= 0) { drawFighter(g, W * .36, fy - Math.abs(Math.sin(t * 4)) * h * .08, h, D[wi].col, Math.sin(t * 4) > 0 ? 'jump' : 'punch', 1, t); drawFighter(g, W * .66, fy, h * .8, D[1 - wi].col, s.ko ? 'ko' : 'tired', -1, t); }
+    else { drawFighter(g, W * .4, fy, h, D[0].col, 'tired', 1, t); drawFighter(g, W * .6, fy, h, D[1].col, 'tired', -1, t); }
+  });
+  $('#re', el).onclick = () => startMatch(M.a, M.b);
+  $('#tour', el).onclick = primary = () => { S.phase = 'tour'; save(); publish(); show('tour'); };
+};
+
+const START = { lobby: 'lobby', tour: 'tour', end: 'tour', vs: 'fight', fix: 'fix', ko: 'ko' };
+if (S.match && ['vs', 'fix', 'ko'].includes(S.phase) && !(S.match.a in S.players && S.match.b in S.players)) S.phase = 'tour';
+connect();
+show(START[S.phase] || 'lobby');
+window.__rrs = { get S() { return S; }, get cur() { return cur; }, addCpu: () => { addCpu(); save(); publish(); refresh(); } };
+})();
+</script>
+</body>
+</html>
