@@ -27,3 +27,14 @@ Written directly in the repo, not built by build.sh:
 - Paieškos detektyvas: simulated search engine, 12 cases (search words, ads, find in page, two sources).
 - Spąstų medžioklė: safe or trap cards (fake download buttons, prizes, phishing), 10 rounds, generic names only.
 - Slaptas šifras: Caesar cipher wheel and pigpen-style symbols, 12 missions (every ciphertext checked).
+
+## Robotų ringas (2026-10)
+
+A programming fighting game in `robotu-ringas/`, written directly in the repo (not built by build.sh).
+
+- `index.html`: the tablet. Build a robot (name, color, one trait), write up to 5 JEI/TAI rules, test them in Sparingas, climb the 4-robot computer ladder, or join the class ring with the screen's code.
+- `ekranas.html`: the class screen on the Mac. Code + QR, round-robin tournament, side-view fights (best of 3, 20 s rounds) and a 45 s Pataisymas pause between rounds where both fighters fix their rules. Space = next. Only the screen runs the fight; fighter tablets light up their rules live from the screen's ticks.
+- `engine.js`: the fight rules (tick 0.5 s, 1-tick wind-up so "Priešas puola" can be countered). Deterministic per match and round. Balance: no sample robot beats all others.
+- `net.js`: the tikra-ar-ai transport with its own topic. Tablets send their robot and "paruošta" tagged with match id + round, so old messages can't leak into a new round or tournament.
+- Test switches: `?fast=1` (8x fight speed, both pages), `ekranas.html?fix=N` (pause length), `?new=1` (fresh code).
+
