@@ -1,0 +1,167 @@
+<!doctype html>
+<html lang="lt">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Klasės arkada</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Baloo+2:wght@500;600;700;800&display=swap">
+<link rel="stylesheet" href="style.css">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
+<script src="https://unpkg.com/mqtt@5.16.0/dist/mqtt.min.js"></script>
+<script src="net.js"></script>
+<script src="engine.js"></script>
+<style>
+.arcade { grid-template-columns: minmax(0, 1fr) 280px; }
+.agrid { overflow: hidden; }
+.agrid.n4 { grid-template-columns: repeat(4, minmax(0, 1fr)); }
+.gcard.new { box-shadow: 0 6px 0 var(--cobalt-dk), 0 0 0 5px var(--sun); }
+.hello { display: grid; grid-template-columns: auto auto; gap: 40px; align-items: center; justify-content: center; align-content: center; }
+.hello .code { font-weight: 800; font-size: 8rem; line-height: .9; letter-spacing: .06em; }
+.hello p { margin: 0; font-weight: 600; font-size: 1.3rem; color: var(--mist); max-width: 26ch; line-height: 1.35; }
+.qrbox { background: #fff; padding: 10px; width: max-content; }
+.qrbox img, .qrbox canvas { display: block; }
+.feed span { display: block; }
+</style>
+</head>
+<body>
+<div id="app"></div>
+<script>
+/* Pastaba: net.js kiekvienai žinutei uždeda savo lauką id (pasikartojimams atmesti), todėl žaidimo id siunčiamas lauke game.
+   Klasės arkada (Mac): priima vaikų žaidimus, rodo juos gyvai, skaičiuoja žaidimus ir širdeles.
+   Kiekvienas žaidimas laikomas savo kanale g/<id>, kad planšetės gautų tik žaidimus, o ne didelę bendrą žinutę. */
+(() => {
+const { TPL, title, toWire, fromData, Game } = ZD;
+const $ = (s, r = document) => r.querySelector(s);
+const esc = (t) => String(t).replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
+const app = $('#app');
+const KEY = 'zd-host';
+const newCode = () => String(1000 + Math.floor(Math.random() * 9000));
+const fresh = () => ({ code: newCode(), games: {}, order: [], feed: [], total: 0 });
+let S = null;
+try { S = JSON.parse(localStorage.getItem(KEY) || 'null'); } catch (e) {}
+const qs = new URLSearchParams(location.search);
+if (qs.has('new')) { S = null; qs.delete('new'); history.replaceState(null, '', location.pathname + (qs.toString() ? '?' + qs : '')); }
+if (!S || !S.code) S = fresh();
+const save = () => { try { localStorage.setItem(KEY, JSON.stringify(S)); } catch (e) {} };
+save();
+const LOADED = {};   // id -> žaidimas su drobėmis
+async function loaded(id) { if (!LOADED[id] && S.games[id]) LOADED[id] = await fromData(S.games[id].wire); return LOADED[id]; }
+
+/* ---------- tinklas ---------- */
+let net = null, online = 0;
+function connect() {
+  if (net) net.close();
+  net = Net(S.code, onMsg, (on, all) => { online = on; const n = $('#netst'); if (n) { n.classList.toggle('ok', on > 0); n.textContent = on ? `Ryšys veikia (${on} iš ${all})` : 'Nėra ryšio'; } });
+  S.order.forEach((id) => net.send('g/' + id, { t: 'game', data: S.games[id].wire }, true));
+  publish();
+}
+function publicState() {
+  return { t: 'state', seq: Date.now(), total: S.total, feed: S.feed.slice(0, 5),
+    games: S.order.map((id) => { const g = S.games[id]; return { id, v: g.wire.v, title: title(g.wire), author: g.wire.author, tpl: g.wire.tpl, plays: g.plays, hearts: g.hearts }; }) };
+}
+let pubT = null;
+function publish() { if (!net) return; clearTimeout(pubT); net.send('state', publicState(), true); pubT = setTimeout(publish, 4000); }
+const feed = (t) => { S.feed.unshift(t); S.feed = S.feed.slice(0, 8); };
+async function onMsg(sub, m) {
+  if (sub !== 'up' || !m || !m.pid) return;
+  const pid = String(m.pid).slice(0, 20);
+  if (m.t === 'game') {
+    const old = m.data && S.games[m.data.id];
+    if (old && old.wire.v >= +m.data.v) { publish(); return; }   // ta pati versija: tik patvirtinam
+    const g = await fromData(m.data);
+    if (!g) return;
+    // paveikslėliai perkoduojami čia, todėl į arkadą patenka tik tikri paveikslėliai
+    const wire = toWire(g), id = g.id, prev = S.games[id];
+    if (prev && prev.pid !== pid) return;   // svetimo žaidimo perrašyti negalima
+    S.games[id] = { wire, pid, plays: prev ? prev.plays : 0, hearts: prev ? prev.hearts : 0, by: prev ? prev.by : [], at: Date.now() };
+    S.order = [id, ...S.order.filter((x) => x !== id)];
+    LOADED[id] = g; fresh1 = id;
+    feed(prev ? `<b>${esc(g.author)}</b> patobulino „${esc(title(g))}“` : `<b>${esc(g.author)}</b> atsiuntė „${esc(title(g))}“`);
+    net.send('g/' + id, { t: 'game', data: wire }, true);
+  } else if (m.t === 'played' && S.games[m.game]) {
+    const g = S.games[m.game]; g.plays++; S.total++;
+    feed(`Kažkas ${m.win ? 'laimėjo' : 'žaidė'} „${esc(title(g.wire))}“`);
+  } else if (m.t === 'heart' && S.games[m.game]) {
+    const g = S.games[m.game]; if (g.by.includes(pid) || g.pid === pid) return;
+    g.by.push(pid); g.hearts++;
+    feed(`„${esc(title(g.wire))}“ gavo širdelę`);
+  } else return;
+  save(); publish(); refresh();
+}
+// visas perpiešimas tik kai pasikeičia žaidimų sąrašas; skaičiai atnaujinami vietoje, kad kortelės nemirgėtų
+let shown = '';
+function refresh() {
+  const sig = S.order.map((id) => id + ':' + S.games[id].wire.v).join(',') + '|' + S.code;
+  if (sig !== shown || bigOpen) { render(); return; }
+  const big = $('.aside .big'); if (big) big.textContent = S.total;
+  const fd = $('.aside .feed'); if (fd) fd.innerHTML = S.feed.slice(0, 4).map((f) => `<span>${f}</span>`).join('');
+  S.order.forEach((id) => { const st = document.querySelector(`.gcard[data-id="${id}"] .stats`); if (st) st.innerHTML = `<span>žaidė ${S.games[id].plays} k.</span><span>♥ ${S.games[id].hearts}</span>`; });
+}
+let fresh1 = null;
+
+/* ---------- vaizdas ---------- */
+let loopFns = [];
+let last = performance.now();
+(function raf(t) { const dt = Math.min(.05, (t - last) / 1000); last = t; loopFns.slice().forEach((f) => f(dt)); requestAnimationFrame(raf); })(last);
+const url = () => (location.hostname.endsWith('github.io') ? new URL('./', location.href).href : 'https://gytiskind.github.io/zaidimai/dirbtuves/') + '?k=' + S.code;
+function qr(host, px) { host.innerHTML = ''; try { new QRCode(host, { text: url(), width: px * 2, height: px * 2, correctLevel: QRCode.CorrectLevel.M }); } catch (e) {} host.querySelectorAll('img,canvas').forEach((x) => { x.style.width = px + 'px'; x.style.height = px + 'px'; }); host.title = url(); }
+let bigOpen = false;
+function render() {
+  if (bigOpen) return;
+  loopFns = [];
+  shown = S.order.map((id) => id + ':' + S.games[id].wire.v).join(',') + '|' + S.code;
+  const n = S.order.length;
+  app.innerHTML = `<div class="scr"><div class="bar"><div class="brand" style="font-size:1.6rem">Klasės arkada</div><div class="steps" style="justify-content:flex-start;color:var(--mist);font-weight:600;font-size:1.1rem">${n ? 'Kiekvienas sukūrė savo žaidimą. Žaiskit vieni kitų.' : ''}</div>
+    <span class="net${online ? ' ok' : ''}" id="netst">${online ? 'Ryšys veikia' : 'Jungiamasi...'}</span><span class="pill sm" style="display:grid;place-items:center">Kodas ${S.code}</span><button class="pill ghost sm" id="nc">Naujas kodas</button></div>
+    <div class="body ${n ? 'arcade' : 'hello'}" id="bd"></div></div>`;
+  $('#nc').onclick = (e) => {
+    const btn = e.currentTarget; if (!btn.dataset.sure) { btn.dataset.sure = 1; btn.textContent = 'Tikrai? Visi žaidimai dings'; setTimeout(() => { if (btn.isConnected) { delete btn.dataset.sure; btn.textContent = 'Naujas kodas'; } }, 3000); return; }
+    if (net) { S.order.forEach((id) => net.clear('g/' + id)); net.clearRetained(); } S = fresh(); Object.keys(LOADED).forEach((k) => delete LOADED[k]); save(); connect(); render();
+  };
+  const bd = $('#bd');
+  if (!n) {
+    bd.innerHTML = `<div style="display:grid;gap:14px"><div class="code">${S.code}</div><p>Kurkite žaidimus planšetėse ir siųskite į arkadą. Nuskenuokite kodą arba įveskite skaičius.</p></div><div class="qrbox" id="qr"></div>`;
+    qr($('#qr'), 260); return;
+  }
+  bd.innerHTML = `<div class="agrid${n > 6 ? ' n4' : ''}" id="ag"></div><div class="aside"><div><div class="big">${S.total}</div><p>kartų klasė žaidė savo žaidimus</p></div>
+    <div class="feed">${S.feed.slice(0, 4).map((f) => `<span>${f}</span>`).join('') || '<span>Laukiam pirmų žaidimų...</span>'}</div><div class="qrbox" id="qr"></div><p>Nuskenuok planšete ir prisijunk. Kodas ${S.code}.</p></div>`;
+  qr($('#qr'), 130);
+  S.order.slice(0, 12).forEach(async (id) => {
+    const a = S.games[id], c = document.createElement('div'); c.className = 'gcard' + (id === fresh1 ? ' new' : ''); c.dataset.id = id;
+    c.innerHTML = `<canvas style="cursor:pointer"></canvas><div class="cap"><b>${esc(title(a.wire))}</b><small>kūrė ${esc(a.wire.author)} · ${TPL[a.wire.tpl].name}</small><div class="stats"><span>žaidė ${a.plays} k.</span><span>♥ ${a.hearts}</span></div></div><button class="del" title="Pašalinti žaidimą" aria-label="Pašalinti">✕</button>`;
+    $('#ag').append(c);
+    const g = await loaded(id); if (!g || !c.isConnected) return;
+    requestAnimationFrame(() => { const gm = Game(g, c.querySelector('canvas'), { auto: true }); loopFns.push(gm.tick); });
+    c.querySelector('canvas').onclick = () => bigPlay(g);
+    // du paspaudimai: pirmas klausia, antras pašalina
+    c.querySelector('.del').onclick = (e) => {
+      const b = e.currentTarget; if (!b.dataset.sure) { b.dataset.sure = 1; b.textContent = 'Tikrai?'; b.style.width = 'auto'; b.style.padding = '0 12px'; b.style.borderRadius = '99px'; setTimeout(() => { if (b.isConnected) { delete b.dataset.sure; b.textContent = '✕'; b.style = ''; } }, 3000); return; }
+      delete S.games[id]; S.order = S.order.filter((x) => x !== id); delete LOADED[id]; if (net) net.clear('g/' + id); save(); publish(); render();
+    };
+  });
+}
+// mokytojas gali sužaisti bet kurį žaidimą dideliame ekrane pele
+function bigPlay(g) {
+  bigOpen = true;
+  const d = document.createElement('div'); d.className = 'bigplay';
+  d.innerHTML = `<div class="bar"><div class="brand">${esc(title(g))}</div><div class="steps" style="justify-content:flex-start;color:var(--mist);font-weight:600">kūrė ${esc(g.author)} · ${TPL[g.tpl].ctrl.toLowerCase()} (pele)</div><button class="pill go sm" id="bx">Atgal į arkadą</button></div>
+    <div class="body play"><div class="sheet"><canvas id="bcv"></canvas><div class="hud"><span class="sc" id="bsc">0</span><span class="lv" id="blv"></span><span class="goal">Tikslas: ${g.goal} taškų</span></div><div id="bov"></div></div></div>`;
+  app.append(d);
+  let gm;
+  const start = () => { $('#bov').innerHTML = ''; gm = Game(g, $('#bcv'), { onOver: (r) => { $('#bov').innerHTML = `<div class="ov"><div class="box"><h2>${r === 'win' ? 'Laimėjai!' : 'Pralaimėjai'}</h2><div class="row"><button class="pill go" id="ba">Dar kartą</button></div></div></div>`; $('#ba').onclick = start; } }); };
+  const close = () => { bigOpen = false; removeEventListener('keydown', esc1); render(); };
+  const esc1 = (e) => { if (e.key === 'Escape') close(); };
+  addEventListener('keydown', esc1);
+  $('#bx').onclick = close;
+  requestAnimationFrame(() => { start(); loopFns.push((dt) => { gm.tick(dt); $('#bsc').textContent = gm.st.score; $('#blv').textContent = '♥'.repeat(Math.max(0, gm.st.lives)); }); });
+}
+addEventListener('resize', () => { clearTimeout(window.__rz); window.__rz = setTimeout(render, 200); });
+connect();
+render();
+window.__zds = { get S() { return S; }, get online() { return online; } };
+})();
+</script>
+</body>
+</html>

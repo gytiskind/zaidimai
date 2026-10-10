@@ -38,3 +38,11 @@ A programming fighting game in `robotu-ringas/`, written directly in the repo (n
 - `net.js`: the tikra-ar-ai transport with its own topic. Tablets send their robot and "paruošta" tagged with match id + round, so old messages can't leak into a new round or tournament.
 - Test switches: `?fast=1` (8x fight speed, both pages), `ekranas.html?fix=N` (pause length), `?new=1` (fresh code).
 
+## Žaidimų dirbtuvės (2026-10)
+
+A game maker in `dirbtuves/`, written directly in the repo (not built by build.sh). Its own look: cobalt board, white sheet, Baloo 2; the kids' drawings are the sprites.
+
+- `index.html`: the tablet. Pick a game (Gaudyk, Bėk, Skrisk), draw the hero, the good thing, the bad thing and the background with a finger (felt-tip, fill, eraser, undo), set KAI/TAI rules (touch effects, KAS N s spawn loops, JEI points = goal), play, name it with word chips and send it to the class arcade. Friends' games are playable with hearts. Games are saved per ZM player in localStorage.
+- `ekranas.html`: the class arcade on the Mac. Code + QR, every game playing live on its card, plays and hearts, a news line, delete per game (two taps), "Naujas kodas" (two taps). Click a card to play it big with the mouse.
+- Transport: `net.js` with its own topic. Each game travels as one retained message on `g/<id>` (pictures shrunk to WebP, about 17-20 KB per game); the arcade re-encodes every picture before republishing it. Note: net.js stamps its own `id` on every message, so the game id travels as `game`.
+

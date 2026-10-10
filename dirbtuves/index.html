@@ -1,0 +1,378 @@
+<!doctype html>
+<html lang="lt">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Žaidimų dirbtuvės</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Baloo+2:wght@500;600;700;800&display=swap">
+<link rel="stylesheet" href="style.css">
+<script src="../zm.js"></script>
+<script src="https://unpkg.com/mqtt@5.16.0/dist/mqtt.min.js"></script>
+<script src="net.js"></script>
+<script src="engine.js"></script>
+</head>
+<body>
+<div id="app"></div>
+<script>
+/* Planšetė: vaikas pasirenka žaidimą, nupiešia veikėjus, sudeda taisykles, žaidžia ir siunčia į klasės arkadą. */
+(() => {
+const { TPL, EFFECTS, AFTER, EVERY, GOALS, W1, W2, freshGame, title, thumb, toStore, toWire, fromData, Game } = ZD;
+const $ = (s, r = document) => r.querySelector(s);
+const esc = (t) => String(t).replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
+const app = $('#app');
+const ZM = window.ZM || null;
+const NS = (k) => (ZM ? ZM.ns(k) : k);
+const LS = { get(k) { try { return localStorage.getItem(k); } catch (e) { return null; } }, set(k, v) { try { localStorage.setItem(k, v); return true; } catch (e) { return false; } } };
+let pid = LS.get('zd-pid'); if (!pid) { pid = 'k' + Math.random().toString(36).slice(2, 10); LS.set('zd-pid', pid); }
+const author = () => (ZM && ZM.player() ? ZM.player().name : '') || 'Be vardo';
+
+/* ---------- mano žaidimai ---------- */
+let MINE = [];   // [{store, game}] game užkraunamas tingiai
+let G = null;    // dabar kuriamas žaidimas
+try { MINE = (JSON.parse(LS.get(NS('zd-games')) || '[]') || []).map((s) => ({ store: s })); } catch (e) { MINE = []; }
+let sent = {}; try { sent = JSON.parse(LS.get(NS('zd-sent')) || '{}') || {}; } catch (e) {}
+function persist() {
+  const ok = LS.set(NS('zd-games'), JSON.stringify(MINE.map((m) => m.store)));
+  if (!ok) toast('Planšetės atmintis pilna. Žaidimas neišsaugotas.');
+}
+function saveG() {
+  if (!G) return;
+  G.author = author(); G.v = Date.now();
+  const s = toStore(G), i = MINE.findIndex((m) => m.store.id === G.id);
+  if (i >= 0) MINE[i] = { store: s, game: G }; else MINE.unshift({ store: s, game: G });
+  persist();
+}
+let saveT = null;
+const saveSoon = () => { clearTimeout(saveT); saveT = setTimeout(saveG, 700); };
+async function loadMine(m) { if (!m.game) m.game = await fromData(m.store); return m.game; }
+
+/* ---------- karkasas ---------- */
+let loopFns = [], cur = '';
+let last = performance.now();
+(function raf(t) { const dt = Math.min(.05, (t - last) / 1000); last = t; loopFns.slice().forEach((f) => f(dt)); requestAnimationFrame(raf); })(last);
+const V = {};
+function go(id, arg) { if (G && ['draw', 'rules', 'play', 'send'].includes(cur)) saveG(); cur = id; loopFns = []; app.innerHTML = '<div class="scr" id="scr"></div>'; V[id]($('#scr'), arg); app.querySelectorAll('[data-step]').forEach((b) => b.onclick = () => go(b.dataset.step)); }
+addEventListener('resize', () => { clearTimeout(window.__rz); window.__rz = setTimeout(() => { if (!['play', 'fplay'].includes(cur)) go(cur, lastArg); }, 200); });
+let lastArg = null;
+function toast(t) { const d = document.createElement('div'); d.className = 'toast'; d.textContent = t; app.append(d); setTimeout(() => d.remove(), 2800); }
+const STEPS = [['pick', 'Žaidimas'], ['draw', 'Piešk'], ['rules', 'Taisyklės'], ['play', 'Žaisk'], ['send', 'Į arkadą']];
+function bar(id, right = '') {
+  const ix = STEPS.findIndex((s) => s[0] === id);
+  return `<div class="bar"><button class="pill ghost sm" data-home>Namo</button><div class="steps">${STEPS.map(([k, n], i) => {
+    const can = G || k === 'pick';
+    return `<button class="step${i === ix ? ' on' : i < ix ? ' done' : ''}" ${can ? `data-step="${k}"` : 'disabled'} style="border:0;background:${i === ix ? '#fff' : 'transparent'}"><i>${i < ix ? '✓' : i + 1}</i>${n}</button>`; }).join('')}</div>${right}</div>`;
+}
+app.addEventListener('click', (e) => { if (e.target.closest('[data-home]')) go('home'); });
+function gcard(g, opts = {}) {
+  const b = document.createElement('div'); b.className = 'gcard'; b.setAttribute('role', 'group');
+  b.innerHTML = `<canvas></canvas><div class="cap"><b>${esc(title(g))}</b><small>${opts.sub || 'kūrė ' + esc(g.author || author()) + ' · ' + TPL[g.tpl].name}</small>${opts.extra || ''}</div>`;
+  return b;
+}
+function live(card, g) {
+  requestAnimationFrame(() => { const cv = card.querySelector('canvas'); if (!cv || !cv.isConnected) return; const gm = Game(g, cv, { auto: true }); loopFns.push(gm.tick); });
+}
+
+/* ---------- namai ---------- */
+V.home = (el) => {
+  el.innerHTML = `<div class="bar"><a class="pill ghost sm" href="../">← Meniu</a><div class="brand" style="flex:1">Žaidimų dirbtuvės</div><span class="net${online ? ' ok' : ''}" id="netst">${net ? (online ? 'Arkada prijungta' : 'Jungiamasi...') : 'Arkada neprijungta'}</span></div>
+  <div class="body home"><div style="display:grid;grid-template-rows:auto minmax(0,1fr);gap:10px;min-height:0"><h1 style="font-size:1.8rem;font-weight:800">Mano žaidimai</h1><div class="mine" id="mine"></div></div>
+  <div class="side" id="side"></div></div>`;
+  const box = $('#mine', el);
+  const nb = document.createElement('button'); nb.className = 'newbtn'; nb.textContent = '+ Naujas žaidimas'; nb.onclick = () => { G = null; go('pick'); }; box.append(nb);
+  MINE.slice(0, 5).forEach(async (m) => {
+    const ph = document.createElement('div'); box.append(ph);   // vieta iš anksto, kad tvarka nesikeistų
+    const g = await loadMine(m); if (!g || !ph.isConnected) return;
+    const c = gcard(g, { extra: `<div class="row2"><button class="pill go sm" data-a="play">Žaisti</button><button class="pill sm" data-a="edit">Taisyti</button></div>` });
+    c.querySelector('[data-a="play"]').onclick = () => { G = g; go('play'); };
+    c.querySelector('[data-a="edit"]').onclick = () => { G = g; go('draw'); };
+    ph.replaceWith(c); live(c, g);
+  });
+  sideFriends($('#side', el));
+};
+function sideFriends(side) {
+  if (net) {
+    const n = friendIds().length;
+    side.innerHTML = `<div class="set"><b>Klasės arkada</b><p class="tip">Kodas <b>${esc(code)}</b>. ${n ? `Draugų žaidimų: <b>${n}</b>.` : 'Draugų žaidimų dar nėra.'}</p>
+      <button class="pill go" id="fr" ${n ? '' : 'disabled'}>Draugų žaidimai</button></div>`;
+    $('#fr', side).onclick = () => go('friends');
+  } else padInto(side, 'Prisijunk prie arkados', 'Kodas yra dideliame ekrane.', () => go(cur));
+}
+// skaičių klaviatūra kodui: be sistemos klaviatūros
+function padInto(host, head, note, after) {
+  let k = '';
+  host.innerHTML = `<div class="set"><b>${head}</b><div class="codebox" id="kb"></div><div class="pad" id="pad"></div><p class="msg" id="jm">${note}</p><button class="pill go" id="jn" disabled>Jungtis</button></div>`;
+  const show = () => { $('#kb', host).textContent = (k + '····').slice(0, 4); $('#jn', host).disabled = k.length !== 4; };
+  $('#pad', host).innerHTML = ['1', '2', '3', '4', '5', '6', '7', '8', '9', '⌫', '0'].map((d) => `<button data-d="${d}">${d}</button>`).join('');
+  $('#pad', host).onclick = (e) => { const b = e.target.closest('[data-d]'); if (!b) return; if (b.dataset.d === '⌫') k = k.slice(0, -1); else if (k.length < 4) k += b.dataset.d; show(); };
+  $('#jn', host).onclick = () => {
+    join(k); $('#jm', host).textContent = 'Jungiamasi...'; $('#jm', host).className = 'msg';
+    const want = k; setTimeout(() => { if (!st && code === want && $('#jm', host)) { $('#jm', host).textContent = 'Ekranas neatsako. Patikrink kodą.'; $('#jm', host).className = 'msg bad'; } }, 9000);
+    waitState = after;
+  };
+  show();
+}
+
+/* ---------- 1: šablonas ---------- */
+V.pick = (el) => {
+  el.innerHTML = bar('pick') + `<div class="body pick"><h1>Kokį žaidimą darysi?</h1>${Object.entries(TPL).map(([k, t]) => `<button class="tpl" data-t="${k}"><canvas></canvas><div class="cap"><h2>${t.name}</h2><p>${t.about}</p></div></button>`).join('')}</div>`;
+  el.querySelectorAll('.tpl').forEach((b) => {
+    const demo = freshGame(b.dataset.t, 11);
+    requestAnimationFrame(() => { const gm = Game(demo, b.querySelector('canvas'), { auto: true }); loopFns.push(gm.tick); });
+    b.onclick = () => { if (!G || G.tpl !== b.dataset.t) { G = freshGame(b.dataset.t, 3); G.author = author(); } go('draw'); };
+  });
+};
+
+/* ---------- 2: piešk ---------- */
+const MARKERS = ['#16183a', '#ff5a5f', '#ff9f43', '#ffd23f', '#3fbf5f', '#2bb6e8', '#8a5cf6', '#ffffff'];
+let pen = { col: '#16183a', w: 14, tool: 'pen' }, curSlot = 'hero';
+const undo = {};
+V.draw = (el) => {
+  if (!G) { go('pick'); return; }
+  const T = TPL[G.tpl];
+  el.innerHTML = bar('draw', '<button class="pill go sm" id="nx">Taisyklės ▶</button>') + `<div class="body draw"><div class="slots" id="slots"></div>
+  <div class="paper"><div class="ask" id="ask"></div><canvas class="pad" id="pad"></canvas></div>
+  <div class="kit"><div class="marks" id="marks"></div><div class="sizes" id="sizes"></div>
+    <div class="tools"><button class="tool" data-tool="pen"><svg viewBox="0 0 24 24"><path d="M3 21l3-1 12-12-2-2L4 18z" fill="currentColor"/><path d="M15 5l2-2 4 4-2 2z" fill="currentColor"/></svg>Flomasteris</button>
+    <button class="tool" data-tool="fill"><svg viewBox="0 0 24 24"><path d="M5 11l7-7 7 7-7 7z" fill="none" stroke="currentColor" stroke-width="2.5"/><path d="M5 11h14l-7 7z" fill="currentColor"/><path d="M20 15c1 2 2 3 1 4s-2 0-2-1 1-2 1-3z" fill="currentColor"/></svg>Spalvink</button>
+    <button class="tool" data-tool="erase"><svg viewBox="0 0 24 24"><path d="M3 15l9-9 7 7-6 6H8z" fill="none" stroke="currentColor" stroke-width="2.5"/><path d="M3 15l5 4h5l-6-7z" fill="currentColor"/></svg>Trintukas</button>
+    <button class="tool" id="und"><svg viewBox="0 0 24 24"><path d="M9 5L3 10l6 5V12c5 0 8 1 11 6-1-6-4-10-11-10z" fill="currentColor"/></svg>Atgal</button>
+    <button class="tool" id="clr" style="grid-column:1/-1;height:44px">Išvalyti lapą</button></div></div></div>`;
+  const pad = $('#pad', el), slots = $('#slots', el);
+  function renderSlots() {
+    slots.innerHTML = '';
+    T.slots.forEach(([k, n, s]) => { const b = document.createElement('button'); b.className = 'slot' + (k === curSlot ? ' on' : '') + (k === 'bg' ? ' wide' : ''); b.dataset.slot = k; b.append(thumb(G.spr[k], 64, k === 'bg' ? 40 : 64)); b.insertAdjacentHTML('beforeend', `<span><b>${n}</b><small>${s}</small></span>`); b.onclick = () => { curSlot = k; renderSlots(); setPad(); }; slots.append(b); });
+  }
+  let src, g;
+  function setPad() {
+    src = G.spr[curSlot]; g = src.getContext('2d', { willReadFrequently: true });
+    const box = pad.parentElement.getBoundingClientRect(), k = Math.min((box.width - 10) / src.width, (box.height - 40) / src.height);
+    pad.width = src.width; pad.height = src.height; pad.style.width = Math.floor(src.width * k) + 'px'; pad.style.height = Math.floor(src.height * k) + 'px'; pad.style.marginTop = '28px';
+    const nm = T.slots.find((x) => x[0] === curSlot);
+    $('#ask', el).textContent = curSlot === 'bg' ? 'Nupiešk foną' : `Nupiešk: ${nm[1].toLowerCase()}`;
+    show();
+  }
+  const show = () => { const p = pad.getContext('2d'); p.clearRect(0, 0, pad.width, pad.height); if (curSlot !== 'bg') { p.fillStyle = '#fff'; p.fillRect(0, 0, pad.width, pad.height); } p.drawImage(src, 0, 0); };
+  const snap = () => { (undo[G.id + curSlot] = undo[G.id + curSlot] || []).push(g.getImageData(0, 0, src.width, src.height)); if (undo[G.id + curSlot].length > 20) undo[G.id + curSlot].shift(); };
+  function flood(x, y, col) {
+    const W = src.width, H = src.height, im = g.getImageData(0, 0, W, H), d = im.data;
+    if (x < 0 || y < 0 || x >= W || y >= H) return;
+    const i0 = (y * W + x) * 4, t = [d[i0], d[i0 + 1], d[i0 + 2], d[i0 + 3]];
+    const n = parseInt(col.slice(1), 16), c = [n >> 16, (n >> 8) & 255, n & 255, 255];
+    if (t.every((v, i) => Math.abs(v - c[i]) < 8)) return;
+    const same = (i) => Math.abs(d[i] - t[0]) + Math.abs(d[i + 1] - t[1]) + Math.abs(d[i + 2] - t[2]) + Math.abs(d[i + 3] - t[3]) < 90;
+    const stack = [[x, y]];
+    while (stack.length) {
+      let [cx, cy] = stack.pop(); let i = (cy * W + cx) * 4;
+      while (cx >= 0 && same(i)) { cx--; i -= 4; } cx++; i += 4;
+      let up = false, dn = false;
+      while (cx < W && same(i)) {
+        d[i] = c[0]; d[i + 1] = c[1]; d[i + 2] = c[2]; d[i + 3] = 255;
+        if (cy > 0) { if (same(i - W * 4)) { if (!up) { stack.push([cx, cy - 1]); up = true; } } else up = false; }
+        if (cy < H - 1) { if (same(i + W * 4)) { if (!dn) { stack.push([cx, cy + 1]); dn = true; } } else dn = false; }
+        cx++; i += 4;
+      }
+    }
+    g.putImageData(im, 0, 0);
+  }
+  let drawing = false, lx = 0, ly = 0;
+  const pos = (e) => { const r = pad.getBoundingClientRect(); return [(e.clientX - r.left) / r.width * src.width, (e.clientY - r.top) / r.height * src.height]; };
+  pad.onpointerdown = (e) => {
+    if (drawing) return;
+    pad.setPointerCapture(e.pointerId); const [x, y] = pos(e); snap();
+    if (pen.tool === 'fill') { flood(Math.floor(x), Math.floor(y), pen.col); show(); renderSlots(); saveSoon(); return; }
+    drawing = e.pointerId; lx = x; ly = y; stroke(x + .01, y);
+  };
+  function stroke(x, y) {
+    g.save(); g.globalCompositeOperation = pen.tool === 'erase' ? 'destination-out' : 'source-over';
+    g.strokeStyle = pen.col; g.lineWidth = pen.w * (src.height / 256) * (pen.tool === 'erase' ? 1.6 : 1); g.lineCap = g.lineJoin = 'round';
+    g.beginPath(); g.moveTo(lx, ly); g.lineTo(x, y); g.stroke(); g.restore(); lx = x; ly = y; show();
+  }
+  pad.onpointermove = (e) => { if (drawing === e.pointerId) { const [x, y] = pos(e); stroke(x, y); } };
+  pad.onpointerup = pad.onpointercancel = (e) => { if (drawing === e.pointerId) { drawing = false; renderSlots(); saveSoon(); } };
+  $('#marks', el).innerHTML = MARKERS.map((c) => `<button class="mark" data-c="${c}" style="background:${c}" aria-label="spalva"></button>`).join('');
+  $('#marks', el).onclick = (e) => { const b = e.target.closest('[data-c]'); if (!b) return; pen.col = b.dataset.c; if (pen.tool === 'erase') pen.tool = 'pen'; kit(); };
+  $('#sizes', el).innerHTML = [6, 14, 30].map((w) => `<button class="size" data-w="${w}" aria-label="storis"><i style="width:${w * .7 + 4}px;height:${w * .7 + 4}px"></i></button>`).join('');
+  $('#sizes', el).onclick = (e) => { const b = e.target.closest('[data-w]'); if (!b) return; pen.w = +b.dataset.w; if (pen.tool === 'fill') pen.tool = 'pen'; kit(); };
+  el.querySelectorAll('[data-tool]').forEach((b) => b.onclick = () => { pen.tool = b.dataset.tool; kit(); });
+  function kit() { el.querySelectorAll('.mark').forEach((b) => b.classList.toggle('on', b.dataset.c === pen.col && pen.tool !== 'erase')); el.querySelectorAll('.size').forEach((b) => b.classList.toggle('on', +b.dataset.w === pen.w)); el.querySelectorAll('[data-tool]').forEach((b) => b.classList.toggle('on', b.dataset.tool === pen.tool)); }
+  $('#und', el).onclick = () => { const u = undo[G.id + curSlot]; if (u && u.length) { g.putImageData(u.pop(), 0, 0); show(); renderSlots(); saveSoon(); } };
+  $('#clr', el).onclick = () => { snap(); g.clearRect(0, 0, src.width, src.height); if (curSlot === 'bg') { g.fillStyle = '#fff'; g.fillRect(0, 0, src.width, src.height); } show(); renderSlots(); saveSoon(); };
+  $('#nx', el).onclick = () => go('rules');
+  renderSlots(); kit(); requestAnimationFrame(setPad);
+};
+
+/* ---------- 3: taisyklės ---------- */
+V.rules = (el) => {
+  if (!G) { go('pick'); return; }
+  el.innerHTML = bar('rules', '<button class="pill go sm" id="nx">Žaisk ▶</button>') + `<div class="body rules"><div class="cards" id="cards"></div>
+  <div class="side">
+    <div class="set"><b>Greitis</b><div class="seg" data-k="speed">${[[.7, 'Lėtai'], [1, 'Vidutiniškai'], [1.5, 'Greitai']].map(([v, n]) => `<button data-v="${v}">${n}</button>`).join('')}</div></div>
+    <div class="set"><b>Gyvybės</b><div class="seg" data-k="lives">${[1, 3, 5].map((v) => `<button data-v="${v}">${v}</button>`).join('')}</div></div>
+    <p class="tip">Bakstelk paveikslėlį ar žodį ir jis pasikeis. <b>Pakeisk vieną taisyklę ir žaidimas taps kitas.</b></p>
+  </div></div>`;
+  const pic = (k) => { const b = document.createElement('button'); b.className = 'who'; b.setAttribute('aria-label', k === 'hero' ? 'herojus' : k === 'good' ? 'gerasis' : 'blogasis'); b.append(thumb(G.spr[k], 52, 52)); return b; };
+  function render() {
+    const box = $('#cards', el); box.innerHTML = '';
+    G.rules.forEach((r, i) => {
+      const c = document.createElement('div'); c.className = 'card'; c.style.setProperty('--c', '#2bb6e8');
+      const ef = EFFECTS.find((x) => x[0] === r.e), af = AFTER.find((x) => x[0] === r.f);
+      c.innerHTML = '<span class="kw">KAI</span>'; const h = pic('hero'); h.disabled = true; c.append(h); c.insertAdjacentHTML('beforeend', '<span class="w">paliečia</span>');
+      const bb = pic(r.b); bb.dataset.ri = i; bb.dataset.swap = 1; c.append(bb);
+      c.insertAdjacentHTML('beforeend', `<span class="kw" style="margin-left:6px">TAI</span><button class="chip ${ef[2]}" data-ri="${i}" data-p="e">${ef[1]}</button><span class="w">ir</span><button class="chip" data-ri="${i}" data-p="f">${af[1]}</button>`);
+      box.append(c);
+    });
+    G.every.forEach((ev, i) => {
+      const c = document.createElement('div'); c.className = 'card'; c.style.setProperty('--c', '#8a5cf6');
+      c.innerHTML = `<span class="kw">KAS</span><button class="chip" data-ei="${i}">${String(ev.s).replace('.', ',')} s</button><span class="w">atsiranda naujas</span>`;
+      const p = pic(ev.who); p.dataset.ei = i; c.append(p);
+      c.insertAdjacentHTML('beforeend', '<span class="w" style="margin-left:auto">ir taip visą žaidimą</span>');
+      box.append(c);
+    });
+    const c = document.createElement('div'); c.className = 'card'; c.style.setProperty('--c', '#e0b21c');
+    c.innerHTML = `<span class="kw">JEI</span><span class="w">taškai =</span><button class="chip" id="goal">${G.goal}</button><span class="kw" style="margin-left:6px">TAI</span><span class="chip win" style="display:grid;place-items:center">Laimėjai!</span>`;
+    box.append(c);
+    el.querySelectorAll('.seg').forEach((s) => s.querySelectorAll('button').forEach((b) => b.classList.toggle('on', +b.dataset.v === G[s.dataset.k])));
+  }
+  el.addEventListener('click', (e) => {
+    const b = e.target.closest('button'); if (!b) return;
+    const cyc = (arr, v) => arr[(arr.indexOf(v) + 1) % arr.length];
+    if (b.dataset.swap) { const r = G.rules[+b.dataset.ri]; r.b = r.b === 'good' ? 'bad' : 'good'; }
+    else if (b.dataset.p === 'e') { const r = G.rules[+b.dataset.ri]; r.e = cyc(EFFECTS.map((x) => x[0]), r.e); }
+    else if (b.dataset.p === 'f') { const r = G.rules[+b.dataset.ri]; r.f = cyc(AFTER.map((x) => x[0]), r.f); }
+    else if (b.dataset.ei && b.classList.contains('chip')) { const ev = G.every[+b.dataset.ei]; ev.s = cyc(EVERY, ev.s); }
+    else if (b.dataset.ei && b.classList.contains('who')) { const ev = G.every[+b.dataset.ei]; ev.who = ev.who === 'good' ? 'bad' : 'good'; }
+    else if (b.id === 'goal') G.goal = cyc(GOALS, G.goal);
+    else if (b.parentElement && b.parentElement.dataset.k) G[b.parentElement.dataset.k] = +b.dataset.v;
+    else return;
+    render(); saveSoon();
+  });
+  $('#nx', el).onclick = () => go('play');
+  render();
+};
+
+/* ---------- 4: žaisk (savo ar draugo) ---------- */
+function playView(el, game, friend) {
+  const T = TPL[game.tpl];
+  el.innerHTML = (friend ? `<div class="bar"><button class="pill ghost sm" id="back">← Draugų žaidimai</button><div class="brand">${esc(title(game))}</div><div class="steps" style="justify-content:flex-start;color:var(--mist);font-weight:600">kūrė ${esc(game.author)}</div></div>`
+    : bar('play', '<button class="pill ghost sm" id="rl">Taisyklės</button><button class="pill go sm" id="nx">Į arkadą ▶</button>')) +
+    `<div class="body play"><div class="sheet"><canvas id="cv"></canvas><div class="hud"><span class="sc" id="sc">0</span><span class="lv" id="lv"></span><span class="goal">Tikslas: ${game.goal} taškų</span></div><div class="hint" id="hint">${T.ctrl}</div><div id="ov"></div></div></div>`;
+  let gm = null, hearted = false;
+  const start = () => {
+    $('#ov', el).innerHTML = ''; $('#hint', el).hidden = false;
+    gm = Game(game, $('#cv', el), {
+      onInput: () => { $('#hint', el).hidden = true; },
+      onOver: (r) => {
+        const win = r === 'win';
+        if (friend) { sendUp({ t: 'played', game: game.id, win }); if (ZM) ZM.report('dirbtuves', { score: Object.keys(sent).length, xp: 5 }); }
+        $('#ov', el).innerHTML = `<div class="ov"><div class="box"><h2>${win ? 'Laimėjai!' : 'Pralaimėjai'}</h2><p>${gm.st.score} taškai. ${friend ? '' : win ? 'Tavo taisyklės veikia.' : 'Gal pakeisk taisyklę ir bandyk vėl?'}</p>
+          <div class="row"><button class="pill go" id="again">Dar kartą</button>${friend ? `<button class="pill ghost" id="heart" ${hearted ? 'disabled' : ''}>${hearted ? '♥ Patiko!' : '♥ Patinka'}</button>` : '<button class="pill ghost" id="fix">Keisti taisykles</button>'}</div></div></div>`;
+        $('#again', el).onclick = start;
+        if ($('#fix', el)) $('#fix', el).onclick = () => go('rules');
+        if ($('#heart', el)) $('#heart', el).onclick = (e) => { hearted = true; sendUp({ t: 'heart', game: game.id }); e.target.textContent = '♥ Patiko!'; e.target.disabled = true; };
+      },
+    });
+  };
+  if ($('#rl', el)) $('#rl', el).onclick = () => go('rules');
+  if ($('#nx', el)) $('#nx', el).onclick = () => go('send');
+  if ($('#back', el)) $('#back', el).onclick = () => go('friends');
+  requestAnimationFrame(() => { start(); loopFns.push((dt) => { gm.tick(dt); $('#sc', el).textContent = gm.st.score; $('#lv', el).textContent = '♥'.repeat(Math.max(0, gm.st.lives)); }); });
+}
+V.play = (el) => { if (!G) { go('pick'); return; } playView(el, G, false); };
+V.fplay = (el, g) => { lastArg = g; playView(el, g, true); };
+
+/* ---------- 5: į arkadą ---------- */
+V.send = (el) => {
+  if (!G) { go('pick'); return; }
+  el.innerHTML = bar('send') + `<div class="body send"><div style="display:grid;gap:10px;align-content:start;min-height:0">
+    <h1 style="font-size:1.7rem;font-weight:800">Kaip vadinsis tavo žaidimas?</h1><div class="words" id="w1"></div><div class="words" id="w2"></div>
+    <div class="title" id="tt"></div></div><div class="side" id="right"></div></div><div id="ov"></div>`;
+  const draw = () => {
+    $('#w1', el).innerHTML = W1.map((w) => `<button class="word${w === G.words[0] ? ' on' : ''}" data-a="${w}">${w}</button>`).join('');
+    $('#w2', el).innerHTML = W2.map((w) => `<button class="word${w === G.words[1] ? ' on' : ''}" data-b="${w}">${w}</button>`).join('');
+    $('#tt', el).textContent = title(G);
+  };
+  el.addEventListener('click', (e) => { const b = e.target.closest('button'); if (!b) return; if (b.dataset.a) G.words[0] = b.dataset.a; if (b.dataset.b) G.words[1] = b.dataset.b; if (b.dataset.a || b.dataset.b) { draw(); saveSoon(); right(); } });
+  function right() {
+    const r = $('#right', el);
+    if (!net) { padInto(r, 'Prisijunk prie arkados', 'Įvesk kodą iš didelio ekrano.', () => go('send')); return; }
+    r.innerHTML = ''; const c = gcard(G); r.append(c); live(c, G);
+    r.insertAdjacentHTML('beforeend', `<button class="pill go" id="go">Siųsti į arkadą ▶</button><p class="msg" id="sm">${online ? '' : 'Jungiamasi prie arkados...'}</p>`);
+    $('#go', r).onclick = () => { saveG(); pushGame(G); $('#sm', r).textContent = 'Siunčiama...'; $('#go', r).disabled = true; };
+  }
+  draw(); right();
+};
+// siunčia, kol ekranas patvirtina šią versiją
+let pending = null;
+function pushGame(g) { pending = { id: g.id, v: g.v, wire: toWire(g) }; sendUp({ t: 'game', data: pending.wire }); }
+setInterval(() => {
+  if (!net || !pending) return;
+  const a = st && (st.games || []).find((x) => x.id === pending.id);
+  if (a && a.v >= pending.v) {
+    const first = !sent[pending.id]; sent[pending.id] = pending.v; LS.set(NS('zd-sent'), JSON.stringify(sent));
+    if (first && ZM) ZM.report('dirbtuves', { score: Object.keys(sent).length, xp: 50 });
+    pending = null;
+    if (cur === 'send') sentOverlay();
+    return;
+  }
+  sendUp({ t: 'game', data: pending.wire });
+}, 2500);
+function sentOverlay() {
+  const ov = $('#ov'); if (!ov) return;
+  ov.innerHTML = `<div class="ov"><div class="box"><h2>Išsiųsta!</h2><p>„${esc(title(G))}“ jau klasės arkadoje. Draugai gali žaisti.</p><div class="row"><button class="pill go" id="fr">Draugų žaidimai</button><button class="pill ghost" data-home>Namo</button></div></div></div>`;
+  $('#fr', ov).onclick = () => go('friends');
+}
+
+/* ---------- draugų žaidimai ---------- */
+const FR = {};   // id -> {data, game}
+const friendIds = () => (st && st.games ? st.games.filter((x) => !MINE.some((m) => m.store.id === x.id)).map((x) => x.id) : []);
+V.friends = (el) => {
+  el.innerHTML = `<div class="bar"><button class="pill ghost sm" data-home>Namo</button><div class="brand" style="flex:1">Draugų žaidimai</div><span class="net${online ? ' ok' : ''}" id="netst">${online ? 'Arkada prijungta' : 'Jungiamasi...'}</span></div>
+  <div class="body friends" id="fl"></div>`;
+  const box = $('#fl', el), ids = friendIds();
+  if (!net) { const s = document.createElement('div'); s.className = 'side'; box.append(s); padInto(s, 'Prisijunk prie arkados', 'Kodas yra dideliame ekrane.', () => go('friends')); return; }
+  if (!ids.length) { box.innerHTML = '<div class="empty" style="grid-column:1/-1">Draugų žaidimų dar nėra. Kai kas nors atsiųs, jie atsiras čia.</div>'; return; }
+  ids.slice(0, 8).forEach((id) => {
+    const a = st.games.find((x) => x.id === id), f = FR[id];
+    const c = document.createElement('button'); c.className = 'gcard';
+    if (f && f.game) { c.innerHTML = `<canvas></canvas><div class="cap"><b>${esc(title(f.game))}</b><small>kūrė ${esc(f.game.author)} · ${TPL[f.game.tpl].name}</small><div class="stats"><span>žaidė ${a.plays} k.</span><span>♥ ${a.hearts}</span></div></div>`; live(c, f.game); c.onclick = () => go('fplay', f.game); }
+    else { c.innerHTML = `<div class="loading">Kraunama...</div><div class="cap"><b>${esc(a.title)}</b><small>kūrė ${esc(a.author)}</small></div>`; c.disabled = true; }
+    box.append(c);
+  });
+};
+
+/* ---------- tinklas ---------- */
+let net = null, code = '', st = null, online = 0, lastSeq = 0, waitState = null;
+function join(k) {
+  if (net) net.close();
+  code = k; st = null; lastSeq = 0; LS.set('zd-last', k);
+  net = Net(code, onMsg, (on) => { online = on; const n = $('#netst'); if (n) { n.classList.toggle('ok', on > 0); n.textContent = on ? 'Arkada prijungta' : 'Jungiamasi...'; } });
+  history.replaceState(null, '', '?k=' + code);
+}
+const sendUp = (m) => { if (net) net.send('up', Object.assign({ pid }, m)); };
+function onMsg(sub, m) {
+  if (sub.startsWith('g/')) {
+    if (!m || m.t !== 'game' || !m.data) return;
+    const id = sub.slice(2), old = FR[id];
+    if (old && old.data.v >= m.data.v) return;
+    FR[id] = { data: m.data, game: null };
+    fromData(m.data).then((g) => { if (g && FR[id] && FR[id].data === m.data) { FR[id].game = g; if (cur === 'friends') go('friends'); } });
+    return;
+  }
+  if (sub !== 'state' || m.t !== 'state' || m.seq < lastSeq) return;
+  const before = st; lastSeq = m.seq; st = m;
+  if (!before && waitState) { const f = waitState; waitState = null; f(); return; }
+  if (cur === 'home' && (!before || (before.games || []).length !== (st.games || []).length)) { const s = $('#side'); if (s) sideFriends(s); }
+  if (cur === 'friends' && before && JSON.stringify((before.games || []).map((g) => g.id + g.v)) !== JSON.stringify((st.games || []).map((g) => g.id + g.v))) go('friends');
+}
+
+/* ---------- pradžia ---------- */
+const qk = (new URLSearchParams(location.search).get('k') || '').replace(/\D/g, '').slice(0, 4);
+if (qk.length === 4) join(qk);
+go(MINE.length ? 'home' : 'pick');
+window.__zd = { get cur() { return cur; }, get st() { return st; }, get G() { return G; }, get MINE() { return MINE; }, get FR() { return FR; }, get pending() { return pending; }, go, pid };
+})();
+</script>
+</body>
+</html>
