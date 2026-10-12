@@ -28,11 +28,24 @@ const DEF = {
   bgNight: (g, c, r, w, h) => { g.fillStyle = c; g.fillRect(0, 0, w, h); const q = rng(9); for (let i = 0; i < 40; i++) { g.fillStyle = '#fff'; g.fillRect(q() * w, q() * h * .8, 4, 4); } shape(g, circ(w * .14, h * .2, 24, 24), '#fff6c2', r, 6); },
   bgSky: (g, c, r, w, h) => { g.fillStyle = c; g.fillRect(0, 0, w, h); [[.2, .25], [.6, .18], [.85, .4]].forEach(([x, y]) => shape(g, circ(w * x, h * y, 34, 17, 16), '#fff', r, 5)); },
 };
-const SIZE = { bg: [512, 256], hero: [256, 256], good: [256, 256], bad: [256, 256] };
+const SIZE = { bg: [1024, 512], hero: [256, 256], good: [256, 256], bad: [256, 256] };
+// Pavyzdiniai paveikslėliai: molio stiliaus Blender piešiniai (assets/). Jei neužsikrauna, piešiama paprasta figūra.
+const BASE = (document.currentScript && document.currentScript.src || location.href).replace(/[^/]*$/, '');
+const ART = { blob: 'hero-blob', mint: 'hero-blob', cat: 'hero-bird', apple: 'apple', spike: 'spike', star: 'star', ghost: 'ghost', pipe: 'pillar', bgMeadow: 'bg-meadow', bgNight: 'bg-night', bgSky: 'bg-sky' };
+const PICS = {};
+const ready = Promise.all([...new Set(Object.values(ART))].map((n) => new Promise((ok) => {
+  const i = new Image(); i.onload = () => { PICS[n] = i; ok(); }; i.onerror = () => ok(); i.src = BASE + 'assets/' + n + (n.startsWith('bg-') ? '.webp' : '.png');
+})));
 function makeDef(kind, col, seed) {
-  const isBg = kind.startsWith('bg');
-  const c = mk(isBg ? 512 : 256, 256), g = c.getContext('2d');
-  DEF[kind](g, col, rng(seed || 7), c.width, c.height);
+  const isBg = kind.startsWith('bg'), [w, h] = isBg ? SIZE.bg : SIZE.hero;
+  const c = mk(w, h), g = c.getContext('2d'), pic = PICS[ART[kind]];
+  if (pic) {
+    if (kind === 'mint') g.filter = 'hue-rotate(115deg) saturate(1.1)';
+    const k = isBg ? Math.max(w / pic.width, h / pic.height) : Math.min(w / pic.width, h / pic.height) * (kind === 'pipe' ? 1 : .94);
+    g.drawImage(pic, (w - pic.width * k) / 2, (h - pic.height * k) / 2, pic.width * k, pic.height * k);
+    return c;
+  }
+  DEF[kind === 'mint' ? 'blob' : kind](g, col, rng(seed || 7), w, h);
   return c;
 }
 
@@ -43,7 +56,7 @@ const TPL = {
     def: { hero: ['blob', '#ffd23f'], good: ['apple', '#ff5a5f'], bad: ['spike', '#8a5cf6'], bg: ['bgMeadow', '#bfe3ff'] } },
   bek: { name: 'Bėk', about: 'Rink daiktus visame lauke, o priešai lakstys aplink.', ctrl: 'Vesk pirštu, herojus seka',
     slots: [['hero', 'Herojus', 'Tu jį valdai'], ['good', 'Rink', 'Atsiranda bet kur'], ['bad', 'Priešas', 'Laksto aplink'], ['bg', 'Fonas', 'Už visko']],
-    def: { hero: ['blob', '#7be0c8'], good: ['star', '#ffd23f'], bad: ['ghost', '#ffffff'], bg: ['bgNight', '#2a2f6b'] } },
+    def: { hero: ['mint', '#7be0c8'], good: ['star', '#ffd23f'], bad: ['ghost', '#ffffff'], bg: ['bgNight', '#2a2f6b'] } },
   skrisk: { name: 'Skrisk', about: 'Bakstelk ir herojus pakyla. Praskrisk pro kliūtis.', ctrl: 'Bakstelk, kad pakiltum',
     slots: [['hero', 'Herojus', 'Tu jį valdai'], ['good', 'Rink', 'Tarp kliūčių'], ['bad', 'Kliūtis', 'Stulpai iš šono'], ['bg', 'Fonas', 'Už visko']],
     def: { hero: ['cat', '#ff9f43'], good: ['star', '#ffd23f'], bad: ['pipe', '#3fbf5f'], bg: ['bgSky', '#bfe3ff'] } },
@@ -75,8 +88,8 @@ function cropped(c) {
   const o = mk(x1 - x0 + 1, y1 - y0 + 1); o.getContext('2d').drawImage(c, x0, y0, o.width, o.height, 0, 0, o.width, o.height); return o;
 }
 function thumb(c, w, h) {
-  const t = mk(w * 2, h * 2), g = t.getContext('2d'), k = (c.width === 512 ? c : cropped(c)) || c;
-  const s = c.width === 512 ? Math.max(t.width / k.width, t.height / k.height) : Math.min(t.width / k.width, t.height / k.height) * .9;
+  const isBg = c.width > c.height, t = mk(w * 2, h * 2), g = t.getContext('2d'), k = (isBg ? c : cropped(c)) || c;
+  const s = isBg ? Math.max(t.width / k.width, t.height / k.height) : Math.min(t.width / k.width, t.height / k.height) * .9;
   g.drawImage(k, (t.width - k.width * s) / 2, (t.height - k.height * s) / 2, k.width * s, k.height * s);
   t.style.width = w + 'px'; t.style.height = h + 'px'; return t;
 }
@@ -90,7 +103,7 @@ function fitCanvas(cv) {
 const META = ['id', 'v', 'tpl', 'words', 'author', 'rules', 'every', 'goal', 'lives', 'speed'];
 const meta = (g) => { const o = {}; META.forEach((k) => { o[k] = g[k]; }); return JSON.parse(JSON.stringify(o)); };
 // planšetės atmintyje: pilnas PNG, kad būtų galima toliau piešti
-function toStore(g) { const o = meta(g); o.spr = {}; Object.keys(SIZE).forEach((k) => { o.spr[k] = g.spr[k].toDataURL('image/png'); }); return o; }
+function toStore(g) { const o = meta(g); o.spr = {}; Object.keys(SIZE).forEach((k) => { let u = k === 'bg' ? g.spr[k].toDataURL('image/webp', .92) : ''; if (!u.startsWith('data:image/webp')) u = g.spr[k].toDataURL('image/png'); o.spr[k] = u; }); return o; }
 // į tinklą: sumažinti ir suspausti, kad žinutė būtų maža
 function toWire(g) {
   const o = meta(g); o.spr = {};
@@ -128,46 +141,60 @@ async function fromData(d) {
 /* ---------- žaidimo variklis ---------- */
 /* game: žaidimas, cv: drobė. hooks.onOver(win|lose), hooks.onInput(). auto: true = žaidžia pats (peržiūra kortelėje). */
 function Game(game, cv, hooks = {}) {
-  const T = game.tpl, spr = {};
-  ['hero', 'good', 'bad'].forEach((k) => { spr[k] = cropped(game.spr[k]) || game.spr[k]; });
-  const st = { score: 0, lives: game.lives, items: [], fx: [], t: 0, over: null, started: T !== 'skrisk', tx: null, ty: null, timers: {}, gapY: null };
+  const T = game.tpl, spr = {}, tint = {}, colr = {};
+  ['hero', 'good', 'bad'].forEach((k) => {
+    const c = cropped(game.spr[k]) || game.spr[k];
+    const pipe = T === 'skrisk' && k === 'bad';
+    spr[k] = pipe ? c : sticker(c); colr[k] = mainColor(c);
+    if (k === 'hero') tint[k] = silhouette(spr[k], 'rgba(255,70,80,.55)');
+  });
+  const st = { score: 0, lives: game.lives, items: [], parts: [], chips: [], t: 0, over: null, started: T !== 'skrisk', tx: null, ty: null, timers: {}, gapY: null, shake: 0 };
   let W = 600, H = 300, U = 30, dpr = 1;
   const g = cv.getContext('2d');
-  const hero = { x: 0, y: 0, vy: 0, s: 0 };
+  const hero = { x: 0, y: 0, vy: 0, s: 0, sq: 0, hurt: 0 };
   function resize() {
     [W, H, dpr] = fitCanvas(cv); U = H / (H < 300 ? 6.5 : 9);
-    hero.s = U * (T === 'gaudyk' ? 1.8 : 1.5);
-    hero.y = T === 'gaudyk' ? H - U * 1.15 : hero.y || H / 2;
+    hero.s = U * (T === 'gaudyk' ? 1.9 : 1.6);
+    hero.y = T === 'gaudyk' ? H - U * 1.2 : hero.y || H / 2;
     hero.x = hero.x || (T === 'skrisk' ? W * .25 : W / 2);
   }
   resize();
   const sp = game.speed;
   function spawn(who) {
-    const s = U * (who === 'bad' && T === 'skrisk' ? 1.6 : 1.3);
-    if (T === 'gaudyk') st.items.push({ who, x: s + Math.random() * (W - s * 2), y: -s, vx: 0, vy: U * (2.6 + Math.random()) * sp, s });
+    const s = U * (who === 'bad' && T === 'skrisk' ? 1.6 : 1.4), base = { who, s, born: st.t, rot: 0, spin: 0 };
+    if (T === 'gaudyk') st.items.push({ ...base, x: s + Math.random() * (W - s * 2), y: -s, vx: 0, vy: U * (2.6 + Math.random()) * sp, spin: (Math.random() - .5) * 1.6 });
     else if (T === 'bek') {
-      if (who === 'good') st.items.push({ who, x: s + Math.random() * (W - s * 2), y: s + Math.random() * (H - s * 2), vx: 0, vy: 0, s, life: 6 });
-      else { const a = Math.random() * TAU; st.items.push({ who, x: Math.random() < .5 ? s : W - s, y: s + Math.random() * (H - s * 2), vx: Math.cos(a) * U * 3 * sp, vy: Math.sin(a) * U * 3 * sp, s }); }
+      if (who === 'good') st.items.push({ ...base, x: s + Math.random() * (W - s * 2), y: s + Math.random() * (H - s * 2), vx: 0, vy: 0, life: 6 });
+      else { const a = Math.random() * TAU; st.items.push({ ...base, x: Math.random() < .5 ? s : W - s, y: s + Math.random() * (H - s * 2), vx: Math.cos(a) * U * 3 * sp, vy: Math.sin(a) * U * 3 * sp }); }
     } else if (who === 'bad') {
       const gap = H * .42, gy = H * .2 + Math.random() * (H * .6 - gap * .5); st.gapY = gy;
-      [['top', gy - gap / 2], ['bot', gy + gap / 2]].forEach(([col, y]) => st.items.push({ who, x: W + s, y, col, vx: -U * 3.2 * sp, vy: 0, s, w: s * 1.1 }));
-    } else st.items.push({ who, x: W + s * 2.2, y: st.gapY ?? H / 2, vx: -U * 3.2 * sp, vy: 0, s });
+      [['top', gy - gap / 2], ['bot', gy + gap / 2]].forEach(([col, y]) => st.items.push({ ...base, x: W + s, y, col, vx: -U * 3.2 * sp, vy: 0, w: s * 1.1 }));
+    } else st.items.push({ ...base, x: W + s * 2.2, y: st.gapY ?? H / 2, vx: -U * 3.2 * sp, vy: 0 });
+  }
+  // spalvotas pliūpsnis ir skaičius, skrendantis į taškų skaitiklį
+  function burst(x, y, col, n) {
+    for (let i = 0; i < n; i++) { const a = Math.random() * TAU, v = U * (2.5 + Math.random() * 4); st.parts.push({ x, y, vx: Math.cos(a) * v, vy: Math.sin(a) * v - U * 2, r: U * (.08 + Math.random() * .1), col: i % 3 ? col : '#ffffff', t: 0, life: .45 + Math.random() * .3 }); }
   }
   function apply(rule, it) {
-    const e = rule.e; let txt = '';
-    if (e === '+1') { st.score += 1; txt = '+1'; } else if (e === '+5') { st.score += 5; txt = '+5'; }
-    else if (e === '-1') { st.lives -= 1; txt = '-1 ♥'; } else if (e === 'win') st.over = 'win'; else if (e === 'lose') st.over = 'lose';
-    if (txt) st.fx.push({ x: it.x, y: it.y, txt, t: 0, good: e[0] === '+' });
+    const e = rule.e;
+    if (e === '+1' || e === '+5') { st.score += e === '+5' ? 5 : 1; hero.sq = 1; st.chips.push({ x: it.x, y: it.y, txt: e, t: 0, good: true }); burst(it.x, it.y, colr[it.who], 14); }
+    else if (e === '-1') { st.lives -= 1; hero.hurt = 1; st.shake = 1; st.chips.push({ x: it.x, y: it.y, txt: '-1', t: 0, good: false }); burst(it.x, it.y, colr[it.who], 10); }
+    else if (e === 'win') { st.over = 'win'; burst(hero.x, hero.y, '#ffd23f', 40); }
+    else if (e === 'lose') { st.over = 'lose'; hero.hurt = 1; st.shake = 1; }
     if (rule.f === 'vanish') it.dead = true; else it.hitCd = .8;
-    if (!st.over && st.score >= game.goal) st.over = 'win';
+    if (!st.over && st.score >= game.goal) { st.over = 'win'; burst(hero.x, hero.y, '#ffd23f', 40); }
     if (!st.over && st.lives <= 0) st.over = 'lose';
   }
   function hit(it) {
     if (it.col) { const top = it.col === 'top'; return Math.abs(hero.x - it.x) < it.w / 2 + hero.s * .3 && (top ? hero.y - hero.s * .3 < it.y : hero.y + hero.s * .3 > it.y); }
-    return Math.hypot(hero.x - it.x, hero.y - it.y) < (hero.s + it.s) * .38;
+    return Math.hypot(hero.x - it.x, hero.y - it.y) < (hero.s + it.s) * .36;
   }
   let ended = false;
   function step(dt) {
+    hero.sq = Math.max(0, hero.sq - dt / .28); hero.hurt = Math.max(0, hero.hurt - dt / .5); st.shake = Math.max(0, st.shake - dt / .3);
+    st.parts.forEach((p) => { p.t += dt; p.x += p.vx * dt; p.y += p.vy * dt; p.vy += U * 14 * dt; p.vx *= .97; });
+    st.parts = st.parts.filter((p) => p.t < p.life);
+    st.chips.forEach((c) => { c.t += dt; }); st.chips = st.chips.filter((c) => c.t < .7);
     if (st.over || !st.started) return;
     st.t += dt;
     game.every.forEach((ev, i) => { st.timers[i] = (st.timers[i] ?? ev.s * .5) - dt; if (st.timers[i] <= 0) { st.timers[i] += ev.s; spawn(ev.who); } });
@@ -177,7 +204,7 @@ function Game(game, cv, hooks = {}) {
     hero.x = Math.max(hero.s * .4, Math.min(W - hero.s * .4, hero.x));
     if (T === 'bek') hero.y = Math.max(hero.s * .4, Math.min(H - hero.s * .4, hero.y));
     st.items.forEach((it) => {
-      it.x += it.vx * dt; it.y += it.vy * dt;
+      it.x += it.vx * dt; it.y += it.vy * dt; it.rot += it.spin * dt;
       if (T === 'bek' && it.who === 'bad') { if (it.x < it.s / 2 || it.x > W - it.s / 2) it.vx *= -1; if (it.y < it.s / 2 || it.y > H - it.s / 2) it.vy *= -1; }
       if (it.life != null) { it.life -= dt; if (it.life <= 0) it.dead = true; }
       if (it.hitCd) it.hitCd = Math.max(0, it.hitCd - dt);
@@ -188,9 +215,11 @@ function Game(game, cv, hooks = {}) {
     if (st.over && !ended) { ended = true; hooks.onOver && hooks.onOver(st.over, st); }
   }
   const bgc = game.spr.bg;
-  function drawSpr(c, x, y, s, rot) { const k = Math.min(s / c.width, s / c.height); g.save(); g.translate(x, y); if (rot) g.rotate(rot); g.drawImage(c, -c.width * k / 2, -c.height * k / 2, c.width * k, c.height * k); g.restore(); }
-  function draw(dt) {
+  const backOut = (x) => 1 + 2.7 * Math.pow(x - 1, 3) + 1.7 * Math.pow(x - 1, 2);
+  function drawSpr(c, x, y, s, rot, sx = 1, sy = 1) { const k = Math.min(s / c.width, s / c.height) * 1.12; g.save(); g.translate(x, y); if (rot) g.rotate(rot); g.scale(sx, sy); g.drawImage(c, -c.width * k / 2, -c.height * k / 2, c.width * k, c.height * k); g.restore(); }
+  function draw() {
     g.setTransform(dpr, 0, 0, dpr, 0, 0);
+    const sh = st.shake * st.shake * U * .12; if (sh) g.translate((Math.random() - .5) * sh * 2, (Math.random() - .5) * sh * 2);
     const k = Math.max(W / bgc.width, H / bgc.height); g.drawImage(bgc, (W - bgc.width * k) / 2, (H - bgc.height * k) / 2, bgc.width * k, bgc.height * k);
     st.items.forEach((it) => {
       const c = spr[it.who];
@@ -200,16 +229,28 @@ function Game(game, cv, hooks = {}) {
         if (top) for (let y = it.y - th; y > -th; y -= th) g.drawImage(c, it.x - it.w / 2, y, it.w, th);
         else for (let y = it.y; y < H; y += th) g.drawImage(c, it.x - it.w / 2, y, it.w, th);
         g.restore();
-      } else drawSpr(c, it.x, it.y, it.s, T === 'gaudyk' ? Math.sin(st.t * 3 + it.x) * .15 : 0);
+      } else { const pop = backOut(Math.min(1, (st.t - it.born) / .3)); drawSpr(c, it.x, it.y, it.s * pop, it.rot); }
     });
-    const tilt = T === 'skrisk' ? Math.max(-.4, Math.min(.5, hero.vy / (U * 20))) : Math.sin(st.t * 8) * .04;
-    drawSpr(spr.hero, hero.x, hero.y, hero.s, tilt);
-    st.fx.forEach((f) => { f.t += dt; g.globalAlpha = Math.max(0, 1 - f.t); g.font = `800 ${U * .9}px "Baloo 2", sans-serif`; g.textAlign = 'center'; g.lineWidth = 6; g.strokeStyle = '#fff'; const y = f.y - f.t * U * 1.5; g.strokeText(f.txt, f.x, y); g.fillStyle = f.good ? '#1d8f57' : '#e0343a'; g.fillText(f.txt, f.x, y); g.globalAlpha = 1; });
-    st.fx = st.fx.filter((f) => f.t < 1);
+    // herojus: susispaudžia pagavęs, mažai alsuoja, paraudonuoja gavęs smūgį
+    const tilt = T === 'skrisk' ? Math.max(-.4, Math.min(.5, hero.vy / (U * 20))) : 0;
+    const q = Math.sin(hero.sq * Math.PI) * .18, br = Math.sin(st.t * 3) * .02;
+    drawSpr(spr.hero, hero.x, hero.y, hero.s, tilt, 1 + q, 1 - q + br);
+    if (hero.hurt) { g.globalAlpha = hero.hurt; drawSpr(tint.hero, hero.x, hero.y, hero.s, tilt, 1 + q, 1 - q + br); g.globalAlpha = 1; }
+    st.parts.forEach((p) => { g.globalAlpha = Math.max(0, 1 - p.t / p.life); g.fillStyle = p.col; g.beginPath(); g.arc(p.x, p.y, p.r * (1 - p.t / p.life * .5), 0, TAU); g.fill(); });
+    g.globalAlpha = 1;
+    // skaičius skrenda į skaitiklį viršuje kairėje
+    st.chips.forEach((c) => {
+      const f = Math.min(1, c.t / .6), e = f * f * (3 - 2 * f), tx = c.good ? U * .9 : U * 2.4, ty = U * .55;
+      const x = c.x + (tx - c.x) * e, y = c.y + (ty - c.y) * e - Math.sin(f * Math.PI) * U * 1.2, s = 1 - e * .45;
+      g.save(); g.translate(x, y); g.scale(s, s); g.globalAlpha = f > .85 ? (1 - f) / .15 : 1;
+      g.font = `800 ${U * .62}px "Baloo 2", sans-serif`; const w = g.measureText(c.txt).width + U * .5, h = U * .78;
+      g.fillStyle = c.good ? '#2bb673' : '#ff5a5f'; g.beginPath(); g.roundRect(-w / 2, -h / 2, w, h, h / 2); g.fill();
+      g.fillStyle = '#fff'; g.textAlign = 'center'; g.textBaseline = 'middle'; g.fillText(c.txt, 0, U * .04); g.restore();
+    });
   }
   if (!hooks.auto) {
     const pt = (e) => { const r = cv.getBoundingClientRect(); return [(e.clientX - r.left) / r.width * W, (e.clientY - r.top) / r.height * H]; };
-    cv.onpointerdown = (e) => { cv.setPointerCapture(e.pointerId); const [x, y] = pt(e); if (T === 'skrisk') { st.started = true; hero.vy = -U * 7.5; } else { st.tx = x; st.ty = y; } hooks.onInput && hooks.onInput(); };
+    cv.onpointerdown = (e) => { cv.setPointerCapture(e.pointerId); const [x, y] = pt(e); if (T === 'skrisk') { st.started = true; hero.vy = -U * 7.5; hero.sq = .6; } else { st.tx = x; st.ty = y; } hooks.onInput && hooks.onInput(); };
     cv.onpointermove = (e) => { if (T === 'skrisk' || (e.pointerType === 'mouse' && !e.buttons)) return; const [x, y] = pt(e); st.tx = x; st.ty = y; };
   }
   // peržiūra: herojus juda pats, žaidimas niekada nesibaigia
@@ -220,8 +261,29 @@ function Game(game, cv, hooks = {}) {
     else { st.tx = hero.s + (Math.sin(at * .9) * .5 + .5) * (W - hero.s * 2); st.ty = H * (.5 + Math.sin(at * 1.3) * .3); }
     st.over = null; ended = false; st.lives = game.lives; if (st.score >= game.goal) st.score = 0;
   }
-  return { st, hero, resize, tick(dt) { if (hooks.auto) autoplay(dt); step(dt); draw(dt); } };
+  return { st, hero, resize, tick(dt) { if (hooks.auto) autoplay(dt); step(dt); draw(); } };
+}
+// Lipdukas: balti iškirpto lipduko kraštai ir švelnus šešėlis aplink vaiko piešinį
+function silhouette(c, col) { const o = mk(c.width, c.height), x = o.getContext('2d'); x.drawImage(c, 0, 0); x.globalCompositeOperation = 'source-in'; x.fillStyle = col; x.fillRect(0, 0, o.width, o.height); return o; }
+function sticker(c) {
+  const sz = Math.max(c.width, c.height), sc = Math.min(1, 220 / sz), w = Math.round(c.width * sc), h = Math.round(c.height * sc);
+  const src = mk(w, h); src.getContext('2d').drawImage(c, 0, 0, w, h);
+  const p = Math.max(5, Math.round(Math.max(w, h) * .045)), pad = p * 3;
+  const o = mk(w + pad * 2, h + pad * 2), x = o.getContext('2d');
+  const white = silhouette(src, '#ffffff');
+  const ring = mk(o.width, o.height), r = ring.getContext('2d');
+  for (let i = 0; i < 24; i++) { const a = i / 24 * TAU; r.drawImage(white, pad + Math.cos(a) * p, pad + Math.sin(a) * p); }
+  r.drawImage(white, pad, pad);
+  x.save(); x.filter = `blur(${p * .8}px)`; x.globalAlpha = .35; x.drawImage(silhouette(ring, '#16183a'), 0, p * .9); x.restore();
+  x.drawImage(ring, 0, 0); x.drawImage(src, pad, pad);
+  return o;
+}
+function mainColor(c) {
+  const s = mk(24, 24), x = s.getContext('2d'); x.drawImage(c, 0, 0, 24, 24);
+  const d = x.getImageData(0, 0, 24, 24).data; let r = 0, gg = 0, b = 0, n = 0;
+  for (let i = 0; i < d.length; i += 4) if (d[i + 3] > 200) { const sat = Math.max(d[i], d[i + 1], d[i + 2]) - Math.min(d[i], d[i + 1], d[i + 2]); const w = 1 + sat; r += d[i] * w; gg += d[i + 1] * w; b += d[i + 2] * w; n += w; }
+  return n ? `rgb(${r / n | 0},${gg / n | 0},${b / n | 0})` : '#ffd23f';
 }
 
-root.ZD = { TPL, EFFECTS, AFTER, EVERY, GOALS, W1, W2, SIZE, freshGame, makeDef, title, cropped, thumb, fitCanvas, toStore, toWire, fromData, Game, newId, mk };
+root.ZD = { ready, TPL, EFFECTS, AFTER, EVERY, GOALS, W1, W2, SIZE, freshGame, makeDef, title, cropped, thumb, fitCanvas, toStore, toWire, fromData, Game, newId, mk };
 })(window);

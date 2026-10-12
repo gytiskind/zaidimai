@@ -158,3 +158,11 @@ h1, h2, h3 { margin: 0; line-height: 1.05; }
   .pill { height: 46px; font-size: 1.1rem; }
   .card { min-height: 64px; } .who { width: 54px; height: 54px; } .chip { height: 42px; }
 }
+
+/* taškai ir gyvybės sureaguoja: be mirksėjimo, vienas švelnus judesys */
+.hud .sc { display: inline-block; transform-origin: center; }
+.hud .sc.pop { animation: scpop .32s cubic-bezier(.3, 1.6, .5, 1); }
+@keyframes scpop { 0% { transform: scale(1); } 45% { transform: scale(1.35); background: var(--ok); } 100% { transform: scale(1); } }
+.hud .lv { color: var(--bad); text-shadow: 0 2px 0 rgba(22,24,58,.25); display: inline-block; }
+.hud .lv.hurt { animation: lvhurt .4s ease-out; }
+@keyframes lvhurt { 0%, 100% { transform: translateX(0); } 20% { transform: translateX(-6px); } 50% { transform: translateX(5px); } 75% { transform: translateX(-3px); } }

@@ -159,7 +159,7 @@ function bigPlay(g) {
 }
 addEventListener('resize', () => { clearTimeout(window.__rz); window.__rz = setTimeout(render, 200); });
 connect();
-render();
+ZD.ready.then(render);
 window.__zds = { get S() { return S; }, get online() { return online; } };
 })();
 </script>

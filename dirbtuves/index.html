@@ -154,7 +154,7 @@ V.draw = (el) => {
     show();
   }
   const show = () => { const p = pad.getContext('2d'); p.clearRect(0, 0, pad.width, pad.height); if (curSlot !== 'bg') { p.fillStyle = '#fff'; p.fillRect(0, 0, pad.width, pad.height); } p.drawImage(src, 0, 0); };
-  const snap = () => { (undo[G.id + curSlot] = undo[G.id + curSlot] || []).push(g.getImageData(0, 0, src.width, src.height)); if (undo[G.id + curSlot].length > 20) undo[G.id + curSlot].shift(); };
+  const snap = () => { (undo[G.id + curSlot] = undo[G.id + curSlot] || []).push(g.getImageData(0, 0, src.width, src.height)); if (undo[G.id + curSlot].length > (curSlot === 'bg' ? 6 : 20)) undo[G.id + curSlot].shift(); };
   function flood(x, y, col) {
     const W = src.width, H = src.height, im = g.getImageData(0, 0, W, H), d = im.data;
     if (x < 0 || y < 0 || x >= W || y >= H) return;
@@ -277,7 +277,13 @@ function playView(el, game, friend) {
   if ($('#rl', el)) $('#rl', el).onclick = () => go('rules');
   if ($('#nx', el)) $('#nx', el).onclick = () => go('send');
   if ($('#back', el)) $('#back', el).onclick = () => go('friends');
-  requestAnimationFrame(() => { start(); loopFns.push((dt) => { gm.tick(dt); $('#sc', el).textContent = gm.st.score; $('#lv', el).textContent = '♥'.repeat(Math.max(0, gm.st.lives)); }); });
+  let ps = 0, pl = game.lives;
+  const bump = (e, c) => { e.classList.remove(c); void e.offsetWidth; e.classList.add(c); };
+  requestAnimationFrame(() => { start(); loopFns.push((dt) => {
+    gm.tick(dt);
+    if (gm.st.score !== ps) { $('#sc', el).textContent = gm.st.score; if (gm.st.score > ps) setTimeout(() => bump($('#sc', el), 'pop'), 520); ps = gm.st.score; }
+    if (gm.st.lives !== pl) { $('#lv', el).textContent = '♥'.repeat(Math.max(0, gm.st.lives)); if (gm.st.lives < pl) bump($('#lv', el), 'hurt'); pl = gm.st.lives; }
+  }); $('#lv', el).textContent = '♥'.repeat(game.lives); });
 }
 V.play = (el) => { if (!G) { go('pick'); return; } playView(el, G, false); };
 V.fplay = (el, g) => { lastArg = g; playView(el, g, true); };
@@ -370,7 +376,7 @@ function onMsg(sub, m) {
 /* ---------- pradžia ---------- */
 const qk = (new URLSearchParams(location.search).get('k') || '').replace(/\D/g, '').slice(0, 4);
 if (qk.length === 4) join(qk);
-go(MINE.length ? 'home' : 'pick');
+ZD.ready.then(() => go(MINE.length ? 'home' : 'pick'));
 window.__zd = { get cur() { return cur; }, get st() { return st; }, get G() { return G; }, get MINE() { return MINE; }, get FR() { return FR; }, get pending() { return pending; }, go, pid };
 })();
 </script>
