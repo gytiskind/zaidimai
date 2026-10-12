@@ -92,7 +92,8 @@ function freshGame(tpl, seed) {
     rules: [{ a: 'hero', b: 'good', e: '+1', f: 'vanish' }, { a: 'hero', b: 'bad', e: '-1', f: 'vanish' }],
     every: [{ who: 'good', s: 1 }, { who: 'bad', s: 2 }], goal: 10, lives: 3, speed: 1 };
 }
-const title = (g) => g.words.join(' ');
+// savas pavadinimas (name) laimi prieš žodžių korteles
+const title = (g) => (g.name || g.words.join(' ')).trim();
 
 /* ---------- piešinių pagalbininkai ---------- */
 // apkarpo piešinį iki jo ribų, kad mažas piešinys kampe žaidime nebūtų tuščias
@@ -117,7 +118,7 @@ function fitCanvas(cv, maxDpr = 1.5) {
 }
 
 /* ---------- išsaugojimas ir siuntimas ---------- */
-const META = ['id', 'v', 'tpl', 'words', 'author', 'rules', 'every', 'goal', 'lives', 'speed', 'theme'];
+const META = ['id', 'v', 'tpl', 'words', 'name', 'author', 'rules', 'every', 'goal', 'lives', 'speed', 'theme'];
 const meta = (g) => { const o = {}; META.forEach((k) => { o[k] = g[k]; }); return JSON.parse(JSON.stringify(o)); };
 // planšetės atmintyje: pilnas PNG, kad būtų galima toliau piešti
 function toStore(g) { const o = meta(g); o.spr = {}; Object.keys(SIZE).forEach((k) => { let u = k === 'bg' ? g.spr[k].toDataURL('image/webp', .92) : ''; if (!u.startsWith('data:image/webp')) u = g.spr[k].toDataURL('image/png'); o.spr[k] = u; }); return o; }
@@ -141,7 +142,8 @@ async function fromData(d) {
   if (!d || !TPL[d.tpl] || !d.spr) return null;
   const g = { id: String(d.id || newId()).slice(0, 16), v: +d.v || 1, tpl: d.tpl,
     words: (Array.isArray(d.words) ? d.words : ['Mano', 'žaidimas']).slice(0, 2).map((w) => String(w).slice(0, 20)),
-    author: String(d.author || '').slice(0, 20),
+    name: String(d.name || '').replace(/\s+/g, ' ').trim().slice(0, 28),
+    author: String(d.author || '').replace(/\s+/g, ' ').trim().slice(0, 20),
     theme: Number.isInteger(d.theme) && d.theme >= 0 && d.theme < THEMES.length ? d.theme : null,
     rules: (Array.isArray(d.rules) ? d.rules : []).filter(okRule).slice(0, 2).map((r) => ({ a: 'hero', b: r.b, e: r.e, f: r.f })),
     every: (Array.isArray(d.every) ? d.every : []).filter((e) => e && ['good', 'bad'].includes(e.who) && EVERY.includes(+e.s)).slice(0, 2).map((e) => ({ who: e.who, s: +e.s })),

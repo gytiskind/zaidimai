@@ -174,3 +174,29 @@ h1, h2, h3 { margin: 0; line-height: 1.05; }
 .hud .lv { color: var(--bad); text-shadow: 0 2px 0 rgba(22,24,58,.25); display: inline-block; }
 .hud .lv.hurt { animation: lvhurt .4s ease-out; }
 @keyframes lvhurt { 0%, 100% { transform: translateX(0); } 20% { transform: translateX(-6px); } 50% { transform: translateX(5px); } 75% { transform: translateX(-3px); } }
+
+/* savas pavadinimas: pieštuko mygtukas ir sava rašymo klaviatūra */
+.titlerow { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; }
+.byrow { display: flex; align-items: center; gap: 8px; font-weight: 600; font-size: 1.1rem; color: var(--mist); }
+.byrow b { color: #fff; font-weight: 800; }
+.pen { height: 44px; padding: 0 16px; border: 0; border-radius: 99px; background: #fff; color: var(--ink); font-weight: 800; font-size: 1.05rem; box-shadow: 0 4px 0 rgba(10, 20, 80, .35); white-space: nowrap; }
+.pen.sm { height: 36px; padding: 0 12px; font-size: .95rem; }
+.pen:active { transform: translateY(3px); box-shadow: 0 1px 0 rgba(10, 20, 80, .35); }
+.kb { position: absolute; inset: 0; z-index: 20; background: rgba(22, 24, 58, .6); display: grid; place-items: end center; padding: 10px; }
+.kbox { width: min(1000px, 100%); background: #fff; color: var(--ink); border-radius: 22px 22px 14px 14px; padding: 12px 14px 14px; display: grid; gap: 8px; box-shadow: 0 -6px 30px rgba(0, 0, 0, .25); animation: kbup .22s cubic-bezier(.2, .9, .3, 1); }
+@keyframes kbup { from { transform: translateY(40px); opacity: 0; } to { transform: none; opacity: 1; } }
+.khead { display: flex; justify-content: space-between; align-items: baseline; font-size: 1.1rem; }
+.kcount { color: #4a4e7a; font-weight: 700; font-size: .95rem; }
+.kshow { min-height: 52px; display: flex; align-items: center; padding: 0 16px; border-radius: 14px; background: #f1f4ff; font-weight: 800; font-size: 1.7rem; overflow: hidden; white-space: nowrap; }
+.caret { display: inline-block; width: 3px; height: 1.3em; margin-left: 2px; background: var(--cobalt); animation: blink 1s steps(2) infinite; }
+@keyframes blink { 50% { opacity: 0; } }
+.keys { display: grid; gap: 6px; }
+.krow { display: flex; gap: 6px; justify-content: center; }
+.tk { flex: 1 1 0; max-width: 92px; height: 50px; border: 0; border-radius: 12px; background: var(--mist); color: var(--ink); font-weight: 800; font-size: 1.3rem; box-shadow: 0 3px 0 #b4c0f0; }
+.tk:active { transform: translateY(2px); box-shadow: 0 1px 0 #b4c0f0; background: #c8d3ff; }
+.tk.wide { max-width: 140px; flex-grow: 1.5; font-size: 1.05rem; }
+.tk.space { max-width: 420px; flex-grow: 5; font-size: 1rem; color: #4a4e7a; }
+.tk.ok { max-width: 180px; flex-grow: 2; background: var(--sun); box-shadow: 0 3px 0 var(--sun-dk); font-size: 1.1rem; }
+.tk.ok:disabled { opacity: .45; }
+.tk.on { background: var(--cobalt); color: #fff; box-shadow: 0 3px 0 var(--cobalt-dk); }
+@media (max-height: 600px) { .tk { height: 44px; font-size: 1.15rem; } .kshow { min-height: 44px; font-size: 1.45rem; } .kbox { gap: 6px; padding: 10px 12px 12px; } }
