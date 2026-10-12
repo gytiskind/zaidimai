@@ -67,6 +67,23 @@ const EVERY = [0.5, 1, 2, 3];
 const GOALS = [5, 10, 20, 50];
 const W1 = ['Obuolių', 'Vaiduoklių', 'Žvaigždžių', 'Pyragų', 'Katino', 'Drakono', 'Slaptas', 'Greitas', 'Linksmas'];
 const W2 = ['lietus', 'namas', 'medžioklė', 'kelionė', 'nuotykis', 'fabrikas', 'kosmosas', 'miškas', 'lobis'];
+// Idėjų kauliukas: tema visam žaidimui. wall = aukštas daiktas Skrisk kliūčiai, nes ji kartojasi stulpu.
+const THEMES = [
+  { n: 'Jūra', hero: 'žuvytę', good: 'perlą', bad: 'medūzą', wall: 'koralą', bg: 'jūros dugną' },
+  { n: 'Kosmosas', hero: 'astronautą', good: 'žvaigždę', bad: 'meteoritą', wall: 'raketą', bg: 'kosmosą su planetomis' },
+  { n: 'Saldainių šalis', hero: 'meškiuką', good: 'saldainį', bad: 'dantų šepetėlį', wall: 'ledinuko lazdelę', bg: 'saldainių kalnus' },
+  { n: 'Dinozaurai', hero: 'dinozauriuką', good: 'kiaušinį', bad: 'ugnikalnio akmenį', wall: 'palmę', bg: 'džiungles' },
+  { n: 'Ūkis', hero: 'kiaulytę', good: 'morką', bad: 'lapę', wall: 'tvorą', bg: 'ūkį su tvartu' },
+  { n: 'Pilis', hero: 'riterį', good: 'karūną', bad: 'drakoną', wall: 'pilies bokštą', bg: 'pilį' },
+  { n: 'Futbolas', hero: 'futbolininką', good: 'kamuolį', bad: 'raudoną kortelę', wall: 'vartų stulpą', bg: 'stadioną' },
+  { n: 'Žiema', hero: 'sniego senį', good: 'snaigę', bad: 'varveklį', wall: 'eglę', bg: 'žiemos mišką' },
+  { n: 'Robotai', hero: 'robotą', good: 'varžtą', bad: 'virusą', wall: 'laidų stulpą', bg: 'robotų fabriką' },
+  { n: 'Miškas', hero: 'ežiuką', good: 'grybą', bad: 'vilką', wall: 'medį', bg: 'mišką' },
+  { n: 'Picerija', hero: 'virėją', good: 'picą', bad: 'musę', wall: 'picų dėžių bokštą', bg: 'piceriją' },
+  { n: 'Piratai', hero: 'piratą', good: 'auksinę monetą', bad: 'ryklį', wall: 'laivo stiebą', bg: 'lobių salą' },
+  { n: 'Vaiduoklių namas', hero: 'vaiduokliuką', good: 'moliūgą', bad: 'šikšnosparnį', wall: 'seną bokštą', bg: 'naktinį namą' },
+  { n: 'Gyvūnų parkas', hero: 'beždžionėlę', good: 'bananą', bad: 'krokodilą', wall: 'žirafą', bg: 'zoologijos sodą' },
+];
 const newId = () => 'g' + Math.random().toString(36).slice(2, 9);
 function freshGame(tpl, seed) {
   const T = TPL[tpl], spr = {};
@@ -93,14 +110,14 @@ function thumb(c, w, h) {
   g.drawImage(k, (t.width - k.width * s) / 2, (t.height - k.height * s) / 2, k.width * s, k.height * s);
   t.style.width = w + 'px'; t.style.height = h + 'px'; return t;
 }
-function fitCanvas(cv) {
-  const r = cv.getBoundingClientRect(), dpr = Math.min(2, window.devicePixelRatio || 1);
+function fitCanvas(cv, maxDpr = 1.5) {
+  const r = cv.getBoundingClientRect(), dpr = Math.min(maxDpr, window.devicePixelRatio || 1);
   const W = Math.max(40, Math.round(r.width)), H = Math.max(40, Math.round(r.height));
   cv.width = Math.round(W * dpr); cv.height = Math.round(H * dpr); return [W, H, dpr];
 }
 
 /* ---------- išsaugojimas ir siuntimas ---------- */
-const META = ['id', 'v', 'tpl', 'words', 'author', 'rules', 'every', 'goal', 'lives', 'speed'];
+const META = ['id', 'v', 'tpl', 'words', 'author', 'rules', 'every', 'goal', 'lives', 'speed', 'theme'];
 const meta = (g) => { const o = {}; META.forEach((k) => { o[k] = g[k]; }); return JSON.parse(JSON.stringify(o)); };
 // planšetės atmintyje: pilnas PNG, kad būtų galima toliau piešti
 function toStore(g) { const o = meta(g); o.spr = {}; Object.keys(SIZE).forEach((k) => { let u = k === 'bg' ? g.spr[k].toDataURL('image/webp', .92) : ''; if (!u.startsWith('data:image/webp')) u = g.spr[k].toDataURL('image/png'); o.spr[k] = u; }); return o; }
@@ -125,6 +142,7 @@ async function fromData(d) {
   const g = { id: String(d.id || newId()).slice(0, 16), v: +d.v || 1, tpl: d.tpl,
     words: (Array.isArray(d.words) ? d.words : ['Mano', 'žaidimas']).slice(0, 2).map((w) => String(w).slice(0, 20)),
     author: String(d.author || '').slice(0, 20),
+    theme: Number.isInteger(d.theme) && d.theme >= 0 && d.theme < THEMES.length ? d.theme : null,
     rules: (Array.isArray(d.rules) ? d.rules : []).filter(okRule).slice(0, 2).map((r) => ({ a: 'hero', b: r.b, e: r.e, f: r.f })),
     every: (Array.isArray(d.every) ? d.every : []).filter((e) => e && ['good', 'bad'].includes(e.who) && EVERY.includes(+e.s)).slice(0, 2).map((e) => ({ who: e.who, s: +e.s })),
     goal: GOALS.includes(+d.goal) ? +d.goal : 10, lives: [1, 3, 5].includes(+d.lives) ? +d.lives : 3, speed: [.7, 1, 1.5].includes(+d.speed) ? +d.speed : 1, spr: {} };
@@ -149,11 +167,13 @@ function Game(game, cv, hooks = {}) {
     if (k === 'hero') tint[k] = silhouette(spr[k], 'rgba(255,70,80,.55)');
   });
   const st = { score: 0, lives: game.lives, items: [], parts: [], chips: [], t: 0, over: null, started: T !== 'skrisk', tx: null, ty: null, timers: {}, gapY: null, shake: 0 };
-  let W = 600, H = 300, U = 30, dpr = 1;
+  let W = 600, H = 300, U = 30, dpr = 1, bgFit = null;
+  const sized = new Map();
   const g = cv.getContext('2d');
   const hero = { x: 0, y: 0, vy: 0, s: 0, sq: 0, hurt: 0 };
   function resize() {
-    [W, H, dpr] = fitCanvas(cv); U = H / (H < 300 ? 6.5 : 9);
+    [W, H, dpr] = fitCanvas(cv, hooks.auto ? 1 : 1.5); U = H / (H < 300 ? 6.5 : 9);
+    bgFit = null; sized.clear();
     hero.s = U * (T === 'gaudyk' ? 1.9 : 1.6);
     hero.y = T === 'gaudyk' ? H - U * 1.2 : hero.y || H / 2;
     hero.x = hero.x || (T === 'skrisk' ? W * .25 : W / 2);
@@ -198,8 +218,8 @@ function Game(game, cv, hooks = {}) {
     if (st.over || !st.started) return;
     st.t += dt;
     game.every.forEach((ev, i) => { st.timers[i] = (st.timers[i] ?? ev.s * .5) - dt; if (st.timers[i] <= 0) { st.timers[i] += ev.s; spawn(ev.who); } });
-    if (T === 'gaudyk' && st.tx != null) hero.x += (st.tx - hero.x) * Math.min(1, dt * 14);
-    if (T === 'bek' && st.tx != null) { hero.x += (st.tx - hero.x) * Math.min(1, dt * 6); hero.y += (st.ty - hero.y) * Math.min(1, dt * 6); }
+    if (T === 'gaudyk' && st.tx != null) hero.x += (st.tx - hero.x) * Math.min(1, dt * 24);
+    if (T === 'bek' && st.tx != null) { hero.x += (st.tx - hero.x) * Math.min(1, dt * 13); hero.y += (st.ty - hero.y) * Math.min(1, dt * 13); }
     if (T === 'skrisk') { hero.vy += U * 22 * dt; hero.y += hero.vy * dt; if (hero.y > H - hero.s * .4) { hero.y = H - hero.s * .4; hero.vy = 0; } if (hero.y < hero.s * .4) { hero.y = hero.s * .4; hero.vy = 0; } }
     hero.x = Math.max(hero.s * .4, Math.min(W - hero.s * .4, hero.x));
     if (T === 'bek') hero.y = Math.max(hero.s * .4, Math.min(H - hero.s * .4, hero.y));
@@ -215,12 +235,24 @@ function Game(game, cv, hooks = {}) {
     if (st.over && !ended) { ended = true; hooks.onOver && hooks.onOver(st.over, st); }
   }
   const bgc = game.spr.bg;
+  // fonas ir lipdukai paruošiami tikru ekrano dydžiu, kad kiekviename kadre nereikėtų mažinti didelių paveikslėlių
+  function bgCanvas() {
+    if (bgFit) return bgFit;
+    const o = mk(Math.round(W * dpr), Math.round(H * dpr)), x = o.getContext('2d'), k = Math.max(o.width / bgc.width, o.height / bgc.height);
+    x.drawImage(bgc, (o.width - bgc.width * k) / 2, (o.height - bgc.height * k) / 2, bgc.width * k, bgc.height * k);
+    return (bgFit = o);
+  }
+  function sizedFor(c, s) {
+    const key = c, want = Math.max(8, Math.round(s * 1.15 * dpr / 4) * 4), m = sized.get(key) || {};
+    if (!m[want]) { const k = Math.min(want / c.width, want / c.height), o = mk(Math.max(1, Math.round(c.width * k)), Math.max(1, Math.round(c.height * k))); o.getContext('2d').drawImage(c, 0, 0, o.width, o.height); m[want] = o; sized.set(key, m); }
+    return m[want];
+  }
   const backOut = (x) => 1 + 2.7 * Math.pow(x - 1, 3) + 1.7 * Math.pow(x - 1, 2);
-  function drawSpr(c, x, y, s, rot, sx = 1, sy = 1) { const k = Math.min(s / c.width, s / c.height) * 1.12; g.save(); g.translate(x, y); if (rot) g.rotate(rot); g.scale(sx, sy); g.drawImage(c, -c.width * k / 2, -c.height * k / 2, c.width * k, c.height * k); g.restore(); }
+  function drawSpr(c0, x, y, s, rot, sx = 1, sy = 1) { const c = sizedFor(c0, s), k = Math.min(s / c.width, s / c.height) * 1.12; g.save(); g.translate(x, y); if (rot) g.rotate(rot); g.scale(sx, sy); g.drawImage(c, -c.width * k / 2, -c.height * k / 2, c.width * k, c.height * k); g.restore(); }
   function draw() {
     g.setTransform(dpr, 0, 0, dpr, 0, 0);
     const sh = st.shake * st.shake * U * .12; if (sh) g.translate((Math.random() - .5) * sh * 2, (Math.random() - .5) * sh * 2);
-    const k = Math.max(W / bgc.width, H / bgc.height); g.drawImage(bgc, (W - bgc.width * k) / 2, (H - bgc.height * k) / 2, bgc.width * k, bgc.height * k);
+    g.save(); g.setTransform(1, 0, 0, 1, 0, 0); if (sh) g.translate((Math.random() - .5) * sh * 2 * dpr, (Math.random() - .5) * sh * 2 * dpr); g.drawImage(bgCanvas(), 0, 0); g.restore();
     st.items.forEach((it) => {
       const c = spr[it.who];
       if (it.col) { // stulpas iš pasikartojančio piešinio
@@ -229,7 +261,7 @@ function Game(game, cv, hooks = {}) {
         if (top) for (let y = it.y - th; y > -th; y -= th) g.drawImage(c, it.x - it.w / 2, y, it.w, th);
         else for (let y = it.y; y < H; y += th) g.drawImage(c, it.x - it.w / 2, y, it.w, th);
         g.restore();
-      } else { const pop = backOut(Math.min(1, (st.t - it.born) / .3)); drawSpr(c, it.x, it.y, it.s * pop, it.rot); }
+      } else { const pop = Math.max(.01, backOut(Math.min(1, (st.t - it.born) / .3))); drawSpr(c, it.x, it.y, it.s, it.rot, pop, pop); }
     });
     // herojus: susispaudžia pagavęs, mažai alsuoja, paraudonuoja gavęs smūgį
     const tilt = T === 'skrisk' ? Math.max(-.4, Math.min(.5, hero.vy / (U * 20))) : 0;
@@ -261,7 +293,11 @@ function Game(game, cv, hooks = {}) {
     else { st.tx = hero.s + (Math.sin(at * .9) * .5 + .5) * (W - hero.s * 2); st.ty = H * (.5 + Math.sin(at * 1.3) * .3); }
     st.over = null; ended = false; st.lives = game.lives; if (st.score >= game.goal) st.score = 0;
   }
-  return { st, hero, resize, tick(dt) { if (hooks.auto) autoplay(dt); step(dt); draw(); } };
+  let acc = 0;
+  return { st, hero, resize, tick(dt) {
+    if (hooks.auto) { acc += dt; if (acc < 1 / 30) return; dt = acc; acc = 0; autoplay(dt); }
+    step(dt); draw();
+  } };
 }
 // Lipdukas: balti iškirpto lipduko kraštai ir švelnus šešėlis aplink vaiko piešinį
 function silhouette(c, col) { const o = mk(c.width, c.height), x = o.getContext('2d'); x.drawImage(c, 0, 0); x.globalCompositeOperation = 'source-in'; x.fillStyle = col; x.fillRect(0, 0, o.width, o.height); return o; }
@@ -285,5 +321,5 @@ function mainColor(c) {
   return n ? `rgb(${r / n | 0},${gg / n | 0},${b / n | 0})` : '#ffd23f';
 }
 
-root.ZD = { ready, TPL, EFFECTS, AFTER, EVERY, GOALS, W1, W2, SIZE, freshGame, makeDef, title, cropped, thumb, fitCanvas, toStore, toWire, fromData, Game, newId, mk };
+root.ZD = { ready, THEMES, TPL, EFFECTS, AFTER, EVERY, GOALS, W1, W2, SIZE, freshGame, makeDef, title, cropped, thumb, fitCanvas, toStore, toWire, fromData, Game, newId, mk };
 })(window);

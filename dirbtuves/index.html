@@ -132,7 +132,7 @@ V.draw = (el) => {
   if (!G) { go('pick'); return; }
   const T = TPL[G.tpl];
   el.innerHTML = bar('draw', '<button class="pill go sm" id="nx">Taisyklės ▶</button>') + `<div class="body draw"><div class="slots" id="slots"></div>
-  <div class="paper"><div class="ask" id="ask"></div><canvas class="pad" id="pad"></canvas></div>
+  <div class="paper"><div class="ask" id="ask"><span id="askt"></span><button class="dice" id="dice"><span class="die" aria-hidden="true">🎲</span><span id="dicet"></span></button></div><canvas class="pad" id="pad"></canvas></div>
   <div class="kit"><div class="marks" id="marks"></div><div class="sizes" id="sizes"></div>
     <div class="tools"><button class="tool" data-tool="pen"><svg viewBox="0 0 24 24"><path d="M3 21l3-1 12-12-2-2L4 18z" fill="currentColor"/><path d="M15 5l2-2 4 4-2 2z" fill="currentColor"/></svg>Flomasteris</button>
     <button class="tool" data-tool="fill"><svg viewBox="0 0 24 24"><path d="M5 11l7-7 7 7-7 7z" fill="none" stroke="currentColor" stroke-width="2.5"/><path d="M5 11h14l-7 7z" fill="currentColor"/><path d="M20 15c1 2 2 3 1 4s-2 0-2-1 1-2 1-3z" fill="currentColor"/></svg>Spalvink</button>
@@ -148,9 +148,9 @@ V.draw = (el) => {
   function setPad() {
     src = G.spr[curSlot]; g = src.getContext('2d', { willReadFrequently: true });
     const box = pad.parentElement.getBoundingClientRect(), k = Math.min((box.width - 10) / src.width, (box.height - 40) / src.height);
-    pad.width = src.width; pad.height = src.height; pad.style.width = Math.floor(src.width * k) + 'px'; pad.style.height = Math.floor(src.height * k) + 'px'; pad.style.marginTop = '28px';
+    pad.width = src.width; pad.height = src.height; pad.style.width = Math.floor(src.width * k) + 'px'; pad.style.height = Math.floor(src.height * k) + 'px'; pad.style.marginTop = '38px';
     const nm = T.slots.find((x) => x[0] === curSlot);
-    $('#ask', el).textContent = curSlot === 'bg' ? 'Nupiešk foną' : `Nupiešk: ${nm[1].toLowerCase()}`;
+    askText();
     show();
   }
   const show = () => { const p = pad.getContext('2d'); p.clearRect(0, 0, pad.width, pad.height); if (curSlot !== 'bg') { p.fillStyle = '#fff'; p.fillRect(0, 0, pad.width, pad.height); } p.drawImage(src, 0, 0); };
@@ -199,6 +199,25 @@ V.draw = (el) => {
   function kit() { el.querySelectorAll('.mark').forEach((b) => b.classList.toggle('on', b.dataset.c === pen.col && pen.tool !== 'erase')); el.querySelectorAll('.size').forEach((b) => b.classList.toggle('on', +b.dataset.w === pen.w)); el.querySelectorAll('[data-tool]').forEach((b) => b.classList.toggle('on', b.dataset.tool === pen.tool)); }
   $('#und', el).onclick = () => { const u = undo[G.id + curSlot]; if (u && u.length) { g.putImageData(u.pop(), 0, 0); show(); renderSlots(); saveSoon(); } };
   $('#clr', el).onclick = () => { snap(); g.clearRect(0, 0, src.width, src.height); if (curSlot === 'bg') { g.fillStyle = '#fff'; g.fillRect(0, 0, src.width, src.height); } show(); renderSlots(); saveSoon(); };
+  // idėjų kauliukas: tema visam žaidimui, užuomina keičiasi pagal piešiamą paveikslėlį
+  function idea(th, k) { return k === 'bad' && G.tpl === 'skrisk' ? th.wall : th[k]; }
+  function askText() {
+    const th = G.theme != null ? ZD.THEMES[G.theme] : null, nm = T.slots.find((x) => x[0] === curSlot);
+    $('#askt', el).textContent = th ? `Nupiešk: ${idea(th, curSlot)}` : curSlot === 'bg' ? 'Nupiešk foną' : `Nupiešk: ${nm[1].toLowerCase()}`;
+    $('#dicet', el).textContent = th ? `Tema: ${th.n}` : 'Nežinai, ką piešti?';
+  }
+  let rolling = false;
+  $('#dice', el).onclick = () => {
+    if (rolling) return; rolling = true;
+    const b = $('#dice', el); b.classList.remove('roll'); void b.offsetWidth; b.classList.add('roll');
+    let n = 0, cur = G.theme;
+    const tick = () => {   // trumpas sukimas per kelias temas, tada sustoja
+      let r; do { r = Math.floor(Math.random() * ZD.THEMES.length); } while (r === cur && ZD.THEMES.length > 1);
+      cur = r; G.theme = r; askText();
+      if (++n < 7) setTimeout(tick, 45 + n * 18); else { rolling = false; saveSoon(); $('#ask', el).classList.add('got'); setTimeout(() => $('#ask', el).classList.remove('got'), 500); }
+    };
+    tick();
+  };
   $('#nx', el).onclick = () => go('rules');
   renderSlots(); kit(); requestAnimationFrame(setPad);
 };
