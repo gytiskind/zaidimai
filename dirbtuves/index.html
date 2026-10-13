@@ -229,7 +229,7 @@ V.draw = (el) => {
   pad.onpointermove = (e) => { if (drawing === e.pointerId) { const [x, y] = pos(e); stroke(x, y); } };
   pad.onpointerup = pad.onpointercancel = (e) => { if (drawing === e.pointerId) { drawing = false; renderSlots(); saveSoon(); } };
   $('#marks', el).innerHTML = MARKERS.map((c) => `<button class="mark" data-c="${c}" style="background:${c}" aria-label="spalva"></button>`).join('');
-  $('#marks', el).onclick = (e) => { const b = e.target.closest('[data-c]'); if (!b) return; pen.col = b.dataset.c; if (pen.tool === 'erase' || pen.tool === 'fill') pen.tool = pen.mode; kit(); };
+  $('#marks', el).onclick = (e) => { const b = e.target.closest('[data-c]'); if (!b) return; pen.col = b.dataset.c; if (pen.tool === 'erase') pen.tool = pen.mode; kit(); };   // Spalvink lieka Spalvink: pirma įrankis, tada spalva
   $('#sizes', el).innerHTML = [0, 1, 2].map((i) => `<button class="size" data-s="${i}" aria-label="storis"><i style="width:${6 + i * 7}px;height:${6 + i * 7}px"></i></button>`).join('');
   $('#sizes', el).onclick = (e) => { const b = e.target.closest('[data-s]'); if (!b) return; pen.si = +b.dataset.s; if (pen.tool === 'fill') pen.tool = pen.mode; kit(); };
   el.querySelectorAll('[data-tool]').forEach((b) => b.onclick = () => { pen.tool = b.dataset.tool; if (pen.tool === 'block' || pen.tool === 'pen') { pen.mode = pen.tool; show(); } kit(); });
