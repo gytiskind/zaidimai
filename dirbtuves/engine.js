@@ -6,6 +6,27 @@ const INK = '#16183a';
 const mk = (w, h) => { const c = document.createElement('canvas'); c.width = w; c.height = h; return c; };
 function rng(seed) { seed = (seed % 2147483646) + 1; return () => { seed = (seed * 16807) % 2147483647; return seed / 2147483647; }; }
 
+// roundRect yra ne visose senesnėse planšečių naršyklėse
+if (typeof CanvasRenderingContext2D !== 'undefined' && !CanvasRenderingContext2D.prototype.roundRect) {
+  CanvasRenderingContext2D.prototype.roundRect = function (x, y, w, h, r) { r = Math.min(r, w / 2, h / 2); this.moveTo(x + r, y); this.arcTo(x + w, y, x + w, y + h, r); this.arcTo(x + w, y + h, x, y + h, r); this.arcTo(x, y + h, x, y, r); this.arcTo(x, y, x + w, y, r); this.closePath(); };
+}
+// Paveikslėlis į duomenis: WebP, o kur jo nėra (Safari), JPEG fonui ir PNG veikėjams
+function enc(c, opaque, q) {
+  const u = c.toDataURL('image/webp', q);
+  if (u.startsWith('data:image/webp')) return u;
+  return opaque ? c.toDataURL('image/jpeg', q) : c.toDataURL('image/png');
+}
+// Atspalvio pasukimas pikseliais: ctx.filter Safari neveikia
+function hueShift(c, deg) {
+  const x = c.getContext('2d'), im = x.getImageData(0, 0, c.width, c.height), d = im.data, a = deg * Math.PI / 180;
+  const cs = Math.cos(a), sn = Math.sin(a), m = [
+    .213 + cs * .787 - sn * .213, .715 - cs * .715 - sn * .715, .072 - cs * .072 + sn * .928,
+    .213 - cs * .213 + sn * .143, .715 + cs * .285 + sn * .140, .072 - cs * .072 - sn * .283,
+    .213 - cs * .213 - sn * .787, .715 - cs * .715 + sn * .715, .072 + cs * .928 + sn * .072];
+  for (let i = 0; i < d.length; i += 4) { const r = d[i], g = d[i + 1], b = d[i + 2]; d[i] = r * m[0] + g * m[1] + b * m[2]; d[i + 1] = r * m[3] + g * m[4] + b * m[5]; d[i + 2] = r * m[6] + g * m[7] + b * m[8]; }
+  x.putImageData(im, 0, 0);
+}
+
 /* ---------- mokytojo pavyzdžiai: ranka pieštos figūros ---------- */
 function wob(g, pts, close, r) {
   g.beginPath();
@@ -40,9 +61,9 @@ function makeDef(kind, col, seed) {
   const isBg = kind.startsWith('bg'), [w, h] = isBg ? SIZE.bg : SIZE.hero;
   const c = mk(w, h), g = c.getContext('2d'), pic = PICS[ART[kind]];
   if (pic) {
-    if (kind === 'mint') g.filter = 'hue-rotate(115deg) saturate(1.1)';
     const k = isBg ? Math.max(w / pic.width, h / pic.height) : Math.min(w / pic.width, h / pic.height) * (kind === 'pipe' ? 1 : .94);
     g.drawImage(pic, (w - pic.width * k) / 2, (h - pic.height * k) / 2, pic.width * k, pic.height * k);
+    if (kind === 'mint') hueShift(c, 115);
     return c;
   }
   DEF[kind === 'mint' ? 'blob' : kind](g, col, rng(seed || 7), w, h);
@@ -121,7 +142,7 @@ function fitCanvas(cv, maxDpr = 1.5) {
 const META = ['id', 'v', 'tpl', 'words', 'name', 'author', 'rules', 'every', 'goal', 'lives', 'speed', 'theme'];
 const meta = (g) => { const o = {}; META.forEach((k) => { o[k] = g[k]; }); return JSON.parse(JSON.stringify(o)); };
 // planšetės atmintyje: pilnas PNG, kad būtų galima toliau piešti
-function toStore(g) { const o = meta(g); o.spr = {}; Object.keys(SIZE).forEach((k) => { let u = k === 'bg' ? g.spr[k].toDataURL('image/webp', .92) : ''; if (!u.startsWith('data:image/webp')) u = g.spr[k].toDataURL('image/png'); o.spr[k] = u; }); return o; }
+function toStore(g) { const o = meta(g); o.spr = {}; Object.keys(SIZE).forEach((k) => { o.spr[k] = k === 'bg' ? enc(g.spr[k], true, .92) : g.spr[k].toDataURL('image/png'); }); return o; }
 // į tinklą: sumažinti ir suspausti, kad žinutė būtų maža
 function toWire(g) {
   const o = meta(g); o.spr = {};
@@ -129,9 +150,7 @@ function toWire(g) {
     const [w, h] = SIZE[k], c = mk(w * .625, h * .625), x = c.getContext('2d');
     if (k === 'bg') { x.fillStyle = '#fff'; x.fillRect(0, 0, c.width, c.height); }
     x.drawImage(g.spr[k], 0, 0, c.width, c.height);
-    let u = c.toDataURL('image/webp', .82);
-    if (!u.startsWith('data:image/webp')) u = c.toDataURL('image/png');
-    o.spr[k] = u;
+    o.spr[k] = enc(c, k === 'bg', .82);
   });
   return o;
 }
@@ -312,7 +331,7 @@ function sticker(c) {
   const ring = mk(o.width, o.height), r = ring.getContext('2d');
   for (let i = 0; i < 24; i++) { const a = i / 24 * TAU; r.drawImage(white, pad + Math.cos(a) * p, pad + Math.sin(a) * p); }
   r.drawImage(white, pad, pad);
-  x.save(); x.filter = `blur(${p * .8}px)`; x.globalAlpha = .35; x.drawImage(silhouette(ring, '#16183a'), 0, p * .9); x.restore();
+  x.save(); x.shadowColor = 'rgba(22,24,58,.38)'; x.shadowBlur = p * 1.6; x.shadowOffsetY = p * .9; x.drawImage(ring, 0, 0); x.restore();
   x.drawImage(ring, 0, 0); x.drawImage(src, pad, pad);
   return o;
 }

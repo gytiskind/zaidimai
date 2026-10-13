@@ -12,7 +12,8 @@ body { background: var(--cobalt); color: #fff; font-family: var(--f); overflow: 
   touch-action: manipulation; -webkit-tap-highlight-color: transparent; -webkit-touch-callout: none; }
 button { font-family: var(--f); cursor: pointer; }
 button:focus-visible, a:focus-visible { outline: 3px solid var(--sun); outline-offset: 3px; }
-#app { position: fixed; inset: 0; height: 100dvh; }
+/* #app piešiamas 1024x552 pagrindu ir pritaikomas ekranui (fit() puslapyje), todėl viskas telpa bet kurioje planšetėje */
+#app { position: fixed; left: 0; top: 0; width: 100vw; height: 100dvh; transform-origin: 0 0; }
 a.pill { text-decoration: none; display: inline-grid; place-items: center; }
 /* produktas */
 .scr { position: absolute; inset: 0; display: grid; grid-template-rows: auto minmax(0, 1fr); }
@@ -200,3 +201,23 @@ h1, h2, h3 { margin: 0; line-height: 1.05; }
 .tk.ok:disabled { opacity: .45; }
 .tk.on { background: var(--cobalt); color: #fff; box-shadow: 0 3px 0 var(--cobalt-dk); }
 @media (max-height: 600px) { .tk { height: 44px; font-size: 1.15rem; } .kshow { min-height: 44px; font-size: 1.45rem; } .kbox { gap: 6px; padding: 10px 12px 12px; } }
+
+/* stačias ekranas: paprašom pasukti */
+.turn { position: fixed; inset: 0; z-index: 50; display: none; place-items: center; align-content: center; gap: 18px; padding: 24px; text-align: center; background: var(--cobalt); color: #fff; font-family: var(--f); }
+.turn b { font-size: 1.8rem; font-weight: 800; line-height: 1.1; }
+.turn span { font-size: 1.1rem; font-weight: 600; color: var(--mist); max-width: 24ch; }
+.turn .ph { width: 70px; height: 110px; border: 6px solid #fff; border-radius: 14px; animation: turnit 2.4s ease-in-out infinite; }
+@keyframes turnit { 0%, 30% { transform: rotate(0); } 60%, 100% { transform: rotate(-90deg); } }
+@media (orientation: portrait) and (max-aspect-ratio: 4/5) { .turn { display: grid; } }
+.synced { font-weight: 700; font-size: .95rem; color: #9ff0c4; margin: 0; }
+
+/* didesni pirštui: žingsniai, pieštukas, kauliukas, spalvos */
+.step { padding: 5px 14px 5px 5px; min-height: 38px; }
+.step i { width: 28px; height: 28px; }
+.pen.sm { height: 40px; padding: 0 14px; }
+.dice { height: 40px; font-size: 1rem; }
+.draw { grid-template-columns: 190px minmax(0, 1fr) 196px; }
+/* siuntimo ekrane kortelė prisitaiko prie aukščio, kad mygtukas visada matytųsi plačiuose ekranuose */
+.send > .side { display: grid; grid-template-rows: minmax(0, 1fr) auto auto; min-height: 0; align-content: stretch; }
+.send > .side > .gcard { display: grid; grid-template-rows: minmax(0, 1fr) auto; min-height: 0; }
+.send > .side > .gcard canvas { aspect-ratio: auto; height: 100%; min-height: 0; }

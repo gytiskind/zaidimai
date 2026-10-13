@@ -15,6 +15,7 @@
 </head>
 <body>
 <div id="app"></div>
+<div class="turn" role="alert"><i class="ph"></i><b>Pasuk planšetę gulsčiai</b><span>Žaidimų dirbtuvės veikia, kai ekranas platus.</span></div>
 <script>
 /* Planšetė: vaikas pasirenka žaidimą, nupiešia veikėjus, sudeda taisykles, žaidžia ir siunčia į klasės arkadą. */
 (() => {
@@ -22,6 +23,14 @@ const { TPL, EFFECTS, AFTER, EVERY, GOALS, W1, W2, freshGame, title, thumb, toSt
 const $ = (s, r = document) => r.querySelector(s);
 const esc = (t) => String(t).replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
 const app = $('#app');
+// Visas vaizdas piešiamas 1024x552 pagrindu ir sumažinamas ar padidinamas iki ekrano. Taip niekas neišlenda.
+let SCALE = 1;
+function fit() {
+  const w = innerWidth, h = innerHeight;
+  SCALE = Math.max(.45, Math.min(1.3, w / 1024, h / 552));
+  app.style.width = w / SCALE + 'px'; app.style.height = h / SCALE + 'px'; app.style.transform = `scale(${SCALE})`;
+}
+fit();
 const ZM = window.ZM || null;
 const NS = (k) => (ZM ? ZM.ns(k) : k);
 const LS = { get(k) { try { return localStorage.getItem(k); } catch (e) { return null; } }, set(k, v) { try { localStorage.setItem(k, v); return true; } catch (e) { return false; } } };
@@ -54,7 +63,7 @@ let last = performance.now();
 (function raf(t) { const dt = Math.min(.05, (t - last) / 1000); last = t; loopFns.slice().forEach((f) => f(dt)); requestAnimationFrame(raf); })(last);
 const V = {};
 function go(id, arg) { if (G && ['draw', 'rules', 'play', 'send'].includes(cur)) saveG(); cur = id; loopFns = []; app.innerHTML = '<div class="scr" id="scr"></div>'; V[id]($('#scr'), arg); app.querySelectorAll('[data-step]').forEach((b) => b.onclick = () => go(b.dataset.step)); }
-addEventListener('resize', () => { clearTimeout(window.__rz); window.__rz = setTimeout(() => { if (!['play', 'fplay'].includes(cur)) go(cur, lastArg); }, 200); });
+addEventListener('resize', () => { clearTimeout(window.__rz); window.__rz = setTimeout(() => { fit(); if (!['play', 'fplay'].includes(cur) && !$('.kb')) go(cur, lastArg); }, 200); });
 let lastArg = null;
 function toast(t) { const d = document.createElement('div'); d.className = 'toast'; d.textContent = t; app.append(d); setTimeout(() => d.remove(), 2800); }
 const STEPS = [['pick', 'Žaidimas'], ['draw', 'Piešk'], ['rules', 'Taisyklės'], ['play', 'Žaisk'], ['send', 'Į arkadą']];
@@ -94,7 +103,8 @@ V.home = (el) => {
 function sideFriends(side) {
   if (net) {
     const n = friendIds().length;
-    side.innerHTML = `<div class="set"><b>Klasės arkada</b><p class="tip">Kodas <b>${esc(code)}</b>. ${n ? `Draugų žaidimų: <b>${n}</b>.` : 'Draugų žaidimų dar nėra.'}</p>
+    const mineIn = MINE.filter((m) => (st && st.games || []).some((x) => x.id === m.store.id)).length;
+    side.innerHTML = `<div class="set"><b>Klasės arkada</b><p class="tip">Kodas <b>${esc(code)}</b>. ${n ? `Draugų žaidimų: <b>${n}</b>.` : 'Draugų žaidimų dar nėra.'}</p>${MINE.length ? `<p class="synced">Tavo žaidimų arkadoje: ${mineIn} iš ${MINE.length}</p>` : ''}
       <button class="pill go" id="fr" ${n ? '' : 'disabled'}>Draugų žaidimai</button></div>`;
     $('#fr', side).onclick = () => go('friends');
   } else padInto(side, 'Prisijunk prie arkados', 'Kodas yra dideliame ekrane.', () => go(cur));
@@ -147,7 +157,7 @@ V.draw = (el) => {
   let src, g;
   function setPad() {
     src = G.spr[curSlot]; g = src.getContext('2d', { willReadFrequently: true });
-    const box = pad.parentElement.getBoundingClientRect(), k = Math.min((box.width - 10) / src.width, (box.height - 40) / src.height);
+    const box = pad.parentElement.getBoundingClientRect(), bw = box.width / SCALE, bh = box.height / SCALE, k = Math.min((bw - 10) / src.width, (bh - 40) / src.height);
     pad.width = src.width; pad.height = src.height; pad.style.width = Math.floor(src.width * k) + 'px'; pad.style.height = Math.floor(src.height * k) + 'px'; pad.style.marginTop = '38px';
     const nm = T.slots.find((x) => x[0] === curSlot);
     askText();
@@ -362,20 +372,39 @@ function typePad({ head, value, max, done }) {
   };
   show();
 }
-// siunčia, kol ekranas patvirtina šią versiją
-let pending = null;
-function pushGame(g) { pending = { id: g.id, v: g.v, wire: toWire(g) }; sendUp({ t: 'game', data: pending.wire }); }
-setInterval(() => {
-  if (!net || !pending) return;
-  const a = st && (st.games || []).find((x) => x.id === pending.id);
-  if (a && a.v >= pending.v) {
-    const first = !sent[pending.id]; sent[pending.id] = pending.v; LS.set(NS('zd-sent'), JSON.stringify(sent));
-    if (first && ZM) ZM.report('dirbtuves', { score: Object.keys(sent).length, xp: 50 });
-    pending = null;
-    if (cur === 'send') sentOverlay();
-    return;
+// Siuntimo eilė: visi mano žaidimai keliauja į arkadą, prie kurios prisijungiau, ir siunčiami, kol ekranas patvirtina versiją.
+// Mokytojo pašalinti žaidimai (st.gone) automatiškai nebesiunčiami.
+const queue = {};   // id -> {v, wire, manual}
+let pending = null; // rankinis „Siųsti“: rodom „Išsiųsta!“, kai patvirtina
+function pushGame(g, manual = true) {
+  queue[g.id] = { v: g.v, wire: toWire(g), manual };
+  if (manual) pending = { id: g.id, v: g.v };
+  sendUp({ t: 'game', data: queue[g.id].wire });
+}
+const gone = (id) => !!(st && (st.gone || []).includes(id));
+async function syncMine() {
+  if (!net || !st) return;
+  for (const m of MINE) {
+    const id = m.store.id, v = m.store.v || 0, a = (st.games || []).find((x) => x.id === id);
+    if (gone(id) || (a && a.v >= v) || (queue[id] && queue[id].v >= v)) continue;
+    const g = await loadMine(m); if (g && !(queue[id] && queue[id].v >= v)) pushGame(g, false);
   }
-  sendUp({ t: 'game', data: pending.wire });
+}
+setInterval(() => {
+  if (!net) return;
+  for (const [id, q] of Object.entries(queue)) {
+    const a = st && (st.games || []).find((x) => x.id === id);
+    if (a && a.v >= q.v) {
+      const first = !sent[id]; sent[id] = q.v; LS.set(NS('zd-sent'), JSON.stringify(sent));
+      if (first && ZM) ZM.report('dirbtuves', { score: Object.keys(sent).length, xp: 50 });
+      delete queue[id];
+      if (pending && pending.id === id) { pending = null; if (cur === 'send') sentOverlay(); }
+      continue;
+    }
+    if (gone(id)) { delete queue[id]; if (pending && pending.id === id) { pending = null; const sm = $('#sm'); if (sm) sm.textContent = 'Mokytojas šį žaidimą pašalino iš arkados.'; } continue; }
+    sendUp({ t: 'game', data: q.wire });
+  }
+  syncMine();
 }, 2500);
 function sentOverlay() {
   const ov = $('#ov'); if (!ov) return;
@@ -421,8 +450,9 @@ function onMsg(sub, m) {
   }
   if (sub !== 'state' || m.t !== 'state' || m.seq < lastSeq) return;
   const before = st; lastSeq = m.seq; st = m;
+  if (!before) syncMine();
   if (!before && waitState) { const f = waitState; waitState = null; f(); return; }
-  if (cur === 'home' && (!before || (before.games || []).length !== (st.games || []).length)) { const s = $('#side'); if (s) sideFriends(s); }
+  if (cur === 'home' && (!before || JSON.stringify((before.games || []).map((g) => g.id + g.v)) !== JSON.stringify((st.games || []).map((g) => g.id + g.v)))) { const s = $('#side'); if (s) sideFriends(s); }
   if (cur === 'friends' && before && JSON.stringify((before.games || []).map((g) => g.id + g.v)) !== JSON.stringify((st.games || []).map((g) => g.id + g.v))) go('friends');
 }
 
