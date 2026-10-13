@@ -16,71 +16,120 @@ function enc(c, opaque, q) {
   if (u.startsWith('data:image/webp')) return u;
   return opaque ? c.toDataURL('image/jpeg', q) : c.toDataURL('image/png');
 }
-// Atspalvio pasukimas pikseliais: ctx.filter Safari neveikia
-function hueShift(c, deg) {
-  const x = c.getContext('2d'), im = x.getImageData(0, 0, c.width, c.height), d = im.data, a = deg * Math.PI / 180;
-  const cs = Math.cos(a), sn = Math.sin(a), m = [
-    .213 + cs * .787 - sn * .213, .715 - cs * .715 - sn * .715, .072 - cs * .072 + sn * .928,
-    .213 - cs * .213 + sn * .143, .715 + cs * .285 + sn * .140, .072 - cs * .072 - sn * .283,
-    .213 - cs * .213 - sn * .787, .715 - cs * .715 + sn * .715, .072 + cs * .928 + sn * .072];
-  for (let i = 0; i < d.length; i += 4) { const r = d[i], g = d[i + 1], b = d[i + 2]; d[i] = r * m[0] + g * m[1] + b * m[2]; d[i + 1] = r * m[3] + g * m[4] + b * m[5]; d[i + 2] = r * m[6] + g * m[7] + b * m[8]; }
-  x.putImageData(im, 0, 0);
-}
-
-/* ---------- mokytojo pavyzdžiai: ranka pieštos figūros ---------- */
-function wob(g, pts, close, r) {
-  g.beginPath();
-  pts.forEach(([x, y], i) => { const jx = x + (r() - .5) * 3, jy = y + (r() - .5) * 3; i ? g.lineTo(jx, jy) : g.moveTo(jx, jy); });
-  if (close) g.closePath();
-}
-const circ = (cx, cy, rx, ry, n = 28) => Array.from({ length: n }, (_, i) => [cx + Math.cos(i / n * TAU) * rx, cy + Math.sin(i / n * TAU) * ry]);
-function shape(g, pts, fill, r, lw = 9) { wob(g, pts, true, r); if (fill) { g.fillStyle = fill; g.fill(); } g.lineWidth = lw; g.strokeStyle = INK; g.lineJoin = g.lineCap = 'round'; g.stroke(); }
-function line(g, pts, r, col = INK, lw = 9) { wob(g, pts, false, r); g.lineWidth = lw; g.strokeStyle = col; g.lineJoin = g.lineCap = 'round'; g.stroke(); }
-function face(g, x, y, s, r) { g.fillStyle = INK; [-1, 1].forEach((d) => { g.beginPath(); g.arc(x + d * s * .32, y - s * .1, s * .09, 0, TAU); g.fill(); }); line(g, [[x - s * .25, y + s * .18], [x, y + s * .3], [x + s * .25, y + s * .18]], r, INK, 7); }
-const DEF = {
-  blob: (g, c, r) => { line(g, [[50, 140], [20, 110]], r); line(g, [[206, 140], [236, 110]], r); shape(g, circ(128, 140, 82, 78), c, r); face(g, 128, 140, 120, r); line(g, [[95, 216], [90, 246]], r); line(g, [[161, 216], [166, 246]], r); },
-  apple: (g, c, r) => { shape(g, circ(128, 146, 86, 80), c, r); line(g, [[128, 70], [136, 34]], r, '#7a4a1c', 11); shape(g, [[138, 50], [190, 30], [176, 66]], '#3fbf5f', r, 7); g.fillStyle = 'rgba(255,255,255,.6)'; g.beginPath(); g.ellipse(92, 116, 14, 22, -.5, 0, TAU); g.fill(); },
-  spike: (g, c, r) => { const p = []; for (let i = 0; i < 18; i++) { const a = i / 18 * TAU, rr = i % 2 ? 62 : 104; p.push([128 + Math.cos(a) * rr, 128 + Math.sin(a) * rr]); } shape(g, p, c, r); g.fillStyle = '#fff'; [-1, 1].forEach((d) => { g.beginPath(); g.arc(128 + d * 26, 118, 16, 0, TAU); g.fill(); }); g.fillStyle = INK; [-1, 1].forEach((d) => { g.beginPath(); g.arc(128 + d * 24, 122, 8, 0, TAU); g.fill(); }); line(g, [[100, 160], [118, 150], [138, 162], [156, 150]], r, INK, 7); },
-  star: (g, c, r) => { const p = []; for (let i = 0; i < 10; i++) { const a = -Math.PI / 2 + i / 10 * TAU, rr = i % 2 ? 46 : 108; p.push([128 + Math.cos(a) * rr, 136 + Math.sin(a) * rr]); } shape(g, p, c, r); },
-  ghost: (g, c, r) => { const p = [[52, 230], [52, 120]]; for (let i = 0; i <= 12; i++) { const a = Math.PI + i / 12 * Math.PI; p.push([128 + Math.cos(a) * 76, 120 + Math.sin(a) * 86]); } p.push([204, 230], [178, 206], [154, 232], [128, 206], [102, 232], [78, 206]); shape(g, p, c, r); face(g, 128, 120, 110, r); },
-  cat: (g, c, r) => { shape(g, [[70, 90], [84, 28], [118, 70]], c, r); shape(g, [[186, 90], [172, 28], [138, 70]], c, r); shape(g, circ(128, 134, 88, 82), c, r); face(g, 128, 134, 120, r); shape(g, [[30, 150], [6, 112], [58, 128]], '#fff', r, 7); shape(g, [[226, 150], [250, 112], [198, 128]], '#fff', r, 7); },
-  pipe: (g, c, r) => { shape(g, [[70, 4], [186, 4], [186, 252], [70, 252]], c, r); for (let y = 30; y < 250; y += 46) line(g, [[80, y], [176, y + 10]], r, 'rgba(22,24,58,.35)', 6); },
-  bgMeadow: (g, c, r, w, h) => { g.fillStyle = c; g.fillRect(0, 0, w, h); g.fillStyle = '#8fd694'; wob(g, [[0, h * .72], [w * .25, h * .62], [w * .5, h * .7], [w * .75, h * .6], [w, h * .7], [w, h], [0, h]], true, r); g.fill(); g.lineWidth = 6; g.strokeStyle = INK; g.stroke(); shape(g, circ(w * .86, h * .2, 26, 26), '#ffd23f', r, 6); },
-  bgNight: (g, c, r, w, h) => { g.fillStyle = c; g.fillRect(0, 0, w, h); const q = rng(9); for (let i = 0; i < 40; i++) { g.fillStyle = '#fff'; g.fillRect(q() * w, q() * h * .8, 4, 4); } shape(g, circ(w * .14, h * .2, 24, 24), '#fff6c2', r, 6); },
-  bgSky: (g, c, r, w, h) => { g.fillStyle = c; g.fillRect(0, 0, w, h); [[.2, .25], [.6, .18], [.85, .4]].forEach(([x, y]) => shape(g, circ(w * x, h * y, 34, 17, 16), '#fff', r, 5)); },
+/* ---------- mokytojo pavyzdžiai: pikselių piešiniai 16x16, tas pats blokų stilius kaip Robot Miner ---------- */
+// Kiekvienas pavyzdys piešiamas 16x16 tinklelyje ir padidinamas iki 256x256 (vienas taškas = 2x2 vaiko teptuko kvadratėliai).
+const PX = {
+  robot(r) {
+    r(7, 0, 2, 1, '#ff5a8a'); r(7, 1, 2, 1, '#c3c8d2');
+    r(3, 2, 10, 6, '#f2c230'); r(3, 2, 10, 1, '#ffe08a'); r(3, 7, 10, 1, '#c99a1a');
+    r(4, 3, 8, 3, '#1a1a22'); r(5, 4, 2, 1, '#7ff3ff'); r(9, 4, 2, 1, '#7ff3ff');
+    r(4, 8, 8, 5, '#8a8f9c'); r(4, 8, 8, 1, '#b4b9c4'); r(6, 9, 4, 3, '#4de8d6'); r(7, 10, 2, 1, '#b8fff6');
+    r(2, 8, 2, 4, '#f2c230'); r(12, 8, 2, 4, '#f2c230'); r(2, 11, 2, 1, '#8a8f9c'); r(12, 11, 2, 1, '#8a8f9c');
+    r(5, 13, 2, 3, '#2a2a30'); r(9, 13, 2, 3, '#2a2a30');
+  },
+  slime(r) {
+    r(2, 3, 12, 12, '#5cbf3a'); r(2, 3, 12, 1, '#8ee35f'); r(2, 3, 1, 12, '#8ee35f'); r(2, 14, 12, 1, '#2f7a1c'); r(13, 3, 1, 12, '#2f7a1c');
+    r(4, 5, 8, 8, '#4aa02c');
+    r(4, 6, 2, 2, '#14361a'); r(10, 6, 2, 2, '#14361a'); r(4, 6, 1, 1, '#ffffff'); r(10, 6, 1, 1, '#ffffff');
+    r(7, 10, 2, 1, '#14361a');
+  },
+  bird(r) {
+    r(6, 2, 2, 2, '#e0402e'); r(2, 6, 2, 3, '#e5641f');
+    r(4, 4, 8, 9, '#ff8a3d'); r(3, 6, 10, 5, '#ff8a3d'); r(4, 4, 8, 1, '#ffb27a');
+    r(6, 8, 5, 4, '#ffe1b8'); r(3, 8, 4, 3, '#e5641f');
+    r(9, 6, 2, 2, '#16183a'); r(10, 6, 1, 1, '#ffffff');
+    r(12, 8, 3, 2, '#ffcc33'); r(12, 9, 2, 1, '#e0a51c');
+    r(6, 13, 1, 2, '#ffcc33'); r(9, 13, 1, 2, '#ffcc33');
+  },
+  apple(r) {
+    r(7, 1, 2, 3, '#7a4a1c'); r(9, 2, 3, 2, '#5cbf3a'); r(10, 1, 2, 1, '#8ee35f');
+    r(4, 4, 8, 10, '#e0402e'); r(3, 6, 10, 6, '#e0402e'); r(5, 4, 2, 1, '#e0402e');
+    r(5, 5, 2, 2, '#ff8a7a'); r(4, 7, 1, 2, '#ff8a7a');
+    r(4, 13, 8, 1, '#a8302a'); r(12, 8, 1, 4, '#a8302a'); r(7, 4, 2, 1, '#a8302a');
+  },
+  tnt(r) {
+    r(1, 1, 14, 14, '#e0402e'); r(1, 1, 14, 1, '#ff8a7a');
+    [3, 6, 9, 12].forEach((x) => r(x, 2, 1, 12, '#a8302a'));
+    r(1, 6, 14, 4, '#f3f0f7'); r(1, 6, 14, 1, '#ffffff');
+    r(2, 7, 3, 1, '#16183a'); r(3, 8, 1, 2, '#16183a');
+    r(6, 7, 1, 3, '#16183a'); r(7, 7, 1, 1, '#16183a'); r(8, 8, 1, 1, '#16183a'); r(9, 7, 1, 3, '#16183a');
+    r(11, 7, 3, 1, '#16183a'); r(12, 8, 1, 2, '#16183a');
+    r(1, 14, 14, 1, '#7a1a10');
+  },
+  diamond(r) {
+    [[3, 5, 6], [4, 4, 8], [5, 3, 10], [6, 3, 10], [7, 4, 8], [8, 5, 6], [9, 6, 4], [10, 7, 2]].forEach(([y, x, w]) => r(x, y + 1, w, 1, '#4de8d6'));
+    r(5, 4, 3, 1, '#b8fff6'); r(4, 5, 2, 1, '#b8fff6'); r(4, 6, 1, 1, '#ffffff');
+    r(11, 5, 1, 2, '#1fa898'); r(10, 7, 1, 2, '#1fa898'); r(9, 9, 1, 1, '#1fa898'); r(8, 10, 1, 1, '#1fa898');
+  },
+  ghost(r) {
+    r(4, 2, 8, 1, '#e8ecff'); r(3, 3, 10, 10, '#e8ecff'); r(3, 3, 10, 1, '#ffffff');
+    [3, 7, 11].forEach((x) => r(x, 13, 2, 2, '#e8ecff')); [5, 9].forEach((x) => r(x, 13, 2, 1, '#e8ecff'));
+    r(12, 4, 1, 9, '#b9bfe0');
+    r(5, 6, 2, 3, '#16183a'); r(9, 6, 2, 3, '#16183a'); r(5, 6, 1, 1, '#ffffff'); r(9, 6, 1, 1, '#ffffff');
+    r(7, 10, 2, 1, '#16183a');
+  },
+  coin(r) {
+    r(5, 2, 6, 1, '#ffcc33'); r(3, 3, 10, 10, '#ffcc33'); r(2, 5, 12, 6, '#ffcc33'); r(5, 13, 6, 1, '#ffcc33');
+    r(5, 2, 6, 1, '#fff0a8'); r(3, 3, 3, 1, '#fff0a8'); r(2, 5, 1, 3, '#fff0a8');
+    r(4, 4, 8, 8, '#e0a51c'); r(5, 5, 6, 6, '#ffcc33');
+    r(7, 5, 2, 6, '#c9962a'); r(13, 6, 1, 5, '#c9962a'); r(5, 13, 6, 1, '#b8861a');
+  },
+  pillar(r) {
+    // akmens plytos: kartojasi aukštyn ir žemyn be siūlės
+    r(0, 0, 16, 16, '#8b8b95');
+    for (let y = 0; y < 16; y += 4) { r(0, y + 3, 16, 1, '#5c5c66'); const o = (y / 4) % 2 ? 4 : 0; r(o, y, 1, 3, '#5c5c66'); r(o + 8, y, 1, 3, '#5c5c66'); r(o + 1, y, 6, 1, '#a5a5ae'); r((o + 9) % 16, y, 6, 1, '#a5a5ae'); }
+    r(0, 0, 1, 16, '#6e6e78'); r(15, 0, 1, 16, '#5c5c66'); r(5, 9, 2, 1, '#3fa34d'); r(11, 13, 2, 1, '#3fa34d');
+  },
 };
-const SIZE = { bg: [1024, 512], hero: [256, 256], good: [256, 256], bad: [256, 256] };
-// Pavyzdiniai paveikslėliai: molio stiliaus Blender piešiniai (assets/). Jei neužsikrauna, piešiama paprasta figūra.
-const BASE = (document.currentScript && document.currentScript.src || location.href).replace(/[^/]*$/, '');
-const ART = { blob: 'hero-blob', mint: 'hero-blob', cat: 'hero-bird', apple: 'apple', spike: 'spike', star: 'star', ghost: 'ghost', pipe: 'pillar', bgMeadow: 'bg-meadow', bgNight: 'bg-night', bgSky: 'bg-sky' };
-const PICS = {};
-const ready = Promise.all([...new Set(Object.values(ART))].map((n) => new Promise((ok) => {
-  const i = new Image(); i.onload = () => { PICS[n] = i; ok(); }; i.onerror = () => ok(); i.src = BASE + 'assets/' + n + (n.startsWith('bg-') ? '.webp' : '.png');
-})));
-function makeDef(kind, col, seed) {
-  const isBg = kind.startsWith('bg'), [w, h] = isBg ? SIZE.bg : SIZE.hero;
-  const c = mk(w, h), g = c.getContext('2d'), pic = PICS[ART[kind]];
-  if (pic) {
-    const k = isBg ? Math.max(w / pic.width, h / pic.height) : Math.min(w / pic.width, h / pic.height) * (kind === 'pipe' ? 1 : .94);
-    g.drawImage(pic, (w - pic.width * k) / 2, (h - pic.height * k) / 2, pic.width * k, pic.height * k);
-    if (kind === 'mint') hueShift(c, 115);
-    return c;
-  }
-  DEF[kind === 'mint' ? 'blob' : kind](g, col, rng(seed || 7), w, h);
+function pixelSprite(kind) {
+  const c = mk(256, 256), g = c.getContext('2d');
+  PX[kind]((x, y, w, h, col) => { g.fillStyle = col; g.fillRect(x * 16, y * 16, w * 16, h * 16); });
   return c;
 }
+// Fonai: piešiami mažu 128x64 tinkleliu ir padidinami 8 kartus, kad būtų aiškūs blokai
+function pixelBg(kind) {
+  const W = 128, H = 64, s = mk(W, H), g = s.getContext('2d'), q = rng(kind.length * 977);
+  const r = (x, y, w, h, col) => { g.fillStyle = col; g.fillRect(x, y, w, h); };
+  if (kind === 'bgMeadow') {
+    ['#5fb2ff', '#6cbcff', '#7ac6ff', '#8ad0ff', '#9ad9ff', '#acE2ff'].forEach((col, i) => r(0, i * 8, W, 8, col));
+    r(104, 6, 10, 10, '#fff3a0'); r(105, 7, 8, 8, '#ffe066');
+    [[12, 10, 14], [52, 6, 18], [84, 16, 12]].forEach(([x, y, w]) => { r(x, y, w, 3, '#ffffff'); r(x + 2, y - 2, w - 6, 2, '#ffffff'); r(x, y + 3, w, 1, '#dfeaff'); });
+    [[18, 40], [70, 38], [112, 41]].forEach(([x, y]) => { r(x + 2, y, 2, 8, '#7a4a1c'); r(x - 2, y - 7, 10, 7, '#3fa34d'); r(x, y - 9, 6, 2, '#3fa34d'); r(x - 2, y - 7, 10, 1, '#5cbf3a'); });
+    r(0, 48, W, 16, '#8a5a2b');
+    for (let i = 0; i < 160; i++) r((q() * W) | 0, 50 + ((q() * 14) | 0), 1, 1, q() < .5 ? '#6e4520' : '#9c6a36');
+    r(0, 46, W, 3, '#5cbf3a'); for (let x = 0; x < W; x += 2) r(x, 49, 1, (q() * 2 + 1) | 0, '#5cbf3a');
+    for (let x = 0; x < W; x += 3) r(x, 46, 1, 1, '#8ee35f');
+  } else if (kind === 'bgCave') {
+    r(0, 0, W, H, '#2e2b38');
+    for (let i = 0; i < 900; i++) r((q() * W) | 0, (q() * H) | 0, 2, 1, ['#26232f', '#35323f', '#2a2734', '#3a3646'][(q() * 4) | 0]);
+    for (let i = 0; i < 14; i++) { const x = (q() * (W - 4)) | 0, y = (q() * (H - 4)) | 0, col = ['#4de8d6', '#ffcc33', '#1a1a22', '#e0402e'][(q() * 4) | 0]; r(x, y, 2, 1, col); r(x + 1, y + 1, 2, 1, col); }
+    [[20, 22], [64, 14], [106, 26]].forEach(([x, y]) => { g.globalAlpha = .18; r(x - 6, y - 6, 13, 13, '#ff9a2e'); g.globalAlpha = .3; r(x - 3, y - 3, 7, 7, '#ffb347'); g.globalAlpha = 1; r(x, y, 1, 4, '#7a4a1c'); r(x, y - 1, 1, 1, '#ffcc33'); });
+    r(0, 58, W, 6, '#24212c');
+  } else {
+    ['#2a1d5c', '#3b2470', '#5a2d7a', '#8a3a7a', '#c4527a', '#f07a5e', '#ffb05c', '#ffd27a'].forEach((col, i) => r(0, i * 6, W, 6, col));
+    for (let i = 0; i < 40; i++) r((q() * W) | 0, (q() * 18) | 0, 1, 1, '#ffffff');
+    r(22, 6, 8, 8, '#fff3c4'); r(24, 7, 3, 2, '#ffffff');
+    const ridge = (base, amp, col) => { let y = base; for (let x = 0; x < W; x += 2) { y = Math.max(base - amp, Math.min(base + 4, y + ((q() * 5) | 0) - 2)); r(x, y, 2, H - y, col); } };
+    ridge(44, 10, '#5a2d6a'); ridge(52, 6, '#3b1f52'); r(0, 60, W, 4, '#2a1640');
+  }
+  const c = mk(SIZE.bg[0], SIZE.bg[1]), x = c.getContext('2d'); x.imageSmoothingEnabled = false; x.drawImage(s, 0, 0, c.width, c.height);
+  return c;
+}
+const SIZE = { bg: [1024, 512], hero: [256, 256], good: [256, 256], bad: [256, 256] };
+const ready = Promise.resolve();
+function makeDef(kind) { return kind.startsWith('bg') ? pixelBg(kind) : pixelSprite(kind); }
 
 /* ---------- šablonai ir taisyklės ---------- */
 const TPL = {
   gaudyk: { name: 'Gaudyk', about: 'Daiktai krenta iš viršaus. Gaudyk gerus, venk blogų.', ctrl: 'Vesk pirštu į šonus',
     slots: [['hero', 'Herojus', 'Tu jį valdai'], ['good', 'Gaudyk', 'Krenta iš viršaus'], ['bad', 'Venk', 'Irgi krenta'], ['bg', 'Fonas', 'Už visko']],
-    def: { hero: ['blob', '#ffd23f'], good: ['apple', '#ff5a5f'], bad: ['spike', '#8a5cf6'], bg: ['bgMeadow', '#bfe3ff'] } },
+    def: { hero: ['robot'], good: ['apple'], bad: ['tnt'], bg: ['bgMeadow'] } },
   bek: { name: 'Bėk', about: 'Rink daiktus visame lauke, o priešai lakstys aplink.', ctrl: 'Vesk pirštu, herojus seka',
     slots: [['hero', 'Herojus', 'Tu jį valdai'], ['good', 'Rink', 'Atsiranda bet kur'], ['bad', 'Priešas', 'Laksto aplink'], ['bg', 'Fonas', 'Už visko']],
-    def: { hero: ['mint', '#7be0c8'], good: ['star', '#ffd23f'], bad: ['ghost', '#ffffff'], bg: ['bgNight', '#2a2f6b'] } },
+    def: { hero: ['slime'], good: ['diamond'], bad: ['ghost'], bg: ['bgCave'] } },
   skrisk: { name: 'Skrisk', about: 'Bakstelk ir herojus pakyla. Praskrisk pro kliūtis.', ctrl: 'Bakstelk, kad pakiltum',
     slots: [['hero', 'Herojus', 'Tu jį valdai'], ['good', 'Rink', 'Tarp kliūčių'], ['bad', 'Kliūtis', 'Stulpai iš šono'], ['bg', 'Fonas', 'Už visko']],
-    def: { hero: ['cat', '#ff9f43'], good: ['star', '#ffd23f'], bad: ['pipe', '#3fbf5f'], bg: ['bgSky', '#bfe3ff'] } },
+    def: { hero: ['bird'], good: ['coin'], bad: ['pillar'], bg: ['bgDusk'] } },
 };
 const EFFECTS = [['+1', '+1 taškas', 'good'], ['+5', '+5 taškai', 'good'], ['-1', '-1 gyvybė', 'bad'], ['win', 'Laimėjai!', 'win'], ['lose', 'Pralaimėjai', 'bad'], ['none', 'Nieko', '']];
 const AFTER = [['vanish', 'dingsta'], ['stay', 'lieka']];
@@ -129,6 +178,7 @@ function cropped(c) {
 function thumb(c, w, h) {
   const isBg = c.width > c.height, t = mk(w * 2, h * 2), g = t.getContext('2d'), k = (isBg ? c : cropped(c)) || c;
   const s = isBg ? Math.max(t.width / k.width, t.height / k.height) : Math.min(t.width / k.width, t.height / k.height) * .9;
+  g.imageSmoothingEnabled = false;
   g.drawImage(k, (t.width - k.width * s) / 2, (t.height - k.height * s) / 2, k.width * s, k.height * s);
   t.style.width = w + 'px'; t.style.height = h + 'px'; return t;
 }
@@ -142,15 +192,15 @@ function fitCanvas(cv, maxDpr = 1.5) {
 const META = ['id', 'v', 'tpl', 'words', 'name', 'author', 'rules', 'every', 'goal', 'lives', 'speed', 'theme'];
 const meta = (g) => { const o = {}; META.forEach((k) => { o[k] = g[k]; }); return JSON.parse(JSON.stringify(o)); };
 // planšetės atmintyje: pilnas PNG, kad būtų galima toliau piešti
-function toStore(g) { const o = meta(g); o.spr = {}; Object.keys(SIZE).forEach((k) => { o.spr[k] = k === 'bg' ? enc(g.spr[k], true, .92) : g.spr[k].toDataURL('image/png'); }); return o; }
+function toStore(g) { const o = meta(g); o.spr = {}; Object.keys(SIZE).forEach((k) => { o.spr[k] = g.spr[k].toDataURL('image/png'); }); return o; }
 // į tinklą: sumažinti ir suspausti, kad žinutė būtų maža
 function toWire(g) {
   const o = meta(g); o.spr = {};
   Object.keys(SIZE).forEach((k) => {
-    const [w, h] = SIZE[k], c = mk(w * .625, h * .625), x = c.getContext('2d');
+    const [w, h] = SIZE[k], c = mk(w / 2, h / 2), x = c.getContext('2d');
     if (k === 'bg') { x.fillStyle = '#fff'; x.fillRect(0, 0, c.width, c.height); }
-    x.drawImage(g.spr[k], 0, 0, c.width, c.height);
-    o.spr[k] = enc(c, k === 'bg', .82);
+    x.imageSmoothingEnabled = false; x.drawImage(g.spr[k], 0, 0, c.width, c.height);
+    o.spr[k] = c.toDataURL('image/png');
   });
   return o;
 }
@@ -171,7 +221,8 @@ async function fromData(d) {
   if (g.every.length < 2) g.every = freshGame(g.tpl).every;
   for (const k of Object.keys(SIZE)) {
     const [w, h] = SIZE[k], c = mk(w, h), s = typeof d.spr[k] === 'string' && d.spr[k].startsWith('data:image/') ? await img(d.spr[k]) : null;
-    if (s) c.getContext('2d').drawImage(s, 0, 0, w, h); else { const [kind, col] = TPL[g.tpl].def[k]; c.getContext('2d').drawImage(makeDef(kind, col, 3), 0, 0); }
+    const cx = c.getContext('2d'); cx.imageSmoothingEnabled = false;
+    if (s) cx.drawImage(s, 0, 0, w, h); else cx.drawImage(makeDef(TPL[g.tpl].def[k][0]), 0, 0);
     g.spr[k] = c;
   }
   return g;
@@ -203,7 +254,7 @@ function Game(game, cv, hooks = {}) {
   const sp = game.speed;
   function spawn(who) {
     const s = U * (who === 'bad' && T === 'skrisk' ? 1.6 : 1.4), base = { who, s, born: st.t, rot: 0, spin: 0 };
-    if (T === 'gaudyk') st.items.push({ ...base, x: s + Math.random() * (W - s * 2), y: -s, vx: 0, vy: U * (2.6 + Math.random()) * sp, spin: (Math.random() - .5) * 1.6 });
+    if (T === 'gaudyk') st.items.push({ ...base, x: s + Math.random() * (W - s * 2), y: -s, vx: 0, vy: U * (2.6 + Math.random()) * sp });
     else if (T === 'bek') {
       if (who === 'good') st.items.push({ ...base, x: s + Math.random() * (W - s * 2), y: s + Math.random() * (H - s * 2), vx: 0, vy: 0, life: 6 });
       else { const a = Math.random() * TAU; st.items.push({ ...base, x: Math.random() < .5 ? s : W - s, y: s + Math.random() * (H - s * 2), vx: Math.cos(a) * U * 3 * sp, vy: Math.sin(a) * U * 3 * sp }); }
@@ -260,18 +311,18 @@ function Game(game, cv, hooks = {}) {
   function bgCanvas() {
     if (bgFit) return bgFit;
     const o = mk(Math.round(W * dpr), Math.round(H * dpr)), x = o.getContext('2d'), k = Math.max(o.width / bgc.width, o.height / bgc.height);
-    x.drawImage(bgc, (o.width - bgc.width * k) / 2, (o.height - bgc.height * k) / 2, bgc.width * k, bgc.height * k);
+    x.imageSmoothingEnabled = false; x.drawImage(bgc, (o.width - bgc.width * k) / 2, (o.height - bgc.height * k) / 2, bgc.width * k, bgc.height * k);
     return (bgFit = o);
   }
   function sizedFor(c, s) {
     const key = c, want = Math.max(8, Math.round(s * 1.15 * dpr / 4) * 4), m = sized.get(key) || {};
-    if (!m[want]) { const k = Math.min(want / c.width, want / c.height), o = mk(Math.max(1, Math.round(c.width * k)), Math.max(1, Math.round(c.height * k))); o.getContext('2d').drawImage(c, 0, 0, o.width, o.height); m[want] = o; sized.set(key, m); }
+    if (!m[want]) { const k = Math.min(want / c.width, want / c.height), o = mk(Math.max(1, Math.round(c.width * k)), Math.max(1, Math.round(c.height * k))); const ox = o.getContext('2d'); ox.imageSmoothingEnabled = false; ox.drawImage(c, 0, 0, o.width, o.height); m[want] = o; sized.set(key, m); }
     return m[want];
   }
   const backOut = (x) => 1 + 2.7 * Math.pow(x - 1, 3) + 1.7 * Math.pow(x - 1, 2);
   function drawSpr(c0, x, y, s, rot, sx = 1, sy = 1) { const c = sizedFor(c0, s), k = Math.min(s / c.width, s / c.height) * 1.12; g.save(); g.translate(x, y); if (rot) g.rotate(rot); g.scale(sx, sy); g.drawImage(c, -c.width * k / 2, -c.height * k / 2, c.width * k, c.height * k); g.restore(); }
   function draw() {
-    g.setTransform(dpr, 0, 0, dpr, 0, 0);
+    g.setTransform(dpr, 0, 0, dpr, 0, 0); g.imageSmoothingEnabled = false;
     const sh = st.shake * st.shake * U * .12; if (sh) g.translate((Math.random() - .5) * sh * 2, (Math.random() - .5) * sh * 2);
     g.save(); g.setTransform(1, 0, 0, 1, 0, 0); if (sh) g.translate((Math.random() - .5) * sh * 2 * dpr, (Math.random() - .5) * sh * 2 * dpr); g.drawImage(bgCanvas(), 0, 0); g.restore();
     st.items.forEach((it) => {
@@ -289,15 +340,17 @@ function Game(game, cv, hooks = {}) {
     const q = Math.sin(hero.sq * Math.PI) * .18, br = Math.sin(st.t * 3) * .02;
     drawSpr(spr.hero, hero.x, hero.y, hero.s, tilt, 1 + q, 1 - q + br);
     if (hero.hurt) { g.globalAlpha = hero.hurt; drawSpr(tint.hero, hero.x, hero.y, hero.s, tilt, 1 + q, 1 - q + br); g.globalAlpha = 1; }
-    st.parts.forEach((p) => { g.globalAlpha = Math.max(0, 1 - p.t / p.life); g.fillStyle = p.col; g.beginPath(); g.arc(p.x, p.y, p.r * (1 - p.t / p.life * .5), 0, TAU); g.fill(); });
+    st.parts.forEach((p) => { g.globalAlpha = Math.max(0, 1 - p.t / p.life); g.fillStyle = p.col; const z = p.r * 2 * (1 - p.t / p.life * .5); g.fillRect(p.x - z / 2, p.y - z / 2, z, z); });
     g.globalAlpha = 1;
     // skaičius skrenda į skaitiklį viršuje kairėje
     st.chips.forEach((c) => {
       const f = Math.min(1, c.t / .6), e = f * f * (3 - 2 * f), tx = c.good ? U * .9 : U * 2.4, ty = U * .55;
       const x = c.x + (tx - c.x) * e, y = c.y + (ty - c.y) * e - Math.sin(f * Math.PI) * U * 1.2, s = 1 - e * .45;
       g.save(); g.translate(x, y); g.scale(s, s); g.globalAlpha = f > .85 ? (1 - f) / .15 : 1;
-      g.font = `800 ${U * .62}px "Baloo 2", sans-serif`; const w = g.measureText(c.txt).width + U * .5, h = U * .78;
-      g.fillStyle = c.good ? '#2bb673' : '#ff5a5f'; g.beginPath(); g.roundRect(-w / 2, -h / 2, w, h, h / 2); g.fill();
+      g.font = `700 ${U * .58}px "ZM Digits", "Pixelify Sans", monospace`; const w = g.measureText(c.txt).width + U * .5, h = U * .78, b = Math.max(2, U * .07);
+      g.fillStyle = '#000'; g.fillRect(-w / 2 - b, -h / 2 - b, w + b * 2, h + b * 2);
+      g.fillStyle = c.good ? '#5cbf3a' : '#e0402e'; g.fillRect(-w / 2, -h / 2, w, h);
+      g.fillStyle = c.good ? '#8ee35f' : '#ff8a7a'; g.fillRect(-w / 2, -h / 2, w, b);
       g.fillStyle = '#fff'; g.textAlign = 'center'; g.textBaseline = 'middle'; g.fillText(c.txt, 0, U * .04); g.restore();
     });
   }
@@ -320,19 +373,17 @@ function Game(game, cv, hooks = {}) {
     step(dt); draw();
   } };
 }
-// Lipdukas: balti iškirpto lipduko kraštai ir švelnus šešėlis aplink vaiko piešinį
+// Kontūras: tamsus pikselinis kraštas ir kietas šešėlis aplink kiekvieną piešinį, kaip žaidimų daiktai
 function silhouette(c, col) { const o = mk(c.width, c.height), x = o.getContext('2d'); x.drawImage(c, 0, 0); x.globalCompositeOperation = 'source-in'; x.fillStyle = col; x.fillRect(0, 0, o.width, o.height); return o; }
 function sticker(c) {
-  const sz = Math.max(c.width, c.height), sc = Math.min(1, 220 / sz), w = Math.round(c.width * sc), h = Math.round(c.height * sc);
-  const src = mk(w, h); src.getContext('2d').drawImage(c, 0, 0, w, h);
-  const p = Math.max(5, Math.round(Math.max(w, h) * .045)), pad = p * 3;
+  const sz = Math.max(c.width, c.height), sc = Math.min(1, 256 / sz), w = Math.round(c.width * sc), h = Math.round(c.height * sc);
+  const src = mk(w, h), sx = src.getContext('2d'); sx.imageSmoothingEnabled = false; sx.drawImage(c, 0, 0, w, h);
+  const p = Math.max(4, Math.round(Math.max(w, h) / 32)), pad = p * 3;
   const o = mk(w + pad * 2, h + pad * 2), x = o.getContext('2d');
-  const white = silhouette(src, '#ffffff');
-  const ring = mk(o.width, o.height), r = ring.getContext('2d');
-  for (let i = 0; i < 24; i++) { const a = i / 24 * TAU; r.drawImage(white, pad + Math.cos(a) * p, pad + Math.sin(a) * p); }
-  r.drawImage(white, pad, pad);
-  x.save(); x.shadowColor = 'rgba(22,24,58,.38)'; x.shadowBlur = p * 1.6; x.shadowOffsetY = p * .9; x.drawImage(ring, 0, 0); x.restore();
-  x.drawImage(ring, 0, 0); x.drawImage(src, pad, pad);
+  const dark = silhouette(src, '#0e0c14');
+  x.globalAlpha = .35; x.drawImage(dark, pad + p, pad + p * 2); x.globalAlpha = 1;
+  for (const [dx, dy] of [[-p, 0], [p, 0], [0, -p], [0, p]]) x.drawImage(dark, pad + dx, pad + dy);
+  x.drawImage(src, pad, pad);
   return o;
 }
 function mainColor(c) {
