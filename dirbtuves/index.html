@@ -414,7 +414,14 @@ function sentOverlay() {
 
 /* ---------- draugų žaidimai ---------- */
 const FR = {};   // id -> {data, game}
-const friendIds = () => (st && st.games ? st.games.filter((x) => !MINE.some((m) => m.store.id === x.id)).map((x) => x.id) : []);
+// Draugų žaidimų tvarka nesikeičia: nauji prisideda gale. Kitaip kortelė pabėga iš po piršto, kai kas nors atsiunčia žaidimą.
+const seen = [];
+function friendIds() {
+  if (!st || !st.games) return [];
+  const ids = st.games.filter((x) => !MINE.some((m) => m.store.id === x.id)).map((x) => x.id);
+  ids.forEach((id) => { if (!seen.includes(id)) seen.push(id); });
+  return seen.filter((id) => ids.includes(id));
+}
 V.friends = (el) => {
   el.innerHTML = `<div class="bar"><button class="pill ghost sm" data-home>Namo</button><div class="brand" style="flex:1">Draugų žaidimai</div><span class="net${online ? ' ok' : ''}" id="netst">${online ? 'Arkada prijungta' : 'Jungiamasi...'}</span></div>
   <div class="body friends" id="fl"></div>`;
@@ -423,7 +430,7 @@ V.friends = (el) => {
   if (!ids.length) { box.innerHTML = '<div class="empty" style="grid-column:1/-1">Draugų žaidimų dar nėra. Kai kas nors atsiųs, jie atsiras čia.</div>'; return; }
   ids.slice(0, 8).forEach((id) => {
     const a = st.games.find((x) => x.id === id), f = FR[id];
-    const c = document.createElement('button'); c.className = 'gcard';
+    const c = document.createElement('button'); c.className = 'gcard'; c.dataset.id = id;
     if (f && f.game) { c.innerHTML = `<canvas></canvas><div class="cap"><b>${esc(title(f.game))}</b><small>kūrė ${esc(f.game.author)} · ${TPL[f.game.tpl].name}</small><div class="stats"><span>žaidė ${a.plays} k.</span><span>♥ ${a.hearts}</span></div></div>`; live(c, f.game); c.onclick = () => go('fplay', f.game); }
     else { c.innerHTML = `<div class="loading">Kraunama...</div><div class="cap"><b>${esc(a.title)}</b><small>kūrė ${esc(a.author)}</small></div>`; c.disabled = true; }
     box.append(c);
@@ -453,7 +460,11 @@ function onMsg(sub, m) {
   if (!before) syncMine();
   if (!before && waitState) { const f = waitState; waitState = null; f(); return; }
   if (cur === 'home' && (!before || JSON.stringify((before.games || []).map((g) => g.id + g.v)) !== JSON.stringify((st.games || []).map((g) => g.id + g.v)))) { const s = $('#side'); if (s) sideFriends(s); }
-  if (cur === 'friends' && before && JSON.stringify((before.games || []).map((g) => g.id + g.v)) !== JSON.stringify((st.games || []).map((g) => g.id + g.v))) go('friends');
+  if (cur === 'friends' && before) {
+    const sig = (L) => (L || []).map((g) => g.id + ':' + g.v).sort().join(',');
+    if (sig(before.games) !== sig(st.games)) go('friends');
+    else (st.games || []).forEach((g) => { const e = document.querySelector(`.gcard[data-id="${g.id}"] .stats`); if (e) e.innerHTML = `<span>žaidė ${g.plays} k.</span><span>♥ ${g.hearts}</span>`; });
+  }
 }
 
 /* ---------- pradžia ---------- */
