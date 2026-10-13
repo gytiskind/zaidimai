@@ -49,8 +49,13 @@ function persist() {
 }
 function saveG() {
   if (!G) return;
-  G.author = G.author || author(); G.v = Date.now();
-  const s = toStore(G), i = MINE.findIndex((m) => m.store.id === G.id);
+  G.author = G.author || author();
+  // nauja versija tik kai kas nors tikrai pasikeitė, kitaip arkada rašytų „patobulino“ kiekvieną kartą perėjus ekraną
+  const i = MINE.findIndex((m) => m.store.id === G.id), same = (x) => JSON.stringify({ ...x, v: 0 });
+  const prev = i >= 0 ? MINE[i].store : null, cand = toStore({ ...G, v: prev ? prev.v : 0 });
+  if (prev && same(cand) === same(prev)) return;
+  G.v = Date.now();
+  const s = { ...cand, v: G.v };
   if (i >= 0) MINE[i] = { store: s, game: G }; else MINE.unshift({ store: s, game: G });
   persist();
 }
