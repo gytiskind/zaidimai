@@ -4,12 +4,10 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Tikra ar AI? Ekranas</title>
-<link rel="preconnect" href="https://fonts.googleapis.com">
-<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Nunito:wght@700;800;900&display=swap">
+<link rel="stylesheet" href="../fonts/fonts.css">
 <link rel="stylesheet" href="style.css">
-<script src="https://unpkg.com/mqtt@5.16.0/dist/mqtt.min.js"></script>
-<script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
+<script src="https://unpkg.com/mqtt@5.16.0/dist/mqtt.min.js" integrity="sha384-9WWboT9UtuPFRlOLq4FygQkcJxzYcpz8SXGkNyCEXM+44n14xzjNlrRKYZwuF/A6" crossorigin="anonymous"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js" integrity="sha384-3zSEDfvllQohrq0PHL1fOXJuC/jSOO34H46t6UQfobFOmxE5BpjjaIJY5F2/bMnU" crossorigin="anonymous"></script>
 <script src="net.js"></script>
 <script>
 // One engine, several class games: ?g=saugu loads g/saugu/data.js (no ?g = Tikra ar AI?).
@@ -82,8 +80,6 @@ body { height: 100vh; overflow: hidden; }
 .big { font-weight: 900; font-size: 5.6vh; margin: 0; }
 .big b { color: var(--gem); }
 .verdict { font-weight: 900; font-size: 4vh; color: var(--gold); margin: 0; }
-.ver.need-mac .cmd { display: block; margin: 8px 0; padding: 8px 10px; background: #111; color: #7ee04f; font: 700 0.95rem ui-monospace, Menlo, monospace; user-select: all; word-break: break-all; }
-.ver.need-mac .cmdNote { display: block; margin-top: 6px; }
 .ver.need-mac { display: block; color: #fff; background: #e0402e; border: 3px solid #000; padding: 8px 12px; font-size: 1.05rem; max-width: 34em; }
 /* podium: 2nd, 1st, 3rd; places appear one by one, 3rd first */
 .podium { display: grid; grid-template-columns: repeat(3, 22vw); gap: 1.4vw; align-items: end; margin-top: 2vh; }
@@ -275,7 +271,8 @@ body { height: 100vh; overflow: hidden; }
   }
 
   function onMsg(sub, m) {
-    if (sub !== 'up' || !m.pid) return;
+    if (sub !== 'up' || !/^[\w-]{1,40}$/.test(String(m.pid))) return;   // pid is a map key: no __proto__ or odd text
+    m.pid = String(m.pid);
     const name = String(m.name || '').trim().slice(0, 14);
     if (m.t === 'join' && name) {
       // same name from a reloaded tablet keeps its score
@@ -489,18 +486,10 @@ body { height: 100vh; overflow: hidden; }
   wake();
 
   $('ver').textContent = FULL ? GAME.fullNote : GAME.publicNote;
-  // viešoje versijoje šis žaidimas neturi paveikslėlių: aiškiai pasakom, kaip jį paleisti
+  // viešoje versijoje šis žaidimas neturi paveikslėlių: aiškiai pasakom, kad jis veikia tik iš mokytojo kompiuterio
   if (!ROUNDS.some((r) => r.length)) {
-    const cmd = 'open "$HOME/PProjects/pamokos-vaikams/Saugu ar apgavystė ekranas.command"';
     $('ver').classList.add('need-mac');
-    $('ver').innerHTML = '⚠ Čia paveikslėlių nėra. Mac\'e du kartus spustelėk <b>„Saugu ar apgavystė ekranas“</b> (aplanke pamokos-vaikams) arba paleisk Terminale:'
-      + '<code class="cmd" id="cmd"></code><button class="wbtn small" id="cmdCopy" type="button">Kopijuoti komandą</button>'
-      + '<span class="cmdNote">Planšetės jungiasi kaip įprasta.</span>';
-    $('cmd').textContent = cmd;
-    $('cmdCopy').onclick = async () => {
-      try { await navigator.clipboard.writeText(cmd); $('cmdCopy').textContent = 'Nukopijuota ✓'; }
-      catch (e) { const r = document.createRange(); r.selectNodeContents($('cmd')); getSelection().removeAllRanges(); getSelection().addRange(r); $('cmdCopy').textContent = 'Pažymėta: spausk Cmd+C'; }
-    };
+    $('ver').textContent = '⚠ Šis žaidimas veikia tik iš mokytojo kompiuterio.';
   }
   document.title = GAME.title + ' Ekranas';
   document.querySelectorAll('[data-title]').forEach((el) => { el.textContent = GAME.title; });

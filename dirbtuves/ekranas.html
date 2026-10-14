@@ -4,13 +4,11 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Klasės arkada</title>
-<link rel="preconnect" href="https://fonts.googleapis.com">
-<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Nunito:wght@700;800;900&family=Pixelify+Sans:wght@400;700&display=swap">
+<link rel="stylesheet" href="../fonts/fonts.css">
 <link rel="stylesheet" href="../fonts/zm-digits.css">
 <link rel="stylesheet" href="style.css">
-<script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
-<script src="https://unpkg.com/mqtt@5.16.0/dist/mqtt.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js" integrity="sha384-3zSEDfvllQohrq0PHL1fOXJuC/jSOO34H46t6UQfobFOmxE5BpjjaIJY5F2/bMnU" crossorigin="anonymous"></script>
+<script src="https://unpkg.com/mqtt@5.16.0/dist/mqtt.min.js" integrity="sha384-9WWboT9UtuPFRlOLq4FygQkcJxzYcpz8SXGkNyCEXM+44n14xzjNlrRKYZwuF/A6" crossorigin="anonymous"></script>
 <script src="net.js"></script>
 <script src="engine.js"></script>
 <style>
@@ -73,8 +71,10 @@ const feed = (t) => { S.feed.unshift(t); S.feed = S.feed.slice(0, 8); };
 async function onMsg(sub, m) {
   if (sub !== 'up' || !m || !m.pid) return;
   const pid = String(m.pid).slice(0, 20);
+  const own = (o, k) => Object.prototype.hasOwnProperty.call(o, String(k));   // ids come from the network: no 'constructor' or '__proto__'
   if (m.t === 'game') {
-    const old = m.data && S.games[m.data.id];
+    if (!m.data || !/^[\w-]{1,16}$/.test(String(m.data.id))) return;
+    const old = own(S.games, m.data.id) ? S.games[m.data.id] : null;
     if (old && old.wire.v >= +m.data.v) { publish(); return; }   // ta pati versija: tik patvirtinam
     if (S.gone.includes(String(m.data.id))) return;   // mokytojo pašalintas žaidimas negrįžta
     const g = await fromData(m.data);
@@ -87,10 +87,10 @@ async function onMsg(sub, m) {
     LOADED[id] = g; fresh1 = id;
     feed(prev ? `<b>${esc(g.author)}</b> patobulino „${esc(title(g))}“` : `<b>${esc(g.author)}</b> atsiuntė „${esc(title(g))}“`);
     net.send('g/' + id, { t: 'game', data: wire }, true);
-  } else if (m.t === 'played' && S.games[m.game]) {
+  } else if (m.t === 'played' && own(S.games, m.game)) {
     const g = S.games[m.game]; g.plays++; S.total++;
     feed(`Kažkas ${m.win ? 'laimėjo' : 'žaidė'} „${esc(title(g.wire))}“`);
-  } else if (m.t === 'heart' && S.games[m.game]) {
+  } else if (m.t === 'heart' && own(S.games, m.game)) {
     const g = S.games[m.game]; if (g.by.includes(pid) || g.pid === pid) return;
     g.by.push(pid); g.hearts++;
     feed(`„${esc(title(g.wire))}“ gavo širdelę`);

@@ -1,6 +1,6 @@
 // "Didysis finalas": the 17-question finale of the club (concept scenes, Tikra ar AI picks, Saugu picks).
 // Public file: concept scenes and Tikra ar AI picks with public media. The Saugu picks are in local/local.js (Mac only).
-// Built by pamokos-vaikams/finalas/build.py
+// Generated file
 window.GAME = {
  "id": "didysis-finalas",
  "title": "Didysis finalas",

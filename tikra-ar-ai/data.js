@@ -1,4 +1,4 @@
-// Public rounds (without Mac-only clips), built from the teacher's picks by pamokos-vaikams/tikra-ar-ai-select/build_game.py
+// Public rounds (without Mac-only clips), built from the teacher's picks
 window.ROUNDS = [
  [
   {

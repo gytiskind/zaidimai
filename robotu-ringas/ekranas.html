@@ -4,13 +4,11 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Robotų ringas: ekranas</title>
-<link rel="preconnect" href="https://fonts.googleapis.com">
-<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Nunito:wght@700;800;900&family=Pixelify+Sans:wght@400;700&display=swap">
+<link rel="stylesheet" href="../fonts/fonts.css">
 <link rel="stylesheet" href="../fonts/zm-digits.css">
 <link rel="stylesheet" href="style.css">
-<script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
-<script src="https://unpkg.com/mqtt@5.16.0/dist/mqtt.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js" integrity="sha384-3zSEDfvllQohrq0PHL1fOXJuC/jSOO34H46t6UQfobFOmxE5BpjjaIJY5F2/bMnU" crossorigin="anonymous"></script>
+<script src="https://unpkg.com/mqtt@5.16.0/dist/mqtt.min.js" integrity="sha384-9WWboT9UtuPFRlOLq4FygQkcJxzYcpz8SXGkNyCEXM+44n14xzjNlrRKYZwuF/A6" crossorigin="anonymous"></script>
 <script src="net.js"></script>
 <script src="engine.js"></script>
 <script src="art.js"></script>
@@ -143,7 +141,7 @@ V.lobbyList = () => {
   const el = $('#scr'), box = $('#jn', el); if (!box) return;
   const L = ids();
   $('#cnt', el).textContent = `Ringe: ${L.length} robotai`;
-  box.innerHTML = L.map((id) => { const r = pl(id).robot; return `<div class="jrow" data-id="${id}"><span class="pt"></span><div class="tx"><b style="color:${r.col}">${esc(r.name)}</b><small>${esc(r.kid || '')} · ${TRAIT[r.trait].n}</small></div><button class="btn x" data-x="${id}" aria-label="Pašalinti">✕</button></div>`; }).join('')
+  box.innerHTML = L.map((id) => { const r = pl(id).robot; return `<div class="jrow" data-id="${esc(id)}"><span class="pt"></span><div class="tx"><b style="color:${safeCol(r.col)}">${esc(r.name)}</b><small>${esc(r.kid || '')} · ${TRAIT[r.trait].n}</small></div><button class="btn x" data-x="${esc(id)}" aria-label="Pašalinti">✕</button></div>`; }).join('')
     + (L.length < 2 ? '<div class="jrow wait"><div class="tx"><b>Laukiam robotų...</b></div></div>' : '');
   box.querySelectorAll('.jrow[data-id]').forEach((row) => row.querySelector('.pt').append(portrait(pl(row.dataset.id).robot, 48)));
   box.onclick = (e) => { const b = e.target.closest('[data-x]'); if (!b) return; delete S.players[b.dataset.x]; S.order = S.order.filter((x) => x !== b.dataset.x); save(); publish(); V.lobbyList(); };
@@ -153,7 +151,7 @@ V.lobbyList = () => {
 V.tour = (el) => {
   const L = ids(), n = L.length;
   el.innerHTML = top('Turnyras: kiekvienas robotas kovoja su kiekvienu.') + `<div class="tour"><div class="cards5 n${Math.max(5, n)}" id="c5"></div><div class="tourBot"><table class="rr" id="rr"></table><div class="next" id="nx"></div></div></div>`;
-  L.forEach((id) => { const d = pl(id).robot, c = document.createElement('div'); c.className = 'kc'; c.append(portrait(d, n > 6 ? 70 : 92)); c.insertAdjacentHTML('beforeend', `<div class="nm" style="color:${d.col}">${esc(d.name)}</div><small>${esc(d.kid || '')} · ${TRAIT[d.trait].n}</small><div class="wst">${'<i></i>'.repeat(wins(id))}</div>`); $('#c5', el).append(c); });
+  L.forEach((id) => { const d = pl(id).robot, c = document.createElement('div'); c.className = 'kc'; c.append(portrait(d, n > 6 ? 70 : 92)); c.insertAdjacentHTML('beforeend', `<div class="nm" style="color:${safeCol(d.col)}">${esc(d.name)}</div><small>${esc(d.kid || '')} · ${TRAIT[d.trait].n}</small><div class="wst">${'<i></i>'.repeat(wins(id))}</div>`); $('#c5', el).append(c); });
   let h = '<tr><th></th>' + L.map((_, j) => `<th data-h="${j}"></th>`).join('') + '</tr>';
   L.forEach((a, i) => { h += `<tr><th data-r="${i}"></th>` + L.map((b, j) => { if (i === j) return '<td class="x"></td>'; const r = res(a, b); if (r) return `<td class="${r[0] > r[1] ? 'w' : r[0] < r[1] ? 'l' : ''}">${r[0]}:${r[1]}</td>`; const sel = S.next && ((S.next.a === a && S.next.b === b) || (S.next.a === b && S.next.b === a)); return `<td class="p${sel ? ' sel' : ''}" data-a="${a}" data-b="${b}">${sel ? 'KITAS' : 'laukia'}</td>`; }).join('') + '</tr>'; });
   $('#rr', el).innerHTML = h;
@@ -170,8 +168,8 @@ V.tour = (el) => {
   const A = pl(S.next.a).robot, B = pl(S.next.b).robot;
   nx.innerHTML = `<p class="label">KITAS MAČAS</p><div class="pair"><div id="pa"></div><span class="vs">VS</span><div id="pb"></div></div>
     <p class="lead"><b>${esc(A.name)}</b> VS <b>${esc(B.name)}</b></p><div class="rowbtn"><button class="btn small2" id="lob">← Prisijungimas</button><button class="btn play bigbtn" id="start" style="padding:0 40px">START ▶</button></div>`;
-  $('#pa', el).append(portrait(A, 120, 'windup')); $('#pa', el).insertAdjacentHTML('beforeend', `<b style="color:${A.col}">${esc(A.kid || A.name)}</b><small>${TRAIT[A.trait].n}</small>`);
-  const pb = portrait(B, 120, 'block'); pb.style.transform = 'scaleX(-1)'; $('#pb', el).append(pb); $('#pb', el).insertAdjacentHTML('beforeend', `<b style="color:${B.col}">${esc(B.kid || B.name)}</b><small>${TRAIT[B.trait].n}</small>`);
+  $('#pa', el).append(portrait(A, 120, 'windup')); $('#pa', el).insertAdjacentHTML('beforeend', `<b style="color:${safeCol(A.col)}">${esc(A.kid || A.name)}</b><small>${TRAIT[A.trait].n}</small>`);
+  const pb = portrait(B, 120, 'block'); pb.style.transform = 'scaleX(-1)'; $('#pb', el).append(pb); $('#pb', el).insertAdjacentHTML('beforeend', `<b style="color:${safeCol(B.col)}">${esc(B.kid || B.name)}</b><small>${TRAIT[B.trait].n}</small>`);
   $('#lob', el).onclick = () => { S.phase = 'lobby'; save(); publish(); show('lobby'); };
   $('#start', el).onclick = primary = () => startMatch(S.next.a, S.next.b);
 };
@@ -230,7 +228,7 @@ V.fix = (el) => {
     <button class="btn play bigbtn" id="go" style="padding:0 40px">RAUNDAS ${M.round} ▶</button></div>`;
   [[M.a, M.A, 0], [M.b, M.B, 1]].forEach(([id, d, i]) => {
     const c = document.createElement('div'); c.className = 'coder'; c.dataset.id = id; c.append(portrait(d, 110, s.winner === i ? 'punch' : 'tired'));
-    c.insertAdjacentHTML('beforeend', `<b style="color:${d.col}">${esc(d.kid || d.name)}</b><span style="font-weight:800;color:var(--ink-dim)">${esc(d.name)} · ${s.hp[i]}/${s.max[i]} gyvybių po raundo</span><span class="st wip">Galvoja...</span><div class="hint" style="grid-column:1/-1;font-size:.95rem"><b>PATARIMAS PLANŠETĖJE</b>${esc(M.hints[id])}</div>`);
+    c.insertAdjacentHTML('beforeend', `<b style="color:${safeCol(d.col)}">${esc(d.kid || d.name)}</b><span style="font-weight:800;color:var(--ink-dim)">${esc(d.name)} · ${s.hp[i]}/${s.max[i]} gyvybių po raundo</span><span class="st wip">Galvoja...</span><div class="hint" style="grid-column:1/-1;font-size:.95rem"><b>PATARIMAS PLANŠETĖJE</b>${esc(M.hints[id])}</div>`);
     $('#cds', el).append(c);
   });
   const go = () => { if (cur !== 'fix') return; S.phase = 'vs'; save(); publish(); show('fight'); };

@@ -4,12 +4,10 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>Tikra ar AI?</title>
-<link rel="preconnect" href="https://fonts.googleapis.com">
-<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Nunito:wght@700;800;900&display=swap">
+<link rel="stylesheet" href="../fonts/fonts.css">
 <link rel="stylesheet" href="style.css">
 <script src="../zm.js"></script>
-<script src="https://unpkg.com/mqtt@5.16.0/dist/mqtt.min.js"></script>
+<script src="https://unpkg.com/mqtt@5.16.0/dist/mqtt.min.js" integrity="sha384-9WWboT9UtuPFRlOLq4FygQkcJxzYcpz8SXGkNyCEXM+44n14xzjNlrRKYZwuF/A6" crossorigin="anonymous"></script>
 <script src="net.js"></script>
 <style>
 /* The tablet: join with a code, then two huge buttons. The picture itself is on the class screen. */
@@ -144,7 +142,8 @@ input:focus { outline: none; border-color: var(--gem); }
     setTitle(g.title);
     [[$('pickA'), g.a], [$('pickB'), g.b]].forEach(([b, c]) => {
       b.dataset.a = c.key;
-      b.style.background = c.color; b.style.color = c.ink;
+      const hex = (x, d) => (/^#[0-9a-f]{3,8}$/i.test(x) ? x : d);   // spalvos iš tinklo: tik #hex
+      b.style.background = hex(c.color, '#888'); b.style.color = hex(c.ink, '#fff');
       b.style.fontSize = c.word.length > 6 ? 'clamp(1.6rem, 6vw, 3rem)' : '';
       b.innerHTML = '';
       b.append(c.word);
@@ -218,13 +217,13 @@ input:focus { outline: none; border-color: var(--gem); }
     $('back').style.visibility = st && (st.phase === 'q' || st.phase === 'reveal') ? 'hidden' : 'visible';
     if (!st || !joined) { if (!st) return; view('v-wait'); $('hello').textContent = 'Jungiamasi...'; $('wmsg').textContent = ''; return; }
     if (st.offline) { view('v-wait'); $('hello').textContent = name; $('wmsg').textContent = 'Šįkart žaidžiam be planšečių. Žiūrėk į ekraną!'; return; }
-    const score = (st.score && st.score[pid]) || 0;
+    const score = Number(st.score && st.score[pid]) || 0;   // skaičiai iš tinklo eina į innerHTML: tik kaip Number
     if (st.phase === 'lobby') {
       view('v-wait'); $('hello').textContent = 'Sveikas, ' + name + '!'; $('wmsg').textContent = 'Tu prisijungei. Laukiam, kol prasidės žaidimas.';
     } else if (st.phase === 'q') {
       view('v-q');
       const a = myAns[ak()];
-      $('qn').textContent = `${st.rounds > 1 ? st.round + ' raundas · ' : ''}${st.idx + 1} / ${st.n}  ·  Žiūrėk į ekraną!`;
+      $('qn').textContent = `${st.rounds > 1 ? st.round + ' raundas · ' : ''}${(Number(st.idx) || 0) + 1} / ${st.n}  ·  Žiūrėk į ekraną!`;
       document.querySelectorAll('.pick').forEach((b) => {
         b.classList.toggle('chosen', a === b.dataset.a);
         b.classList.toggle('dim', !!a && a !== b.dataset.a);
@@ -239,11 +238,11 @@ input:focus { outline: none; border-color: var(--gem); }
       if (ok === true) { box.className = 'result good'; $('r1').textContent = 'Teisingai!'; $('r2').textContent = 'Tai ' + word + '.'; }
       else if (ok === false) { box.className = 'result bad'; $('r1').textContent = 'Oi, ne!'; $('r2').textContent = 'Tai buvo ' + word + '.'; }
       else { box.className = 'result none'; $('r1').textContent = 'Nespėjai'; $('r2').textContent = 'Tai buvo ' + word + '.'; }
-      $('sc').innerHTML = `Tavo taškai: <b>${score}</b> iš ${st.idx + 1}`;
+      $('sc').innerHTML = `Tavo taškai: <b>${score}</b> iš ${(Number(st.idx) || 0) + 1}`;
     } else if (st.phase === 'end') {
       view('v-end');
-      $('endbig').innerHTML = `Atspėjai <b>${score}</b> iš ${st.n}!`;
-      const place = st.podium && st.podium[pid];
+      $('endbig').innerHTML = `Atspėjai <b>${score}</b> iš ${Number(st.n) || 0}!`;
+      const place = st.podium && [1, 2, 3].includes(Number(st.podium[pid])) ? Number(st.podium[pid]) : 0;
       $('endmsg').innerHTML = place ? `<span class="place">${['', '🥇', '🥈', '🥉'][place]} ${place} vieta!</span>` : '';
       if (st.classMax) $('endmsg').insertAdjacentText('beforeend', `Visa klasė kartu: ${st.classPts} iš ${st.classMax}.`);
       // one report per finished game, even if the page reloads

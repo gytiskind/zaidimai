@@ -9,7 +9,7 @@ window.GAME = {
   creditTag: {},
   creditsNote: 'Visi vaizdai atkurti pagal tikrus pavyzdžius iš Roblox pagalbos puslapių, naujienų ir saugumo įmonių. Vardai išgalvoti.',
   fullNote: '✓ Mac versija: visi vaizdai',
-  publicNote: 'Šis žaidimas veikia tik iš Mac: paleisk "Saugu ar apgavystė ekranas".',
+  publicNote: 'Šis žaidimas veikia tik iš mokytojo kompiuterio.',
 };
 window.ROUNDS = [[]];
 window.ITEMS = [];

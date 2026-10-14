@@ -4,13 +4,11 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>Žaidimų dirbtuvės</title>
-<link rel="preconnect" href="https://fonts.googleapis.com">
-<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Nunito:wght@700;800;900&family=Pixelify+Sans:wght@400;700&display=swap">
+<link rel="stylesheet" href="../fonts/fonts.css">
 <link rel="stylesheet" href="../fonts/zm-digits.css">
 <link rel="stylesheet" href="style.css">
 <script src="../zm.js"></script>
-<script src="https://unpkg.com/mqtt@5.16.0/dist/mqtt.min.js"></script>
+<script src="https://unpkg.com/mqtt@5.16.0/dist/mqtt.min.js" integrity="sha384-9WWboT9UtuPFRlOLq4FygQkcJxzYcpz8SXGkNyCEXM+44n14xzjNlrRKYZwuF/A6" crossorigin="anonymous"></script>
 <script src="net.js"></script>
 <script src="engine.js"></script>
 </head>
@@ -450,7 +448,7 @@ function sentOverlay() {
 }
 
 /* ---------- draugų žaidimai ---------- */
-const FR = {};   // id -> {data, game}
+const FR = Object.create(null);   // id -> {data, game}
 // Draugų žaidimų tvarka nesikeičia: nauji prisideda gale. Kitaip kortelė pabėga iš po piršto, kai kas nors atsiunčia žaidimą.
 const seen = [];
 function friendIds() {
@@ -486,14 +484,20 @@ const sendUp = (m) => { if (net) net.send('up', Object.assign({ pid }, m)); };
 function onMsg(sub, m) {
   if (sub.startsWith('g/')) {
     if (!m || m.t !== 'game' || !m.data) return;
-    const id = sub.slice(2), old = FR[id];
+    const id = sub.slice(2);
+    if (!/^[\w-]{1,16}$/.test(id) || id === '__proto__') return;
+    const old = FR[id];
     if (old && old.data.v >= m.data.v) return;
     FR[id] = { data: m.data, game: null };
     fromData(m.data).then((g) => { if (g && FR[id] && FR[id].data === m.data) { FR[id].game = g; if (cur === 'friends') go('friends'); } });
     return;
   }
   if (sub !== 'state' || m.t !== 'state' || m.seq < lastSeq) return;
-  const before = st; lastSeq = m.seq; st = m;
+  const before = st; lastSeq = +m.seq || 0;
+  // tinklo žinutė nepatikima: skaičiai ir tekstai paverčiami saugiais tipais prieš patenkant į HTML
+  const n = (x) => (Number.isFinite(+x) ? +x : 0), s = (x, k) => String(x == null ? '' : x).slice(0, k);
+  st = { t: 'state', seq: lastSeq, gone: (Array.isArray(m.gone) ? m.gone : []).slice(0, 50).map((x) => s(x, 16)), games: (Array.isArray(m.games) ? m.games : []).slice(0, 40).filter((g) => g && /^[\w-]{1,16}$/.test(String(g.id)))
+    .map((g) => ({ id: String(g.id), v: n(g.v), title: s(g.title, 40), author: s(g.author, 20), tpl: s(g.tpl, 10), plays: n(g.plays), hearts: n(g.hearts) })) };
   if (!before) syncMine();
   if (!before && waitState) { const f = waitState; waitState = null; f(); return; }
   if (cur === 'home' && (!before || JSON.stringify((before.games || []).map((g) => g.id + g.v)) !== JSON.stringify((st.games || []).map((g) => g.id + g.v)))) { const s = $('#side'); if (s) sideFriends(s); }

@@ -1,5 +1,7 @@
 /* Robotų ringas: piešimas ir bendri UI gabalai (planšetė ir ekranas). Reikia engine.js. */
 const $ = (s, r = document) => r.querySelector(s);
+// spalva iš tinklo: tik #rrggbb, kitaip numatytoji (kad į style niekas neįsiskverbtų)
+const safeCol = (c) => (/^#[0-9a-f]{6}$/i.test(c) ? c : '#f2c230');
 const esc = (t) => String(t).replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
 function seeded(seed) { return () => { seed = (seed + 0x6d2b79f5) | 0; let t = Math.imul(seed ^ (seed >>> 15), 1 | seed); t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t; return ((t ^ (t >>> 14)) >>> 0) / 4294967296; }; }
 /* ---------- ikonos ---------- */

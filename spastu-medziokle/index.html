@@ -6,9 +6,7 @@
 <title>Spąstų medžioklė</title>
 <style>body{margin:0}.zm-back{display:inline-flex;align-items:center;justify-self:center;align-self:center;font:900 0.95rem "Nunito","Arial Rounded MT Bold",system-ui,sans-serif;color:#f3f0f7;text-decoration:none;background:#3b3846;border:3px solid;border-color:#6e6a7c #1f1c27 #1f1c27 #6e6a7c;box-shadow:0 0 0 2px #000;padding:5px 12px;touch-action:manipulation;white-space:nowrap}.zm-back:focus-visible{outline:3px solid #4de8d6;outline-offset:3px}</style>
 <script src="../zm.js"></script>
-<link rel="preconnect" href="https://fonts.googleapis.com">
-<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Nunito:wght@700;800;900&family=Pixelify+Sans:wght@700&display=swap">
+<link rel="stylesheet" href="../fonts/fonts.css">
 <link rel="stylesheet" href="../fonts/zm-digits.css">
 <style>
 /* Spąstų medžioklė: internet trap cards fall down the screen; the kid taps SAUGU or SPĄSTAI.
@@ -280,9 +278,9 @@ const C = [
   { s: 1, d: 2, k: 'notif', ic: '📅', t: 'Kalendorius', x: 'Šiandien: būrelis 15:00', why: 'Tavo paties kalendoriaus priminimas.' },
   { s: 1, d: 3, k: 'chat', who: 'Tėtis', av: 'T', col: '#1fa597', app: 'Žinutės', x: 'Nupirkau pieno. Ar reikia dar ko nors?', why: 'Tėtis klausia apie pirkinius. Nieko slapto neprašo.' },
   { s: 1, d: 3, k: 'game', t: 'Blokų žaidimas', x: 'Pasirink veikėjo spalvą', b: 'Rinktis', why: 'Žaidimo nustatymas pačiame žaidime.' },
-  { s: 1, d: 3, k: 'chat', who: 'Ema (draugė)', av: 'E', col: '#f2a23c', app: 'Blokų žaidimo pokalbis', x: 'Žiūrėk, kokį namą pastačiau! 🏠', why: 'Draugė dalinasi žaidimu, nesiunčia nuorodų ir nieko neprašo.' },
+  { s: 1, d: 3, k: 'chat', who: 'Kometa (draugė)', av: 'K', col: '#f2a23c', app: 'Blokų žaidimo pokalbis', x: 'Žiūrėk, kokį namą pastačiau! 🏠', why: 'Draugė dalinasi žaidimu, nesiunčia nuorodų ir nieko neprašo.' },
   { s: 1, d: 3, k: 'popup', a: 'nustatymai', t: 'Tėvų kontrolė', x: 'Šiandien liko 20 min žaidimo laiko.', b: 'Gerai', why: 'Tėvų nustatytas laiko priminimas.' },
-  { s: 1, d: 3, k: 'chat', who: 'Lukas (klasės grupė)', av: 'L', col: '#c4921a', app: 'Klasės grupė', x: 'Ar kas nors žino, kada ekskursija?', why: 'Klasioko klausimas klasės grupėje.' },
+  { s: 1, d: 3, k: 'chat', who: 'Pelėda (klasės grupė)', av: 'P', col: '#c4921a', app: 'Klasės grupė', x: 'Ar kas nors žino, kada ekskursija?', why: 'Klasioko klausimas klasės grupėje.' },
   { s: 1, d: 3, k: 'popup', a: 'blokuzaidimas.lt', t: 'Prisijungti', x: 'Įvesk slaptažodį savo paskyrai', b: 'Prisijungti', field: 'Slaptažodis', why: 'Adresas tikras, o prisijungti prie savo paskyros galima. Tik niekam nesakyk slaptažodžio.' },
   // ---------- SPĄSTAI ----------
   { s: 0, d: 1, ty: 'download', k: 'ad', t: '⬇ ATSISIŲSTI NEMOKAMAI', x: 'Pilna žaidimo versija!', why: 'Didelis mirksintis ATSISIŲSTI mygtukas reklamoje dažnai yra virusas.' },
@@ -307,11 +305,11 @@ const C = [
   { s: 0, d: 3, ty: 'lookalike', k: 'popup', a: 'vldeotube.com', t: 'Žiūrėk be reklamų', x: 'Prisijunk su savo paskyra', b: 'Prisijungti', field: 'Slaptažodis', why: '„vldeotube“, ne „videotube“: viena raidė pakeista.' },
   { s: 0, d: 3, ty: 'lookalike', k: 'popup', a: 'blokuzaidimas.lt.dovanos.xyz', t: 'Blokų žaidimas', x: 'Atsiimk savo dovaną', b: 'Atsiimti', why: 'Adresas baigiasi „.xyz“, o ne „blokuzaidimas.lt“. Tai ne tikras puslapis.' },
   { s: 0, d: 2, ty: 'hacked', k: 'chat', who: 'Tomas (klasiokas)', av: 'T', col: '#2f7de1', app: 'Blokų žaidimo pokalbis', x: 'Skubiai paskolink man savo paskyrą, rytoj grąžinsiu!', why: 'Paskyros neskolinam niekam, net draugams. Gal Tomo paskyrą kažkas pavogė.' },
-  { s: 0, d: 3, ty: 'hacked', k: 'chat', who: 'Ema (draugė)', av: 'E', col: '#f2a23c', app: 'Žinutės', x: 'Žiūrėk, čia tu filmuke! 😱 bit.ly/x7k2q', why: 'Keista nuoroda net iš draugės gali būti spąstai: jos paskyrą galėjo užgrobti.' },
+  { s: 0, d: 3, ty: 'hacked', k: 'chat', who: 'Kometa (draugė)', av: 'K', col: '#f2a23c', app: 'Žinutės', x: 'Žiūrėk, čia tu filmuke! 😱 bit.ly/x7k2q', why: 'Keista nuoroda net iš draugės gali būti spąstai: jos paskyrą galėjo užgrobti.' },
   { s: 0, d: 2, ty: 'urgent', k: 'popup', a: 'daiktu-apsauga.top', alarm: 1, t: '⏱ Liko 00:30!', x: 'Spausk dabar, kitaip prarasi visus žaidimo daiktus!', b: 'GELBĖTI', hot: 1, why: 'Skubinimas laikmačiu yra apgavikų triukas, kad nespėtum pagalvoti.' },
   { s: 0, d: 3, ty: 'urgent', k: 'notif', ic: '🏦', t: 'Banko žinutė', x: 'Kortelė užblokuota. Įvesk kodą per 5 min', why: 'Bankas taip nerašo. Parodyk tėvams ir nieko nespausk.' },
   { s: 0, d: 2, ty: 'money', k: 'popup', a: 'deimantai-pigiai.shop', t: 'Specialus pasiūlymas', x: '1000 deimantų tik už 0,01 €! Įvesk tėvų kortelę', b: 'Pirkti', field: 'Kortelės numeris', why: 'Kortelės duomenis vesti gali tik tėvai ir tik patikimose vietose.' },
-  { s: 0, d: 3, ty: 'money', k: 'chat', who: 'Jonas (draugas)', av: 'J', col: '#5cbf3a', app: 'Žinutės', x: 'Atsiųsk man kodą, kuris atėjo SMS į mamos telefoną', why: 'SMS kodai yra kaip raktai. Niekam jų neduok.' },
+  { s: 0, d: 3, ty: 'money', k: 'chat', who: 'Zyziukas (draugas)', av: 'Z', col: '#5cbf3a', app: 'Žinutės', x: 'Atsiųsk man kodą, kuris atėjo SMS į mamos telefoną', why: 'SMS kodai yra kaip raktai. Niekam jų neduok.' },
   { s: 0, d: 1, ty: 'download', k: 'ad', t: 'ATSISIŲSTI ⬇ ATSISIŲSTI', x: 'Greitas atsisiuntimas 100 %', why: 'Keli dideli ATSISIŲSTI mygtukai vienoje reklamoje yra spąstai.' },
 ];
 

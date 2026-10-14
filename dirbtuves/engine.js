@@ -209,7 +209,7 @@ const img = (src) => new Promise((ok) => { const i = new Image(); i.onload = () 
 const okRule = (r) => r && ['good', 'bad'].includes(r.b) && EFFECTS.some((e) => e[0] === r.e) && AFTER.some((a) => a[0] === r.f);
 async function fromData(d) {
   if (!d || !TPL[d.tpl] || !d.spr) return null;
-  const g = { id: String(d.id || newId()).slice(0, 16), v: +d.v || 1, tpl: d.tpl,
+  const g = { id: /^[\w-]{1,16}$/.test(String(d.id)) ? String(d.id) : newId(), v: +d.v || 1, tpl: d.tpl,
     words: (Array.isArray(d.words) ? d.words : ['Mano', 'žaidimas']).slice(0, 2).map((w) => String(w).slice(0, 20)),
     name: String(d.name || '').replace(/\s+/g, ' ').trim().slice(0, 28),
     author: String(d.author || '').replace(/\s+/g, ' ').trim().slice(0, 20),

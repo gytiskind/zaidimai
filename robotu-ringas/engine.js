@@ -8,15 +8,15 @@ const R = { TICKS: 40, ARTI: 1.5, TOLI: 4, REGEN: 4, LOWE: 25, LOWHP: 30, PUNCH:
 const COST = { pirmyn: 0, atgal: 0, smugis: R.PUNCH_E, suvis: R.SHOT_E, blokas: R.BLOCK_E, suolis: R.JUMP_E, ilsetis: 0 };
 function seeded(seed) { return () => { seed = (seed + 0x6d2b79f5) | 0; let t = Math.imul(seed ^ (seed >>> 15), 1 | seed); t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t; return ((t ^ (t >>> 14)) >>> 0) / 4294967296; }; }
 const ROBOTS = [
-  { kid: 'Ema', name: 'Geležinis Kumštis', col: '#f2c230', trait: 'stiprus',
+  { kid: 'Robo-Kazys', name: 'Geležinis Kumštis', col: '#f2c230', trait: 'stiprus',
     rules: [{ c: 'arti', a: 'smugis' }, { c: 'energ', a: 'ilsetis' }, { c: 'visada', a: 'pirmyn' }] },
-  { kid: 'Jonas', name: 'Snaiperis', col: '#4de8d6', trait: 'greitas',
+  { kid: 'Bitukas', name: 'Snaiperis', col: '#4de8d6', trait: 'greitas',
     rules: [{ c: 'arti', a: 'smugis' }, { c: 'energ', a: 'ilsetis' }, { c: 'toli', a: 'suvis' }, { c: 'visada', a: 'atgal' }] },
-  { kid: 'Ugnė', name: 'Siena', col: '#ff6fa8', trait: 'tvirtas',
+  { kid: 'Pikselė', name: 'Siena', col: '#ff6fa8', trait: 'tvirtas',
     rules: [{ c: 'puola', a: 'blokas' }, { c: 'arti', a: 'smugis' }, { c: 'visada', a: 'pirmyn' }] },
-  { kid: 'Matas', name: 'Kengūra', col: '#8ee35f', trait: 'greitas',
+  { kid: 'Vafliukas', name: 'Kengūra', col: '#8ee35f', trait: 'greitas',
     rules: [{ c: 'puola', a: 'suolis' }, { c: 'arti', a: 'smugis' }, { c: 'visada', a: 'pirmyn' }] },
-  { kid: 'Lukas', name: 'Miegalius', col: '#b58cff', trait: 'tvirtas',
+  { kid: 'Kosmoskas', name: 'Miegalius', col: '#b58cff', trait: 'tvirtas',
     rules: [{ c: 'arti', a: 'smugis' }, { c: 'visada', a: 'ilsetis' }] },
 ];
 function Round(A, B, seed) {

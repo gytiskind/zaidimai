@@ -4,13 +4,11 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>Robotų ringas</title>
-<link rel="preconnect" href="https://fonts.googleapis.com">
-<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Nunito:wght@700;800;900&family=Pixelify+Sans:wght@400;700&display=swap">
+<link rel="stylesheet" href="../fonts/fonts.css">
 <link rel="stylesheet" href="../fonts/zm-digits.css">
 <link rel="stylesheet" href="style.css">
 <script src="../zm.js"></script>
-<script src="https://unpkg.com/mqtt@5.16.0/dist/mqtt.min.js"></script>
+<script src="https://unpkg.com/mqtt@5.16.0/dist/mqtt.min.js" integrity="sha384-9WWboT9UtuPFRlOLq4FygQkcJxzYcpz8SXGkNyCEXM+44n14xzjNlrRKYZwuF/A6" crossorigin="anonymous"></script>
 <script src="net.js"></script>
 <script src="engine.js"></script>
 <script src="art.js"></script>
@@ -226,10 +224,38 @@ setInterval(() => {
   if (!p || p.v !== robotV()) sendRobot({ hello: 1 });
 }, 2500);
 
+// Tinklo žinutės nepatikimos (brokeris viešas): viskas, kas keliauja į HTML, paverčiama saugiais tipais.
+const num = (x, d = 0) => (Number.isFinite(+x) ? +x : d);
+const str = (x, n = 40) => String(x == null ? '' : x).slice(0, n);
+const pair = (a) => [num(a && a[0]), num(a && a[1])];
+function cleanState(m) {
+  const o = { t: 'state', seq: num(m.seq), gid: str(m.gid), phase: str(m.phase, 10), players: {}, next: null };
+  Object.entries(m.players && typeof m.players === 'object' ? m.players : {}).slice(0, 40).forEach(([id, q]) => {
+    if (q && typeof q === 'object') o.players[str(id, 20)] = { n: str(q.n, 24), k: str(q.k, 14), col: safeCol(q.col), v: str(q.v, 300), w: Math.min(99, Math.max(0, num(q.w))) };
+  });
+  if (m.next && typeof m.next === 'object') o.next = { a: str(m.next.a, 20), b: str(m.next.b, 20) };
+  if (m.left !== undefined) o.left = num(m.left);
+  const M = m.match;
+  if (M && typeof M === 'object') {
+    const L = M.last && typeof M.last === 'object' ? M.last : null, hints = {};
+    Object.entries(M.hints && typeof M.hints === 'object' ? M.hints : {}).slice(0, 40).forEach(([k, v]) => { hints[str(k, 20)] = str(v, 300); });
+    o.match = { mid: str(M.mid), a: str(M.a, 20), b: str(M.b, 20), round: num(M.round), wins: pair(M.wins), hints,
+      ready: (Array.isArray(M.ready) ? M.ready : []).slice(0, 40).map((x) => str(x, 20)),
+      last: L && { winner: num(L.winner), dealt: L.dealt ? pair(L.dealt) : undefined, taken: L.taken ? pair(L.taken) : undefined },
+      winner: M.winner === undefined || M.winner === null ? M.winner : num(M.winner, -1) };
+    o.robots = {};
+    Object.entries(m.robots && typeof m.robots === 'object' ? m.robots : {}).slice(0, 2).forEach(([k, v]) => { o.robots[str(k, 20)] = cleanRobot(v); });
+  }
+  return o;
+}
+function cleanTick(m) {
+  const f = (x) => ({ hp: num(x && x.hp), mx: num(x && x.mx, 1) || 1, en: num(x && x.en), fi: num(x && x.fi, -1), ck: (Array.isArray(x && x.ck) ? x.ck : []).slice(0, 10).map((n) => num(n)) });
+  return { mid: str(m.mid), round: num(m.round), f: [f(m.f && m.f[0]), f(m.f && m.f[1])] };
+}
 function onMsg(sub, m) {
-  if (sub === 'tick') { if (st && st.match && m.mid === st.match.mid) { liveTick = m; if (cur === 'watch') drawLive(); } return; }
+  if (sub === 'tick') { if (st && st.match && m.mid === st.match.mid) { liveTick = cleanTick(m); if (cur === 'watch') drawLive(); } return; }
   if (sub !== 'state' || m.t !== 'state' || m.seq < lastSeq) return;
-  lastSeq = m.seq; const prev = st; st = m;
+  lastSeq = num(m.seq); const prev = st; st = cleanState(m);
   if (cur === 'join') { go('lobby'); return; }
   route(prev);
 }
@@ -250,7 +276,7 @@ function ringBanner() {
   if (!st || !st.match || iFight() || !['vs', 'fight', 'fix'].includes(st.phase) || ['lobby', 'join'].includes(cur)) return;
   const P2 = st.players, a = P2[st.match.a], b = P2[st.match.b];
   if (!a || !b) return;
-  app.insertAdjacentHTML('beforeend', `<div class="banner-ring">Ringe: <span style="color:${a.col}">${esc(a.n)}</span> VS <span style="color:${b.col}">${esc(b.n)}</span></div>`);
+  app.insertAdjacentHTML('beforeend', `<div class="banner-ring">Ringe: <span style="color:${safeCol(a.col)}">${esc(a.n)}</span> VS <span style="color:${safeCol(b.col)}">${esc(b.n)}</span></div>`);
 }
 S.lobby = (el) => {
   ctx = 'pvp';
@@ -277,7 +303,7 @@ function lobbyInfo() {
     msg.innerHTML = mine ? 'Pasitikrink smegenis. Ekranas tuoj pakvies.' : 'Kol lauki, treniruokis prieš kompiuterį.';
   }
   $('#lsub', el).textContent = p && p.v !== robotV() ? 'Siunčiami pakeitimai...' : 'Robotas ekrane naujausias.';
-  $('#pl', el).innerHTML = Object.entries(st.players || {}).map(([id, q]) => `<div class="jrow"${id === pid ? ' style="outline:3px solid var(--gold)"' : ''}><span class="pt" data-c="${q.col}"></span><div class="tx"><b style="color:${q.col}">${esc(q.n)}</b><small>${esc(q.k || '')}${q.w ? ' · ' + '★'.repeat(q.w) : ''}</small></div></div>`).join('');
+  $('#pl', el).innerHTML = Object.entries(st.players || {}).map(([id, q]) => `<div class="jrow"${id === pid ? ' style="outline:3px solid var(--gold)"' : ''}><span class="pt" data-c="${safeCol(q.col)}"></span><div class="tx"><b style="color:${safeCol(q.col)}">${esc(q.n)}</b><small>${esc(q.k || '')}${q.w ? ' · ' + '★'.repeat(Math.min(99, Math.max(0, q.w | 0))) : ''}</small></div></div>`).join('');
   $('#pl', el).querySelectorAll('.pt').forEach((s) => s.append(portrait({ col: s.dataset.c }, 48)));
 }
 // kova vyksta ekrane: planšetėje tavo taisyklės dega gyvai

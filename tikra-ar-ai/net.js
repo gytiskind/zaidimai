@@ -7,6 +7,8 @@
     'wss://broker.emqx.io:8084/mqtt',
     'wss://broker.hivemq.com:8884/mqtt',
   ];
+  // MQTT 5: retained messages vanish on their own after 3 hours, so nothing stays on the public brokers
+  var EXPIRY = 3 * 3600;
   function rid() { return Math.random().toString(36).slice(2, 10) + Date.now().toString(36); }
 
   window.Net = function (code, onMsg, onStatus) {
@@ -14,7 +16,7 @@
     var seen = new Map();
     var clients = BROKERS.map(function (url) {
       var c = mqtt.connect(url, {
-        clientId: 'tai_' + rid(), clean: true, keepalive: 20,
+        clientId: 'tai_' + rid(), protocolVersion: 5, clean: true, keepalive: 20,
         connectTimeout: 8000, reconnectPeriod: 2000,
       });
       c.on('connect', function () { c.subscribe(base + '#', { qos: 1 }); status(); });
@@ -37,7 +39,7 @@
       send: function (sub, m, retain) {
         m.id = rid();
         var s = JSON.stringify(m);
-        clients.forEach(function (c) { c.publish(base + sub, s, { qos: 1, retain: !!retain }); });
+        clients.forEach(function (c) { c.publish(base + sub, s, { qos: 1, retain: !!retain, properties: { messageExpiryInterval: EXPIRY } }); });
       },
       clearRetained: function () {
         clients.forEach(function (c) { c.publish(base + 'state', '', { qos: 1, retain: true }); });

@@ -15,7 +15,10 @@ wrap() {
     printf '.zm-back:focus-visible{outline:3px solid #4de8d6;outline-offset:3px}</style>\n'
     printf '<script src="../zm.js"></script>\n'
     # the <!--ZM-BACK--> marker becomes a link back to the menu (it stays invisible in the claude.ai versions)
-    sed 's|<!--ZM-BACK-->|<a class="zm-back" href="../">← Meniu</a>|g' "$src"
+    # Google Fonts become the self-hosted copy in fonts/ (no visitor IPs sent to Google)
+    sed -e 's|<!--ZM-BACK-->|<a class="zm-back" href="../">← Meniu</a>|g' \
+        -e '/<link rel="preconnect" href="https:\/\/fonts\.g[a-z]*\.com"/d' \
+        -e 's|<link rel="stylesheet" href="https://fonts\.googleapis\.com/[^"]*">|<link rel="stylesheet" href="../fonts/fonts.css">|' "$src"
     printf '\n</html>\n'
   } > "$dst"
 }
