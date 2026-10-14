@@ -250,6 +250,18 @@ h1 {
       </a>
     </li>
     <li>
+      <a class="card" href="tikra-ar-ai/?g=finalas" data-game="didysis-finalas">
+        <img src="img/finalas.jpg" alt="Klausimas apie bananą ant konvejerio" width="640" height="480">
+        <div class="body">
+          <h2>Didysis finalas</h2>
+          <span class="tag">VISA KLASĖ KARTU</span>
+          <p>17 klausimų: ką išmokom, tikra ar AI, saugu ar apgavystė. Kas laimės pakylą?</p>
+          <p class="mine" data-best></p>
+          <span class="go">Žaisti</span>
+        </div>
+      </a>
+    </li>
+    <li>
       <a class="card" href="spastu-medziokle/" data-game="spastu-medziokle">
         <img src="img/spastu-medziokle.jpg" alt="Krentanti reklama su netikrais ATSISIŲSTI mygtukais ir du mygtukai: SPĄSTAI ir SAUGU" width="640" height="480">
         <div class="body">
@@ -426,6 +438,7 @@ h1 {
     'robo-mokinys': (n) => `Tavo žvaigždės: ${n} / 12`,
     'tikra-ar-ai': (n) => `Tavo rekordas: ${n} atspėta`,
     'saugu-ar-apgavyste': (n) => `Tavo rekordas: ${n} atspėta`,
+    'didysis-finalas': (n) => `Tavo rekordas: ${n} atspėta`,
   };
   let delId = null;
   const esc = (t) => String(t).replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));

@@ -57,6 +57,13 @@ body { height: 100vh; overflow: hidden; }
 /* the picture shrinks to make room for the answer, so nothing gets covered */
 .stage { position: relative; min-height: 0; display: grid; grid-template-rows: minmax(0, 1fr) auto; background: #000; overflow: hidden; }
 .stage img, .stage video { grid-row: 1; width: 100%; height: 100%; min-height: 0; object-fit: contain; display: block; }
+.qtext { display: none; grid-row: 1; margin: 0; padding: 1.6vh 6vw; text-align: center; font-weight: 900; font-size: 4.6vh; line-height: 1.15;
+  background: #0f0d16; border-bottom: 4px solid #000; text-shadow: 2px 2px 0 #000; }
+/* a question with text: the text takes the first row and the picture moves down */
+.stage.hasq { grid-template-rows: auto minmax(0, 1fr) auto; }
+.stage.hasq .qtext { display: block; }
+.stage.hasq img, .stage.hasq video { grid-row: 2; }
+.stage.hasq .reveal { grid-row: 3; }
 .hint { position: absolute; right: 2vw; bottom: 2vh; font-weight: 900; font-size: 2.4vh; z-index: 2; }
 .reveal { grid-row: 2; display: none; justify-items: center; gap: 1.2vh; padding: 2.2vh 12vw 2.6vh;
   background: #0f0d16; border-top: 4px solid #000; text-align: center; }
@@ -138,6 +145,7 @@ body { height: 100vh; overflow: hidden; }
     <span class="class" id="class"></span>
   </div>
   <div class="stage" id="stage">
+    <p class="qtext" id="qtext"></p>
     <div class="reveal" id="reveal">
       <div class="stamp" id="stamp"></div>
       <p class="tell" id="tell"></p>
@@ -195,7 +203,14 @@ body { height: 100vh; overflow: hidden; }
     fullNote: '✓ Mac versija: su naujausiais AI ir Will Smith',
     publicNote: 'Viešoji versija: be naujausių AI klipų. Pilnai: paleisk "Tikra ar AI ekranas" Mac\'e.',
   }, window.GAME || {});
-  const CH = { [GAME.a.key]: GAME.a, [GAME.b.key]: GAME.b };
+  // a game with sections (the finale) can give each section, and each item, its own two buttons: item > section > game
+  const SECS = GAME.sections || {};
+  const secKeys = Object.keys(SECS);
+  function pair(it) {
+    const sc = (it && it.sec && SECS[it.sec]) || {};
+    return { a: (it && it.a) || sc.a || GAME.a, b: (it && it.b) || sc.b || GAME.b };
+  }
+  function chOf(it) { const p = pair(it); return { [p.a.key]: p.a, [p.b.key]: p.b }; }
   const BASE = window.GBASE || '';
   const KEY = 'tai-host' + (window.GID ? '-' + window.GID : '');
   const $ = (id) => document.getElementById(id);
@@ -238,7 +253,8 @@ body { height: 100vh; overflow: hidden; }
     const players = {}, score = {};
     for (const [pid, p] of Object.entries(S.players)) { players[pid] = p.name; score[pid] = p.score; }
     const st = { t: 'state', seq: Date.now(), phase: S.phase, idx: S.idx, n: N, round: S.round, rounds: ROUNDS.length, gid: S.gid || 0, players, score,
-                 game: { id: GAME.id, title: GAME.title, a: GAME.a, b: GAME.b },
+                 game: Object.assign({ id: GAME.id, title: GAME.title, a: GAME.a, b: GAME.b },
+                       S.phase === 'q' || S.phase === 'reveal' ? pair(ITEMS[S.idx]) : {}),
                  got: Object.keys(S.answers), offline: S.offline };
     if (S.phase === 'reveal') { st.answer = ITEMS[S.idx].answer; st.res = S.res; }
     if (S.phase === 'end') {
@@ -270,7 +286,7 @@ body { height: 100vh; overflow: hidden; }
       else S.players[m.pid].name = name;
     } else if (m.t === 'ans') {
       if (!S.players[m.pid] && name) S.players[m.pid] = { name, score: 0 };
-      if (S.phase === 'q' && m.idx === S.idx && CH[m.a] && S.players[m.pid]) {
+      if (S.phase === 'q' && m.idx === S.idx && chOf(ITEMS[S.idx])[m.a] && S.players[m.pid]) {
         if (S.answers[m.pid] !== m.a) { S.answers[m.pid] = m.a; (S.atime || (S.atime = {}))[m.pid] = Date.now() - (S.qStart || Date.now()); }
       }
     } else return;
@@ -381,7 +397,11 @@ body { height: 100vh; overflow: hidden; }
     }
     $('play').classList.add('on');
     $('count').textContent = `${S.idx + 1} / ${N}`;
-    $('qlabel').textContent = ROUNDS.length > 1 ? `${S.round} raundas` : GAME.title;
+    const cur = ITEMS[S.idx];
+    $('qlabel').textContent = cur.sec && SECS[cur.sec] ? `${secKeys.indexOf(cur.sec) + 1} dalis · ${SECS[cur.sec].title}`
+      : ROUNDS.length > 1 ? `${S.round} raundas` : GAME.title;
+    $('qtext').textContent = cur.q || '';
+    $('stage').classList.toggle('hasq', !!cur.q);
     showMedia(newItem);
     const answered = Object.keys(S.answers);
     $('dots').innerHTML = S.offline ? '' : pids.map((pid) =>
@@ -391,7 +411,7 @@ body { height: 100vh; overflow: hidden; }
     if (S.phase === 'reveal') {
       const it = ITEMS[S.idx];
       const st = $('stamp');
-      const ch = CH[it.answer] || GAME.a;
+      const ch = chOf(it)[it.answer] || pair(it).a;
       st.className = 'stamp';
       st.style.background = ch.color; st.style.color = ch.ink;
       st.textContent = ch.word + '!';

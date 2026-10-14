@@ -131,7 +131,7 @@ input:focus { outline: none; border-color: var(--gem); }
   const params = new URLSearchParams(location.search);
   // the same tablet page serves every class game; the screen sends the buttons in its state
   const GID = (params.get('g') || '').replace(/[^a-z0-9-]/g, '');
-  const TITLES = { saugu: 'Saugu ar apgavystė?' };
+  const TITLES = { saugu: 'Saugu ar apgavystė?', finalas: 'Didysis finalas' };
   const setTitle = (t) => { $('title').textContent = t; document.title = t; };
   setTitle(TITLES[GID] || 'Tikra ar AI?');
   if (GID) $('hostlink').href = 'ekranas.html?g=' + GID;
