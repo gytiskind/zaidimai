@@ -87,7 +87,7 @@ window.GAME = {
 window.ROUNDS = [[
  {
   "file": "media/k1-algoritmas.png",
-  "answer": "b",
+  "answer": "a",
   "kind": "image",
   "tell_lt": "Nepavyks! Robotas pirma valgo, o duonos dar nėra. Algoritmas yra žingsniai teisinga tvarka.",
   "author": "Kompiuterių būrelis",
@@ -101,15 +101,15 @@ window.ROUNDS = [[
   "q": "Robotas daro sumuštinį pagal šiuos žingsnius. Pavyks?",
   "a": {
    "key": "a",
-   "word": "PAVYKS",
-   "sub": "✅",
+   "word": "NEPAVYKS",
+   "sub": "❌",
    "color": "#3a8ee0",
    "ink": "#ffffff"
   },
   "b": {
    "key": "b",
-   "word": "NEPAVYKS",
-   "sub": "❌",
+   "word": "PAVYKS",
+   "sub": "✅",
    "color": "#f5a623",
    "ink": "#2a1800"
   }
@@ -232,7 +232,7 @@ window.ROUNDS = [[
  },
  {
   "file": "media/k6-mokinys.png",
-  "answer": "b",
+  "answer": "a",
   "kind": "image",
   "tell_lt": "Tingiai! AI mokosi iš pavyzdžių. Koks mokytojas, toks ir mokinys.",
   "author": "Kompiuterių būrelis",
@@ -246,15 +246,15 @@ window.ROUNDS = [[
   "q": "Mokytojas žaidė tingiai ir stovėjo vietoje. Kaip žais robotas?",
   "a": {
    "key": "a",
-   "word": "GERAI",
-   "sub": "🏃",
+   "word": "TINGIAI",
+   "sub": "😴",
    "color": "#3a8ee0",
    "ink": "#ffffff"
   },
   "b": {
    "key": "b",
-   "word": "TINGIAI",
-   "sub": "😴",
+   "word": "GERAI",
+   "sub": "🏃",
    "color": "#f5a623",
    "ink": "#2a1800"
   }
