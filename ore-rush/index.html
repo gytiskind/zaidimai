@@ -166,6 +166,26 @@ h2 { font-size: clamp(2.6rem, 13vw, 3.4rem); color: var(--tnt); text-shadow: 4px
   h1 { font-size: clamp(2.6rem, 13vw, 4.2rem); }
 }
 @media (prefers-reduced-motion: reduce) { .lives i.pop { animation: none; } }
+
+/* little mode (ages 4-5): no reading, a row of 15 ore slots, big buttons */
+.slots, .little-only { display: none; }
+.little .slots { display: flex; gap: 4px; padding-top: 2px; }
+.slots i { width: clamp(20px, 3.6vw, 34px); height: clamp(20px, 3.6vw, 34px); display: block; background: #2a2733 center / 100% 100% no-repeat; border: 2px solid var(--stone-hi); image-rendering: pixelated; }
+.slots i.pop { animation: pop 0.35s steps(4); }
+.little .score-box, .little .lives, .little .magbar, .little .lvl, .little .world, .little .lead, .little .legend, .little .tip, .little .best, .little .worlds, .little .big-only { display: none; }
+.little .little-only { display: grid; }
+.little .mute { min-width: 64px; min-height: 48px; font-size: 1rem; }
+.little .btn.play { font-size: 3rem; width: 120px; height: 120px; padding: 0; display: grid; place-items: center; }
+.little #play { animation: pulse 1.2s steps(2) infinite; }
+@keyframes pulse { 50% { transform: scale(1.1); } }
+.little .zm-back { display: inline-flex !important; align-items: center; font-size: 1.4rem; min-height: 64px; min-width: 64px; box-sizing: border-box; justify-content: center; padding: 8px 20px; }
+.little #start .col:last-child { display: none; }
+.little #start .panel { grid-template-columns: 1fr; max-width: 420px; }
+.little .hand { font-size: 3rem; justify-self: center; animation: slide 2s ease-in-out infinite; }
+@keyframes slide { 0%, 100% { transform: translateX(-60px); } 50% { transform: translateX(60px); } }
+.little #over .panel { max-width: 420px; }
+.little #over h2 { font-size: 3.4rem; }
+@media (prefers-reduced-motion: reduce) { .little #play, .little .hand { animation: none; } .slots i.pop { animation: none; } }
 </style>
 
 <div id="stage">
@@ -179,6 +199,7 @@ h2 { font-size: clamp(2.6rem, 13vw, 3.4rem); color: var(--tnt); text-shadow: 4px
   <div class="score-box"><span class="score" id="score" aria-live="polite">0</span><span class="mult" id="mult" hidden>x2</span></div>
   <div class="mid">
     <div class="lives" id="lives" role="img" aria-label="3 hearts left"></div>
+    <div class="slots" id="slots" aria-hidden="true"></div>
     <div class="magbar" id="magbar" hidden><i id="magfill"></i></div>
   </div>
   <div class="right">
@@ -192,8 +213,9 @@ h2 { font-size: clamp(2.6rem, 13vw, 3.4rem); color: var(--tnt); text-shadow: 4px
   <div class="panel">
    <div class="col">
     <h1>ORE <span>RUSH</span></h1>
+    <div class="hand little-only" aria-hidden="true">&#128070;</div>
     <div class="worlds"><span>START WORLD</span><div class="wrow" id="worlds"></div></div>
-    <button class="btn play" id="play" type="button">PLAY</button>
+    <button class="btn play" id="play" type="button" aria-label="Play"><span class="big-only">PLAY</span><span class="little-only">&#9654;</span></button>
     <p class="best">Best: <b id="bestStart">0</b> &middot; best level <b id="bestLvlStart">1</b></p>
     <div class="links"><a class="zm-back" href="../">← Meniu</a></div>
    </div>
@@ -216,11 +238,12 @@ h2 { font-size: clamp(2.6rem, 13vw, 3.4rem); color: var(--tnt); text-shadow: 4px
 
 <div class="overlay" id="over" hidden>
   <div class="panel">
-    <h2>GAME OVER</h2>
-    <div class="final"><b id="final">0</b><span>points, level <span id="finalLvl">1</span></span></div>
-    <p class="reached" id="finalWorld">CAVE</p>
+    <h2 class="big-only">GAME OVER</h2>
+    <h2 class="little-only" aria-hidden="true">&#128142;&#128142;&#128142;</h2>
+    <div class="final big-only"><b id="final">0</b><span>points, level <span id="finalLvl">1</span></span></div>
+    <p class="reached big-only" id="finalWorld">CAVE</p>
     <div class="badge" id="newBest" hidden>NEW RECORD!</div>
-    <button class="btn play" id="again" type="button">PLAY AGAIN</button>
+    <button class="btn play" id="again" type="button" aria-label="Play again"><span class="big-only">PLAY AGAIN</span><span class="little-only">&#128257;</span></button>
     <p class="best">Best: <b id="bestOver">0</b> &middot; best level <b id="bestLvlOver">1</b></p>
     <div class="links"><a class="zm-back" href="../">← Meniu</a></div>
   </div>
@@ -230,6 +253,9 @@ h2 { font-size: clamp(2.6rem, 13vw, 3.4rem); color: var(--tnt); text-shadow: 4px
 (() => {
   // site profiles (zaidimai/zm.js); absent in the claude.ai version, so everything falls back
   const ZM = window.ZM || null;
+  const LITTLE = !!(window.ZM && ZM.little && ZM.little());
+  if (LITTLE) document.body.classList.add('little');
+  const GOAL = 15;
   const NS = (k) => (ZM ? ZM.ns(k) : k);
   const TAU = Math.PI * 2;
   const $ = (id) => document.getElementById(id);
@@ -430,7 +456,7 @@ h2 { font-size: clamp(2.6rem, 13vw, 3.4rem); color: var(--tnt); text-shadow: 4px
   const S = {
     mode: 'start', score: 0, hp: 6, streak: 0, mult: 1, level: 1, best: 0,
     t: 0, spawn: 0.5, blocks: [], parts: [], floats: [], shake: 0, flash: 0,
-    magnet: 0, invuln: 0, bounce: 0, load: [], banner: null, biome: 0, base: 0, bestLvl: 1, startLvl: 1,
+    magnet: 0, invuln: 0, bounce: 0, slots: [], caught: 0, cshake: 0, load: [], banner: null, biome: 0, base: 0, bestLvl: 1, startLvl: 1,
   };
   try {
     S.best = Number(localStorage.getItem(NS('ore-best'))) || 0;
@@ -438,6 +464,7 @@ h2 { font-size: clamp(2.6rem, 13vw, 3.4rem); color: var(--tnt); text-shadow: 4px
     const w = Number(localStorage.getItem(NS('ore-world'))) || 1;
     S.startLvl = BIOMES.some((b) => b.from === w) && w <= S.bestLvl ? w : 1;
   } catch (e) {}
+  if (LITTLE) S.startLvl = 1;
   S.biome = biomeAt(S.startLvl);
 
   const levelAt = (n) => 15 * n * (n + 1); // L2 at 30, L3 at 90, L4 at 180, L5 at 300
@@ -630,7 +657,7 @@ h2 { font-size: clamp(2.6rem, 13vw, 3.4rem); color: var(--tnt); text-shadow: 4px
     const blink = S.invuln > 0 && Math.floor(S.invuln * 12) % 2 === 0;
     if (blink) return;
     c.save();
-    c.translate(uni.x, ground - B * 0.1);
+    c.translate(uni.x + (S.cshake > 0 ? Math.sin(S.cshake * 60) * p * 1.2 : 0), ground - B * 0.1);
     c.scale(uni.dir * (1 + sq * 0.08), 1 - sq * 0.1);
     const frame = Math.floor(uni.dist / (p * 3)) % 2;
     blit(c, 'hero' + frame, 0, -11 * p);
@@ -737,6 +764,12 @@ h2 { font-size: clamp(2.6rem, 13vw, 3.4rem); color: var(--tnt); text-shadow: 4px
     const L = demo ? 1 : S.level, bi = S.biome, Lc = speedLvl(L);
     let type;
     const r = Math.random();
+    if (LITTLE) {
+      type = Math.random() < 0.125 ? 'tnt' : ['coal', 'iron', 'gold', 'diamond'][(Math.random() * 4) | 0];
+      const bl = B * 1.3;
+      S.blocks.push({ type, x: bl / 2 + 10 + Math.random() * (W - bl - 20), y: -bl, vy: (ground + 2 * bl) / 4, b: bl });
+      return;
+    }
     if (!demo && r < 0.04 && S.hp < 10) type = 'heart';
     else if (!demo && r < 0.055 && S.magnet <= 0) type = 'magnet';
     else if (bi >= 1 && Math.random() < 0.06 + bi * 0.01) type = 'lava';
@@ -758,7 +791,7 @@ h2 { font-size: clamp(2.6rem, 13vw, 3.4rem); color: var(--tnt); text-shadow: 4px
   }
   function touchesHero(blk) {
     const h = heroBox();
-    return blk.y + blk.b / 2 > h.top + 2 && blk.y - blk.b / 2 < h.bottom && Math.abs(blk.x - h.x) < h.half + blk.b * 0.3;
+    return blk.y + blk.b / 2 > h.top + 2 && blk.y - blk.b / 2 < h.bottom && Math.abs(blk.x - h.x) < (LITTLE ? h.half * 1.4 : h.half) + blk.b * 0.3;
   }
 
   function setMult() {
@@ -772,6 +805,27 @@ h2 { font-size: clamp(2.6rem, 13vw, 3.4rem); color: var(--tnt); text-shadow: 4px
 
   function catchBlock(blk, play) {
     const t = blk.type;
+    if (LITTLE) {
+      if (t === 'tnt') {
+        debris(blk.x, blk.y, ['#ff8a1e', '#ffd34a', '#e0402e'], 10, 0.6);
+        smoke(blk.x, blk.y, 3);
+        sfx.hit();
+        if (!play) return;
+        S.cshake = 0.5;
+        if (S.slots.length) S.slots.pop();
+        hud();
+        return;
+      }
+      const o = ORES[t];
+      S.bounce = 1;
+      debris(blk.x, blk.y, [o.main, o.hi, STONE[0], STONE[3]], 14);
+      if (!play) return;
+      S.slots.push(t); S.caught++;
+      sfx.ore(t, S.slots.length);
+      hud(true);
+      if (S.slots.length >= GOAL) { S.mode = 'done'; setTimeout(gameOver, 500); }
+      return;
+    }
     if (t === 'tnt') { explode(blk.x, blk.y, play, true); return; }
     if (t === 'lava') {
       debris(blk.x, blk.y, ['#ff7a1a', '#ffc04a', '#fff1a0', '#c8400c'], 18, 0.9);
@@ -856,7 +910,7 @@ h2 { font-size: clamp(2.6rem, 13vw, 3.4rem); color: var(--tnt); text-shadow: 4px
 
   function missOre(blk, play) {
     debris(blk.x, ground - blk.b * 0.3, [STONE[0], STONE[2], blk.type in ORES ? ORES[blk.type].main : '#888'], 8, 0.6);
-    if (!play || S.mode !== 'play' || !(blk.type in ORES)) return;
+    if (LITTLE || !play || S.mode !== 'play' || !(blk.type in ORES)) return;
     S.hp = Math.max(0, S.hp - 1);
     S.streak = 0; S.mult = 1;
     floatText('MISS', blk.x, ground - B * 0.9, '#ff6b74', 22);
@@ -894,7 +948,7 @@ h2 { font-size: clamp(2.6rem, 13vw, 3.4rem); color: var(--tnt); text-shadow: 4px
     S.spawn -= dt;
     if (S.spawn <= 0) {
       spawn(!play);
-      S.spawn = play ? Math.max(0.36, 0.92 - speedLvl(S.level) * 0.055) : 1.0;
+      S.spawn = LITTLE ? 1.6 : play ? Math.max(0.36, 0.92 - speedLvl(S.level) * 0.055) : 1.0;
     }
 
     for (let i = S.blocks.length - 1; i >= 0; i--) {
@@ -904,7 +958,8 @@ h2 { font-size: clamp(2.6rem, 13vw, 3.4rem); color: var(--tnt); text-shadow: 4px
       if (touchesHero(b)) { S.blocks.splice(i, 1); catchBlock(b, play); continue; }
       if (b.y + b.b / 2 >= ground - B * 0.1) {
         S.blocks.splice(i, 1);
-        if (b.type === 'tnt') explode(b.x, ground - b.b * 0.4, play, false);
+        if (LITTLE && b.type === 'tnt') { debris(b.x, ground - b.b * 0.4, ['#ff8a1e', '#ffd34a'], 6, 0.5); smoke(b.x, ground - b.b * 0.4, 2); }
+        else if (b.type === 'tnt') explode(b.x, ground - b.b * 0.4, play, false);
         else if (b.type === 'lava') debris(b.x, ground - b.b * 0.2, ['#ff7a1a', '#ffc04a', '#c8400c'], 8, 0.5);
         else missOre(b, play);
       }
@@ -926,6 +981,7 @@ h2 { font-size: clamp(2.6rem, 13vw, 3.4rem); color: var(--tnt); text-shadow: 4px
     S.shake = Math.max(0, S.shake - dt * 3);
     S.flash = Math.max(0, S.flash - dt * 4);
     S.bounce = Math.max(0, S.bounce - dt * 6);
+    S.cshake = Math.max(0, S.cshake - dt);
 
     if (play) {
       const on = S.magnet > 0;
@@ -1014,7 +1070,18 @@ h2 { font-size: clamp(2.6rem, 13vw, 3.4rem); color: var(--tnt); text-shadow: 4px
   livesEl.style.setProperty('--heart', `url(${HEART.toDataURL()})`);
   livesEl.style.setProperty('--heart-half', `url(${HEART_HALF.toDataURL()})`);
   livesEl.style.setProperty('--heart-empty', `url(${HEART_EMPTY.toDataURL()})`);
+  const TURL = {};
   function hud(gained) {
+    if (LITTLE) {
+      let h = '';
+      for (let i = 0; i < GOAL; i++) {
+        const t = S.slots[i];
+        const bg = t ? `background-image:url(${TURL[t] || (TURL[t] = TEX[t].toDataURL())})` : '';
+        h += `<i${t && gained && i === S.slots.length - 1 ? ' class="pop"' : ''} style="${bg}"></i>`;
+      }
+      $('slots').innerHTML = h;
+      return;
+    }
     $('score').textContent = S.score;
     $('lvl').textContent = S.level;
     $('world').textContent = BIOMES[S.biome].name;
@@ -1049,7 +1116,7 @@ h2 { font-size: clamp(2.6rem, 13vw, 3.4rem); color: var(--tnt); text-shadow: 4px
     ensureAudio();
     const lv = S.startLvl;
     Object.assign(S, { mode: 'play', score: 0, hp: 6, streak: 0, mult: 1, level: lv, base: lv > 1 ? levelAt(lv - 1) : 0,
-                       spawn: 0.6, magnet: 0, invuln: 0, banner: null });
+                       spawn: 0.6, magnet: 0, invuln: 0, banner: null, slots: [], caught: 0, cshake: 0 });
     S.blocks.length = 0; S.load.length = 0;
     const bi = biomeAt(lv);
     if (bi !== S.biome) { S.biome = bi; buildBackground(); buildAtlas(); }
@@ -1062,7 +1129,8 @@ h2 { font-size: clamp(2.6rem, 13vw, 3.4rem); color: var(--tnt); text-shadow: 4px
   function gameOver() {
     S.mode = 'over';
     $('magbar').hidden = true;
-    const isBest = S.score > S.best;
+    const isBest = !LITTLE && S.score > S.best;
+    if (LITTLE) S.score = S.caught;
     if (isBest) { S.best = S.score; try { localStorage.setItem(NS('ore-best'), String(S.best)); } catch (e) {} }
     if (ZM) ZM.report('ore-rush', { score: S.score, xp: Math.round(S.score / 2) });
     $('final').textContent = S.score;
@@ -1079,7 +1147,7 @@ h2 { font-size: clamp(2.6rem, 13vw, 3.4rem); color: var(--tnt); text-shadow: 4px
       again.disabled = true;
       setTimeout(() => { again.disabled = false; again.focus({ preventScroll: true }); }, 700);
     }, 600);
-    sfx.over();
+    if (LITTLE) { sfx.level(); for (let i = 0; i < 6; i++) setTimeout(() => debris(W * (0.15 + Math.random() * 0.7), H * (0.2 + Math.random() * 0.4), ['#4de8d6', '#ffcc33', '#3ddc6a', '#ff6b74', '#d0fff7'], 30, 1.2), i * 250); } else sfx.over();
   }
 
   // start world buttons: one per world, unlocked once a run reached its first level

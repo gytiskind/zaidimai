@@ -105,6 +105,24 @@ h2 { font-size: clamp(2.2rem, 10vw, 3rem); }
 }
 @media (prefers-reduced-motion: reduce) { .lives .pop { animation: none; } }
 
+/* little mode (ages 4-5): no reading, a row of 15 star slots, big buttons */
+.slots { display: none; }
+.little-only { display: none; }
+.little .slots { display: flex; flex: 1; justify-content: center; gap: 4px; }
+.little .score, .little .lives, .little .lead, .little .legend, .little .best, .little .big-only { display: none; }
+.little .little-only { display: flex; }
+.slots i { width: clamp(22px, 4.6vw, 40px); height: clamp(22px, 4.6vw, 40px); display: block; opacity: 0.35; filter: grayscale(1) brightness(0.7); }
+.slots i svg { width: 100%; height: 100%; display: block; }
+.slots i.on { opacity: 1; filter: none; animation: pop 0.4s ease-out; }
+.little .mute { min-width: 64px; min-height: 48px; }
+.little .play { font-size: 3rem; width: 120px; height: 120px; padding: 0; display: grid; place-items: center; }
+.little #play { animation: pulse 1.2s ease-in-out infinite; }
+@keyframes pulse { 50% { transform: scale(1.1); } }
+.little .zm-back { display: inline-flex !important; align-items: center; font-size: 1.4rem; min-height: 64px; min-width: 64px; box-sizing: border-box; padding: 8px 20px; }
+.little .hand { font-size: 3rem; justify-content: center; animation: slide 2s ease-in-out infinite; }
+@keyframes slide { 0%, 100% { transform: translateX(-60px); } 50% { transform: translateX(60px); } }
+@media (prefers-reduced-motion: reduce) { .little #play, .little .hand { animation: none; } }
+
 /* Short landscape tablets (Android, browser bars eat the height): a menu or result panel that does not
    fit gets two columns instead of a scroll. The fitter script below adds .fit2 only when it is needed. */
 .overlay .fit2 { display: block; columns: 2; column-gap: 24px; max-width: min(880px, 96vw); padding-top: 12px; padding-bottom: 12px; }
@@ -119,6 +137,7 @@ h2 { font-size: clamp(2.2rem, 10vw, 3rem); }
 <div id="safe"></div>
 
 <div class="hud" id="hud" hidden>
+  <div class="slots" id="slots" aria-hidden="true"></div>
   <div class="score" aria-live="polite"><span id="score">0</span><small>stars</small></div>
   <div class="lives" id="lives" role="img" aria-label="3 hearts left"></div>
   <button class="mute" id="mute" type="button" aria-pressed="false">&#9834; on</button>
@@ -127,13 +146,14 @@ h2 { font-size: clamp(2.2rem, 10vw, 3rem); }
 <div class="overlay" id="start">
   <div class="card">
     <h1>Unicorn <span>Star Catch</span></h1>
+    <div class="hand little-only" aria-hidden="true">&#128070;</div>
     <p class="lead">Slide your finger left and right. Catch the stars before they land in the grass. Each missed star costs a heart.</p>
     <ul class="legend">
       <li><canvas data-kind="gold" width="80" height="80"></canvas><b>1 point</b></li>
       <li><canvas data-kind="rainbow" width="80" height="80"></canvas><b>5 points</b></li>
       <li><canvas data-kind="heart" width="80" height="80"></canvas><b>+1 heart</b></li>
     </ul>
-    <button class="play" id="play" type="button">Play</button>
+    <button class="play" id="play" type="button" aria-label="Play"><span class="big-only">Play</span><span class="little-only">&#9654;</span></button>
     <p class="best">Best: <b id="bestStart">0</b></p>
     <a class="zm-back" href="../">← Meniu</a>
   </div>
@@ -141,10 +161,11 @@ h2 { font-size: clamp(2.2rem, 10vw, 3rem); }
 
 <div class="overlay" id="over" hidden>
   <div class="card">
-    <h2>Night's over</h2>
-    <div class="final"><b id="final">0</b><span>stars caught</span></div>
+    <h2 class="big-only">Night's over</h2>
+    <h2 class="little-only" style="font-size:3.4rem">&#127775;&#127775;&#127775;</h2>
+    <div class="final big-only"><b id="final">0</b><span>stars caught</span></div>
     <div class="badge" id="newBest" hidden>New best!</div>
-    <button class="play" id="again" type="button">Play again</button>
+    <button class="play" id="again" type="button" aria-label="Play again"><span class="big-only">Play again</span><span class="little-only">&#128257;</span></button>
     <p class="best">Best: <b id="bestOver">0</b></p>
     <a class="zm-back" href="../">← Meniu</a>
   </div>
@@ -154,6 +175,9 @@ h2 { font-size: clamp(2.2rem, 10vw, 3rem); }
 (() => {
   // site profiles (zaidimai/zm.js); absent in the claude.ai version, so everything falls back
   const ZM = window.ZM || null;
+  const LITTLE = !!(window.ZM && ZM.little && ZM.little());
+  if (LITTLE) document.body.classList.add('little');
+  const GOAL = 15;
   const NS = (k) => (ZM ? ZM.ns(k) : k);
   const TAU = Math.PI * 2;
   const $ = (id) => document.getElementById(id);
@@ -455,14 +479,15 @@ h2 { font-size: clamp(2.2rem, 10vw, 3rem); }
     let r = (15 + Math.random() * 5) * k;
     if (type === 'rainbow') r *= 1.15;
     const base = demo ? 95 : Math.min(420, 125 + S.score * 3.2);
-    const vy = base * k * (0.85 + Math.random() * 0.3) * (type === 'rainbow' ? 1.2 : 1);
+    let vy = base * k * (0.85 + Math.random() * 0.3) * (type === 'rainbow' ? 1.2 : 1);
+    if (LITTLE) { r = 30 * k; type = 'gold'; vy = (ground + 2 * r + 10) / 4; } // ~4 s to cross
     S.stars.push({ x: r + 14 + Math.random() * (W - 2 * r - 28), y: -r - 10, r, vy, type, sway: Math.random() * TAU });
   }
 
   function isCaught(st) {
     const s = uni.s;
     const cx = uni.x + uni.dir * s * 0.1;
-    const hw = s * 0.55;
+    const hw = s * (LITTLE ? 0.8 : 0.55);
     const top = ground - s * 1.15;
     return st.y + st.r * 0.6 > top && st.y - st.r < ground && Math.abs(st.x - cx) < hw + st.r * 0.6;
   }
@@ -471,6 +496,13 @@ h2 { font-size: clamp(2.2rem, 10vw, 3rem); }
     const cols = st.type === 'rainbow' ? RAINBOW : st.type === 'heart' ? ['#ff8fc7', '#ffd1e8'] : ['#ffd45c', '#fff3b8'];
     burst(st.x, st.y, cols, st.type === 'rainbow' ? 30 : 16);
     if (!play) return;
+    if (LITTLE) {
+      S.score++;
+      sfx.star(S.score - 1);
+      hud();
+      if (S.score >= GOAL) { S.mode = 'done'; setTimeout(gameOver, 500); }
+      return;
+    }
     if (st.type === 'heart') {
       S.lives = Math.min(5, S.lives + 1);
       floatText('+1 ♥︎', st.x, st.y - 10, '#ff8fc7', 26);
@@ -487,7 +519,7 @@ h2 { font-size: clamp(2.2rem, 10vw, 3rem); }
   }
 
   function onMiss(st, play) {
-    if (!play || st.type === 'heart') return;
+    if (!play || st.type === 'heart' || LITTLE) return;
     S.combo = 0; S.lives--; S.shake = 1;
     poof(st.x, ground);
     sfx.miss();
@@ -531,7 +563,7 @@ h2 { font-size: clamp(2.2rem, 10vw, 3rem); }
     S.spawn -= dt;
     if (S.spawn <= 0) {
       spawnStar(!play);
-      S.spawn = play ? Math.max(0.36, 1.05 - S.score * 0.012) : 1.25;
+      S.spawn = LITTLE ? 1.6 : play ? Math.max(0.36, 1.05 - S.score * 0.012) : 1.25;
     }
 
     for (let i = S.stars.length - 1; i >= 0; i--) {
@@ -606,7 +638,9 @@ h2 { font-size: clamp(2.2rem, 10vw, 3rem); }
 
   /* ---------- UI ---------- */
   let prevLives = 3;
+  if (LITTLE) $('slots').innerHTML = '<i><svg viewBox="-12 -12 24 24"><path d="M0 -10 L2.9 -3.4 L10 -3.1 L4.5 1.6 L6.2 8.5 L0 4.7 L-6.2 8.5 L-4.5 1.6 L-10 -3.1 L-2.9 -3.4Z" fill="#ffd45c" stroke="#ffd45c" stroke-width="2" stroke-linejoin="round"/></svg></i>'.repeat(GOAL);
   function hud(gained) {
+    if (LITTLE) { document.querySelectorAll('#slots i').forEach((e, i) => e.classList.toggle('on', i < S.score)); return; }
     $('score').textContent = S.score;
     const max = Math.max(3, S.lives);
     let h = '';
@@ -636,17 +670,18 @@ h2 { font-size: clamp(2.2rem, 10vw, 3rem); }
   function gameOver() {
     S.mode = 'over';
     const isBest = S.score > S.best;
-    if (isBest) { S.best = S.score; try { localStorage.setItem(NS('ucs-best'), String(S.best)); } catch (e) {} }
+    if (LITTLE) S.best = Math.max(S.best, S.score);
+    else if (isBest) { S.best = S.score; try { localStorage.setItem(NS('ucs-best'), String(S.best)); } catch (e) {} }
     if (ZM) ZM.report('unicorn', { score: S.score, xp: S.score * 2 });
     $('final').textContent = S.score;
     $('bestOver').textContent = S.best;
     $('bestStart').textContent = S.best;
-    $('newBest').hidden = !isBest || S.score === 0;
+    $('newBest').hidden = LITTLE || !isBest || S.score === 0;
     $('over').hidden = false;
     const again = $('again');
     again.disabled = true;
     setTimeout(() => { again.disabled = false; again.focus({ preventScroll: true }); }, 800);
-    sfx.over();
+    if (LITTLE) { sfx.rainbow(); setTimeout(sfx.rainbow, 500); for (let i = 0; i < 6; i++) setTimeout(() => burst(W * (0.15 + Math.random() * 0.7), H * (0.2 + Math.random() * 0.4), RAINBOW, 24), i * 250); } else sfx.over();
   }
 
   $('play').addEventListener('click', start);
