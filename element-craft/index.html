@@ -195,6 +195,30 @@ h1 span { display: block; color: var(--gold); text-shadow: 4px 4px 0 #8a5a12, 8p
 .fit2 > :last-child { margin-bottom: 0; }
 .fit2 > :is(.levels, .stats, .lvls, .grid, .icons, .legend) { width: 100%; }
 .fit2 h1 { font-size: clamp(1.9rem, 8vh, 2.8rem); }
+
+/* little mode (ages 4-5): no text, big targets, pulsing hint */
+.little-only { display: none; }
+.little .little-only:not([hidden]) { display: grid; }
+.little #hintBtn, .little #mute, .little #resetBtn, .little .seg, .little #fact, .little .lead, .little .starters { display: none !important; }
+.little .tile span, .little .slot span { font-size: 0.6rem; opacity: 0.55; }
+.little .tile { min-height: 64px; }
+.little .tile.hinted { animation: bounce 0.7s ease-in-out infinite; }
+@keyframes bounce { 0%, 100% { transform: translateY(0) scale(1); } 40% { transform: translateY(-8px) scale(1.12); } }
+.little .count { font-size: 1.5rem; color: var(--gold); letter-spacing: 0.1em; }
+.little .starters { display: flex !important; }
+.little #bigNew { z-index: 9; background: rgba(12, 10, 24, 0.82); cursor: pointer; grid-auto-flow: row; align-content: center; justify-items: center; gap: 10px; }
+.little #bigNew img { width: min(48vh, 70vw); image-rendering: pixelated; animation: pop 0.6s ease-out; filter: drop-shadow(0 0 24px #ffcc33); }
+.stars { font-size: 3rem; color: var(--gold); letter-spacing: 0.2em; text-shadow: 3px 3px 0 #000; }
+#finale { z-index: 9; }
+#finale .panel { max-width: 640px; position: relative; overflow: hidden; }
+#finale .icons { display: flex; flex-wrap: wrap; gap: 8px; justify-content: center; }
+#finale .icons img { width: 56px; height: 56px; image-rendering: pixelated; }
+#finale .big { font-size: 3rem; min-width: 96px; min-height: 80px; padding: 6px 24px; }
+.confetti { position: absolute; inset: 0; pointer-events: none; overflow: hidden; }
+#bigNew .confetti { position: fixed; }
+.confetti i { position: absolute; top: -50px; font-style: normal; animation: fall 2.6s linear infinite; }
+@keyframes fall { to { transform: translateY(110vh) rotate(360deg); } }
+.little .slot { width: clamp(64px, 7.5vw, 92px); }
 </style>
 
 <div id="app">
@@ -241,6 +265,18 @@ h1 span { display: block; color: var(--gold); text-shadow: 4px 4px 0 #8a5a12, 8p
   </div>
 </div>
 
+<div class="overlay little-only" id="bigNew" hidden></div>
+<div class="overlay little-only" id="finale" hidden>
+  <div class="panel">
+    <div class="stars">★ ★ ★</div>
+    <div class="icons" id="finaleIcons"></div>
+    <div class="row2">
+      <button class="btn play big" id="again" type="button" aria-label="Again">🔁</button>
+      <a class="zm-back" href="../">← Meniu</a>
+    </div>
+  </div>
+</div>
+
 <div class="overlay" id="confirm" hidden>
   <div class="panel">
     <p class="confirm-q" data-t="resetQ"></p>
@@ -255,6 +291,8 @@ h1 span { display: block; color: var(--gold); text-shadow: 4px 4px 0 #8a5a12, 8p
 (() => {
   // site profiles (zaidimai/zm.js); absent in the claude.ai version, so everything falls back
   const ZM = window.ZM || null;
+  const LITTLE = !!(window.ZM && ZM.little && ZM.little());
+  if (LITTLE) document.documentElement.classList.add('little');
   const NS = (k) => (ZM ? ZM.ns(k) : k);
   const $ = (id) => document.getElementById(id);
   const reduce = matchMedia('(prefers-reduced-motion: reduce)').matches;
@@ -368,6 +406,10 @@ h1 span { display: block; color: var(--gold); text-shadow: 4px 4px 0 #8a5a12, 8p
       f: { lt: 'Popierius gaminamas iš medienos plaušų.', en: 'Paper is made from wood fibers.' } },
   ];
   const STARTERS = ['water', 'fire', 'earth', 'air'];
+  // little mode: only these 10 picture-obvious results (all reachable from the 4 starters)
+  const L_GOAL = ['steam', 'mud', 'lava', 'dust', 'energy', 'sea', 'cloud', 'rain', 'stone', 'plant'];
+  const L_SET = new Set([...STARTERS, ...L_GOAL]);
+  const allowed = (id) => !LITTLE || L_SET.has(id);
   const RECIPES_LIST = [
     ['water', 'fire', 'steam'], ['earth', 'fire', 'lava'], ['water', 'earth', 'mud'], ['air', 'earth', 'dust'],
     ['fire', 'air', 'energy'], ['air', 'air', 'wind'], ['water', 'water', 'sea'], ['steam', 'air', 'cloud'],
@@ -416,7 +458,9 @@ h1 span { display: block; color: var(--gold); text-shadow: 4px 4px 0 #8a5a12, 8p
   const BY_ID = Object.fromEntries(ELEMENTS.map((e) => [e.id, e]));
   const key = (a, b) => [a, b].sort().join('+');
   const RECIPES = {};
-  for (const [a, b, r] of RECIPES_LIST) RECIPES[key(a, b)] = r;
+  for (const [a, b, r] of RECIPES_LIST) if (allowed(a) && allowed(b) && allowed(r)) RECIPES[key(a, b)] = r;
+  const SHOWN = ELEMENTS.filter((e) => allowed(e.id));
+  const GOAL = LITTLE ? L_GOAL : ELEMENTS.map((e) => e.id).filter((id) => !STARTERS.includes(id));
 
   /* ---------- icons: drawn once into data URLs ---------- */
   const ICON = {};
@@ -439,6 +483,7 @@ h1 span { display: block; color: var(--gold); text-shadow: 4px 4px 0 #8a5a12, 8p
   let lang = store.get('ec-lang', 'lt') === 'en' ? 'en' : 'lt';
   let found = new Set(store.get(NS('ec-found'), STARTERS).filter((id) => BY_ID[id]));
   STARTERS.forEach((id) => found.add(id));
+  if (LITTLE) { found = new Set([...found].filter(allowed)); if (L_GOAL.every((id) => found.has(id))) { found = new Set(STARTERS); store.set(NS('ec-found'), [...found]); } }
   let hints = store.get(NS('ec-hints'), 3);
   let hintEarn = store.get(NS('ec-hint-earn'), 0);
   let hintRegenAt = 0;
@@ -474,7 +519,7 @@ h1 span { display: block; color: var(--gold); text-shadow: 4px 4px 0 #8a5a12, 8p
   /* ---------- rendering ---------- */
   const inv = $('inv');
   const tiles = {};
-  for (const el of ELEMENTS) {
+  for (const el of SHOWN) {
     const b = document.createElement('button');
     b.type = 'button'; b.className = 'tile'; b.dataset.id = el.id;
     inv.appendChild(b);
@@ -513,7 +558,7 @@ h1 span { display: block; color: var(--gold); text-shadow: 4px 4px 0 #8a5a12, 8p
     const f = $('fact');
     const s = factState;
     f.classList.toggle('dim', s.kind === 'pick' || s.kind === 'nothing' || s.kind === 'nohint');
-    if (s.kind === 'pick') f.textContent = found.size === ELEMENTS.length ? T().all : T().pick;
+    if (s.kind === 'pick') f.textContent = found.size === SHOWN.length ? T().all : T().pick;
     else if (s.kind === 'nothing') f.textContent = T().nothing;
     else if (s.kind === 'nohint') f.textContent = T().noHint;
     else if (s.kind === 'hint') f.textContent = `${T().tryThis} ${nameOf(s.a)} + ${nameOf(s.b)}`;
@@ -524,6 +569,7 @@ h1 span { display: block; color: var(--gold); text-shadow: 4px 4px 0 #8a5a12, 8p
     }
   }
   function paintCount() {
+    if (LITTLE) { $('count').textContent = GOAL.map((id) => (found.has(id) ? '\u2605' : '\u2606')).join(''); return; }
     $('count').innerHTML = `${T().found} <b>${found.size}</b> / ${ELEMENTS.length}`;
   }
   function paintHint() {
@@ -585,11 +631,55 @@ h1 span { display: block; color: var(--gold); text-shadow: 4px 4px 0 #8a5a12, 8p
       if (!reduce) { tiles[r].classList.remove('fresh'); void tiles[r].offsetWidth; tiles[r].classList.add('fresh'); }
       tiles[r].scrollIntoView({ block: 'nearest', behavior: reduce ? 'auto' : 'smooth' });
       sfx.discover();
+      if (LITTLE) { lastDisc = Date.now(); setTimeout(() => celebrate(r), 500); }
     } else sfx.known();
     paintSlots(); paintFact(); paintCount(); paintHint();
     const rs = $('slotR');
     if (!reduce) { rs.classList.remove('pop'); void rs.offsetWidth; rs.classList.add('pop'); }
     setTimeout(() => { slotA = slotB = null; busy = false; paintSlots(); }, 700);
+  }
+  /* little mode: celebration popup, auto-hint, round end */
+  let lastDisc = Date.now(), pop = null;
+  function confetti(n) {
+    const box = document.createElement('div'); box.className = 'confetti';
+    for (let i = 0; i < n; i++) {
+      const s = document.createElement('i');
+      s.textContent = ['\u2605', '\u2726', '\u2665'][i % 3];
+      s.style.cssText = `left:${Math.random() * 100}%;color:hsl(${(Math.random() * 360) | 0},90%,65%);animation-delay:${(Math.random() * 1.2).toFixed(2)}s;font-size:${24 + ((Math.random() * 28) | 0)}px`;
+      box.appendChild(s);
+    }
+    return box;
+  }
+  function celebrate(id) {
+    const last = GOAL.every((g) => found.has(g));
+    pop = $('bigNew'); pop.hidden = false;
+    pop.innerHTML = `<img src="${ICON[id]}" alt=""><div class="stars">\u2605 \u2605 \u2605</div>`;
+    pop.appendChild(confetti(last ? 0 : 18));
+    pop.onclick = () => { pop.hidden = true; pop = null; if (last) finale(); };
+    [523, 659, 784].forEach((f, i) => tone(f, 0.2, 'triangle', 0.07, i * 0.1));
+  }
+  function finale() {
+    const o = $('finale'); o.hidden = false;
+    $('finaleIcons').innerHTML = GOAL.map((id) => `<img src="${ICON[id]}" alt="">`).join('');
+    o.querySelector('.panel').appendChild(confetti(40));
+    [523, 659, 784, 1047, 1319, 1568].forEach((f, i) => tone(f, 0.25, 'triangle', 0.07, i * 0.12));
+    if (ZM) ZM.report('element-craft', { score: GOAL.length, xp: 20, countPlay: true });
+  }
+  function again() {
+    found = new Set(STARTERS); store.set(NS('ec-found'), [...found]);
+    slotA = slotB = lastResult = null; clearHint(); factState = { kind: 'pick' }; lastDisc = Date.now();
+    $('finale').hidden = true; paintAll(); inv.scrollTop = 0;
+  }
+  if (LITTLE) {
+    $('again').addEventListener('click', again);
+    setInterval(() => {
+      if (busy || pop || !$('start').hidden || !$('finale').hidden || slotA || hinted.length) return;
+      if (Date.now() - lastDisc < 8000) return;
+      const pair = findHintPair();
+      if (!pair) return;
+      hinted = [...new Set(pair)];
+      hinted.forEach((id) => tiles[id].classList.add('hinted'));
+    }, 500);
   }
   function findHintPair() {
     const have = [...found];
@@ -642,7 +732,7 @@ h1 span { display: block; color: var(--gold); text-shadow: 4px 4px 0 #8a5a12, 8p
     if (!muted) ensureAudio();
   });
   if (muted) { $('mute').setAttribute('aria-pressed', 'true'); $('mute').style.textDecoration = 'line-through'; }
-  $('play').addEventListener('click', () => { ensureAudio(); $('start').hidden = true; });
+  $('play').addEventListener('click', () => { ensureAudio(); $('start').hidden = true; lastDisc = Date.now(); });
   $('resetBtn').addEventListener('click', () => { $('confirm').hidden = false; $('resetNo').focus({ preventScroll: true }); });
   $('resetNo').addEventListener('click', () => { $('confirm').hidden = true; });
   $('resetYes').addEventListener('click', () => {

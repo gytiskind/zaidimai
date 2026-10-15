@@ -244,6 +244,28 @@ h2 { font-size: clamp(2.6rem, 13vw, 3.4rem); color: var(--tnt); text-shadow: 4px
   .question { top: calc(env(safe-area-inset-top, 0px) + 104px); }
   .tbtn, .dbtn { font-size: 0.95rem; }
 }
+
+/* little mode (ages 4-5): counting game, no reading, no losing */
+.little .pick, .little .lead, .little .exq, .little .ex, .little .tip, .little .warn, .little .best, .little #start .col + .col, .little #mute, .little .score-box, .little .right { display: none !important; }
+.little #start .panel { grid-template-columns: 1fr; max-width: 460px; }
+.little #start h1 { font-size: clamp(2rem, 9dvh, 3.6rem); }
+.little #play { font-family: system-ui, sans-serif; font-size: 4rem; padding: 6px 56px; min-width: 150px; min-height: 96px; line-height: 1; }
+.little .lives { gap: 6px; height: 26px; }
+.little .lives i { display: none; }
+.little .lives b { width: 24px; height: 24px; display: block; background: var(--stone-lo); border: 3px solid var(--stone-hi); box-sizing: border-box; font-size: 0; }
+.little .lives b.on { background: var(--gold); border-color: #fff0a8 #b8861a #b8861a #fff0a8; animation: lpop 0.4s ease-out; }
+@keyframes lpop { 0% { transform: scale(1.8); } 100% { transform: scale(1); } }
+.qimg { background: none; box-shadow: none !important; filter: drop-shadow(0 0 4px rgba(255,255,255,0.35)); display: inline-block; width: clamp(40px, 11dvh, 64px); height: clamp(40px, 11dvh, 64px); margin: 0 clamp(3px, 1dvh, 7px); image-rendering: pixelated; vertical-align: middle; box-shadow: 0 0 0 3px #000; }
+.little .qbox { display: flex; align-items: center; justify-content: center; padding: 8px 14px; }
+.little .qbox .op, .little .qbox em { margin: 0 6px; font-size: clamp(2rem, 8dvh, 3rem); }
+.hand { position: fixed; z-index: 2; font-size: 3.4rem; pointer-events: none; line-height: 1; transform: translate(-50%, 0); animation: sway 1.6s ease-in-out infinite; }
+@keyframes sway { 0%, 100% { margin-left: -90px; } 50% { margin-left: 90px; } }
+#done { z-index: 4; }
+#done .panel { max-width: 560px; }
+.dstars { font-size: 3.4rem; color: var(--gold); letter-spacing: 0.2em; text-shadow: 3px 3px 0 #000; }
+.dgems { display: flex; gap: 8px; justify-content: center; flex-wrap: wrap; }
+.dgems img { width: 48px; height: 48px; image-rendering: pixelated; animation: lpop 0.5s ease-out both; }
+.dbig { font-size: 3rem; padding: 6px 28px; min-width: 96px; min-height: 80px; line-height: 1; }
 </style>
 
 <div id="stage">
@@ -298,6 +320,15 @@ h2 { font-size: clamp(2.6rem, 13vw, 3.4rem); color: var(--tnt); text-shadow: 4px
   </div>
 </div>
 
+<div class="overlay" id="done" hidden>
+  <div class="panel">
+    <div class="dstars">★ ★ ★</div>
+    <div class="dgems" id="dgems"></div>
+    <div class="links"><button class="btn play dbig" id="doneAgain" type="button" aria-label="Dar kartą">🔁</button><a class="zm-back" href="../">← Meniu</a></div>
+  </div>
+</div>
+<div class="hand" id="hand" hidden>👆</div>
+
 <div class="overlay" id="over" hidden>
   <div class="panel">
    <div class="col">
@@ -319,6 +350,8 @@ h2 { font-size: clamp(2.6rem, 13vw, 3.4rem); color: var(--tnt); text-shadow: 4px
 (() => {
   // site profiles (zaidimai/zm.js); absent offline, so everything falls back
   const ZM = window.ZM || null;
+  const LITTLE = !!(window.ZM && ZM.little && ZM.little());
+  if (LITTLE) document.documentElement.classList.add('little');
   const NS = (k) => (ZM ? ZM.ns(k) : k);
   const TAU = Math.PI * 2;
   const $ = (id) => document.getElementById(id);
@@ -405,6 +438,15 @@ h2 { font-size: clamp(2.6rem, 13vw, 3.4rem); color: var(--tnt); text-shadow: 4px
   const TEX = {
     coal: oreTex('coal', 11), iron: oreTex('iron', 23), gold: oreTex('gold', 37), diamond: oreTex('diamond', 41), emerald: oreTex('emerald', 53),
   };
+
+  const LKINDS = ['diamond', 'emerald', 'gold', 'iron'];
+  const TURL = {};
+  // plain gem pictures (no stone behind), easy to count
+  if (LITTLE) LKINDS.forEach((t) => {
+    const o = ORES[t];
+    TURL[t] = maskSprite(['..oooo..', '.ohhmmo.', 'ohhmmmdo', 'ommmmmdo', 'ommmmddo', '.ommddo.', '..oddo..', '...oo...'],
+      { o: '#10101a', h: o.hi, m: o.main, d: o.dark }).toDataURL();
+  });
 
   // one world: the plain cave from Ore Rush
   const BIOMES = [
@@ -578,7 +620,7 @@ h2 { font-size: clamp(2.6rem, 13vw, 3.4rem); color: var(--tnt); text-shadow: 4px
     }
   }
   // Number blocks are bigger than ore blocks so two-digit answers stay readable.
-  const NB = () => Math.round(B * 1.3);
+  const NB = () => Math.round(B * (LITTLE ? 1.65 : 1.3));
   function buildAtlas() {
     const items = [];
     const add = (key, css, draw) => items.push({ key, css, size: Math.ceil(css * dpr), draw });
@@ -653,6 +695,17 @@ h2 { font-size: clamp(2.6rem, 13vw, 3.4rem); color: var(--tnt); text-shadow: 4px
   // The number sits on a dark plate in the middle of the block face (cube face centre is shifted left/down by the depth).
   function drawNumber(c, n, x, y, b) {
     const d = b * 0.26, fx = x - d / 2, fy = y + d / 2;
+    if (LITTLE && b > 0 && n >= 1 && n <= 5 && b !== 70) {
+      // numeral on top, the same number of dots below, for kids who do not know digits yet
+      const sz = Math.round(b * 0.46), r = b * 0.062, gap = r * 2.5;
+      c.fillStyle = 'rgba(12,10,18,0.82)'; c.fillRect(fx - b * 0.4, fy - b * 0.42, b * 0.8, b * 0.84);
+      c.font = `700 ${sz}px ${FONT}`; c.textAlign = 'center'; c.textBaseline = 'middle';
+      c.lineWidth = Math.max(2, sz * 0.14); c.strokeStyle = '#000'; c.lineJoin = 'round';
+      c.strokeText(String(n), fx, fy - b * 0.13); c.fillStyle = '#fff'; c.fillText(String(n), fx, fy - b * 0.13);
+      c.fillStyle = '#ffcc33';
+      for (let i = 0; i < n; i++) { c.beginPath(); c.arc(fx + (i - (n - 1) / 2) * gap, fy + b * 0.27, r, 0, TAU); c.fill(); }
+      return;
+    }
     const txt = String(n);
     const size = Math.round(b * (txt.length >= 3 ? 0.42 : 0.56));
     c.font = `700 ${size}px ${FONT}`;
@@ -787,7 +840,21 @@ h2 { font-size: clamp(2.6rem, 13vw, 3.4rem); color: var(--tnt); text-shadow: 4px
     if (op === '×') return Math.random() < 0.5 ? { op, a: t, b: m, ans: t * m } : { op, a: m, b: t, ans: t * m };
     return { op, a: t * m, b: t, ans: m }; // ÷: 42 ÷ 6 = 7, visada be liekanos
   }
+  // little: 1-5 pictures of one ore; after 6 right, tiny sums with the same answers
+  function newQuestionL() {
+    const prev = S.q;
+    let ans, tries = 0;
+    do { ans = 1 + rnd(5); tries++; } while (prev && ans === prev.ans && tries < 8);
+    const sum = S.correct >= 6 && ans >= 2, a = sum ? 1 + rnd(ans - 1) : ans;
+    const q = { op: sum ? '+' : 'c', a, b: sum ? ans - a : 0, ans, kind: LKINDS[rnd(LKINDS.length)] };
+    S.q = q; S.sinceRight = 0;
+    const pics = (n) => `<img class="qimg" src="${TURL[q.kind]}" alt="">`.repeat(n);
+    const qbx = $('qbox');
+    qbx.innerHTML = sum ? `${pics(q.a)}<span class="op">+</span>${pics(q.b)}<span class="op">=</span><em>?</em>` : pics(ans);
+    qbx.classList.remove('pop'); void qbx.offsetWidth; qbx.classList.add('pop');
+  }
   function newQuestion() {
+    if (LITTLE) return newQuestionL();
     const prev = S.q;
     const can = ops.filter((o) => (o === '×' || o === '÷') ? tables.length : true);
     let q, tries = 0;
@@ -862,7 +929,22 @@ h2 { font-size: clamp(2.6rem, 13vw, 3.4rem); color: var(--tnt); text-shadow: 4px
     const vy = (sp.v0 + sp.dv * L) * k * (0.9 + Math.random() * 0.2);
     S.blocks.push({ type: KINDS[rnd(KINDS.length)], n, x: freeX(b), y: -b, vy, b });
   }
-  const spawnGap = () => { const sp = SPEED[speed]; return Math.max(sp.smin, sp.s0 - sp.ds * capL(S.level)); };
+  function spawnL() {
+    if (S.blocks.length >= 3) return;
+    const onScreen = new Set(S.blocks.map((o) => o.n));
+    let n;
+    if (!onScreen.has(S.q.ans) && (S.sinceRight >= 1 || Math.random() < 0.5)) n = S.q.ans;
+    else {
+      const opts = [1, 2, 3, 4, 5].filter((v) => v !== S.q.ans && !onScreen.has(v));
+      if (!opts.length) return;
+      n = opts[rnd(opts.length)];
+    }
+    if (n === S.q.ans) S.sinceRight = 0; else S.sinceRight++;
+    const b = NB();
+    S.blocks.push({ type: LKINDS[rnd(LKINDS.length)], n, x: freeX(b), y: -b, vy: (ground / 4.2) * (0.92 + Math.random() * 0.16), b });
+  }
+  const spawnGap = () => {
+    if (LITTLE) return 1.6; const sp = SPEED[speed]; return Math.max(sp.smin, sp.s0 - sp.ds * capL(S.level)); };
 
   function heroBox() {
     const p = heroW / 22;
@@ -914,6 +996,7 @@ h2 { font-size: clamp(2.6rem, 13vw, 3.4rem); color: var(--tnt); text-shadow: 4px
     debris(blk.x, blk.y, [o.main, o.hi, STONE[0], STONE[3]], 14);
     S.load.push(blk.type); if (S.load.length > 4) S.load.shift();
     if (!play || S.pause > 0) return;
+    if (LITTLE) return catchL(blk);
     const { ans } = S.q, txt = qText(S.q);
     if (blk.n === ans) {
       S.streak++; S.correct++;
@@ -937,6 +1020,28 @@ h2 { font-size: clamp(2.6rem, 13vw, 3.4rem); color: var(--tnt); text-shadow: 4px
       lose(`Teisingai: ${txt} = ${ans}`);
     }
   }
+  function catchL(blk) {
+    if (blk.n !== S.q.ans) {
+      // bonk: no penalty, same question stays
+      floatText('✗', blk.x, blk.y - 10, '#e0402e', 40);
+      sfx.miss(); S.shake = 0.4;
+      return;
+    }
+    S.correct++; S.score += 10; if (handOn && S.correct >= 1) { handOn = false; $('hand').hidden = true; }
+    floatText('★', blk.x, blk.y - 10, '#ffcc33', 56);
+    sfx.right(S.correct);
+    clearRound();
+    hud(true);
+    if (S.correct >= 10) { littleDone(); return; }
+    nextAfter(1.1);
+  }
+  function littleDone() {
+    S.mode = 'done'; handOn = false; $('hand').hidden = true;
+    if (ZM) ZM.report('daugybos-kasykla', { score: S.score, xp: 20 });
+    $('dgems').innerHTML = LKINDS.concat(LKINDS, LKINDS).slice(0, 10).map((t, i) => `<img src="${TURL[t]}" alt="" style="animation-delay:${i * 0.08}s">`).join('');
+    sfx.level();
+    setTimeout(() => { $('question').hidden = true; $('done').hidden = false; for (let i = 0; i < 4; i++) setTimeout(() => debris(W * (0.2 + 0.2 * i), H * 0.3, ['#ffcc33', '#4de8d6', '#e0402e', '#5cbf3a'], 30, 1.4), i * 250); }, 500);
+  }
   function lose(text) {
     S.hp = Math.max(0, S.hp - 1); S.streak = 0; S.mult = 1; S.load.length = 0;
     rememberMiss();
@@ -950,7 +1055,7 @@ h2 { font-size: clamp(2.6rem, 13vw, 3.4rem); color: var(--tnt); text-shadow: 4px
   }
   function landed(blk, play) {
     debris(blk.x, ground - blk.b * 0.3, [STONE[0], STONE[2], blk.type === 'heart' ? '#e8303a' : ORES[blk.type].main], 8, 0.6);
-    if (!play || S.mode !== 'play' || S.pause > 0 || blk.n !== S.q.ans) return;
+    if (LITTLE || !play || S.mode !== 'play' || S.pause > 0 || blk.n !== S.q.ans) return;
     floatText('PRALEIDAI', blk.x, ground - B * 0.9, '#ff6b74', 22);
     sfx.miss();
     lose(`Teisingai: ${qText(S.q)} = ${S.q.ans}`);
@@ -981,7 +1086,7 @@ h2 { font-size: clamp(2.6rem, 13vw, 3.4rem); color: var(--tnt); text-shadow: 4px
       if (S.pause <= 0 && S.needQ) { S.needQ = false; newQuestion(); S.spawn = 0.2; }
     } else {
       S.spawn -= dt;
-      if (S.spawn <= 0) { spawn(!play); S.spawn = play ? spawnGap() : 1.0; }
+      if (S.spawn <= 0) { if (LITTLE && play) spawnL(); else spawn(!play); S.spawn = play ? spawnGap() : 1.0; }
     }
 
     // walk a copy: an answer clears the round and empties S.blocks mid-loop
@@ -1032,6 +1137,7 @@ h2 { font-size: clamp(2.6rem, 13vw, 3.4rem); color: var(--tnt); text-shadow: 4px
       ctx.fillRect(b.x - w / 2, ground - B * 0.12, w, B * 0.08);
     }
     drawHero(ctx);
+    if (handOn) { const hd = $('hand'); hd.style.left = uni.x + 'px'; hd.style.top = (ground - B * 0.1 - heroW * 0.1) + 'px'; }
     for (const b of S.blocks) drawBlock(ctx, b, t);
     for (const p of S.parts) {
       ctx.globalAlpha = p.fade ? Math.min(0.7, p.life / p.max) : Math.min(1, (p.life / p.max) * 2);
@@ -1077,6 +1183,12 @@ h2 { font-size: clamp(2.6rem, 13vw, 3.4rem); color: var(--tnt); text-shadow: 4px
   livesEl.style.setProperty('--heart-half', `url(${HEART_HALF.toDataURL()})`);
   livesEl.style.setProperty('--heart-empty', `url(${HEART_EMPTY.toDataURL()})`);
   function hud(gained) {
+    if (LITTLE) {
+      livesEl.innerHTML = Array.from({ length: 10 }, (_, i) => `<b class="${i < S.correct ? 'on' : ''}"></b>`).join('');
+      if (!gained) return;
+      livesEl.querySelectorAll('b.on').forEach((e, i, a) => { if (i < a.length - 1) e.style.animation = 'none'; });
+      return;
+    }
     $('score').textContent = S.score;
     $('lvl').textContent = S.level;
     $('tally').textContent = S.correct;
@@ -1105,9 +1217,11 @@ h2 { font-size: clamp(2.6rem, 13vw, 3.4rem); color: var(--tnt); text-shadow: 4px
     } catch (e) {}
   }
 
+  let handOn = false;
   function start() {
-    if (!canPlay()) return;
+    if (!LITTLE && !canPlay()) return;
     ensureAudio();
+    $('done').hidden = true; if (LITTLE) { $('hand').hidden = false; handOn = true; }
     Object.assign(S, { mode: 'play', score: 0, hp: 6, streak: 0, mult: 1, level: 1, correct: 0,
                        spawn: 0.8, invuln: 0, banner: null, pause: 0, needQ: false, missed: {}, missedQ: {}, review: [], heartDue: false, q: null });
     S.blocks.length = 0; S.load.length = 0;
@@ -1211,8 +1325,10 @@ h2 { font-size: clamp(2.6rem, 13vw, 3.4rem); color: var(--tnt); text-shadow: 4px
   }));
   renderOps(); renderRanges(); renderTables(); renderSpeed();
 
+  if (LITTLE) { $('play').textContent = '\u25B6'; $('play').setAttribute('aria-label', 'Žaisti'); }
   $('play').addEventListener('click', start);
   $('again').addEventListener('click', start);
+  $('doneAgain').addEventListener('click', start);
   $('toStart').addEventListener('click', () => { $('over').hidden = true; $('start').hidden = false; S.mode = 'start'; $('hud').hidden = true; });
 
   function setMuted(v) {
@@ -1227,12 +1343,13 @@ h2 { font-size: clamp(2.6rem, 13vw, 3.4rem); color: var(--tnt); text-shadow: 4px
   let dragging = false;
   cvs.addEventListener('pointerdown', (e) => {
     dragging = true;
+    if (handOn) { handOn = false; $('hand').hidden = true; }
     if (S.mode === 'play') uni.tx = e.clientX;
     try { cvs.setPointerCapture(e.pointerId); } catch (err) {}
   });
   window.addEventListener('pointermove', (e) => {
     if (S.mode !== 'play') return;
-    if (dragging || e.pointerType === 'mouse') uni.tx = e.clientX;
+    if (dragging || e.pointerType === 'mouse') { uni.tx = e.clientX; if (handOn && dragging) { handOn = false; $('hand').hidden = true; } }
   });
   const lift = () => { dragging = false; };
   window.addEventListener('pointerup', lift);
@@ -1273,7 +1390,7 @@ h2 { font-size: clamp(2.6rem, 13vw, 3.4rem); color: var(--tnt); text-shadow: 4px
     document.fonts.load(`700 40px "ZM Digits"`, '0123456789').catch(() => {}).then(() => document.fonts.ready).then(drawExamples);
   }
 
-  if (DEBUG) window.__dk = { S, uni, heroBox, get ground() { return ground; } };
+  if (DEBUG) window.__dk = { S, uni, catchL, heroBox, get ground() { return ground; } };
   requestAnimationFrame(frame);
 })();
 </script>
