@@ -52,6 +52,7 @@ h1 { font-size: clamp(2rem, min(9vw, 9vh), 3.6rem); }
 .task { text-align: center; font-weight: 900; font-size: clamp(1.2rem, 4.6vw, 2rem); line-height: 1.1; }
 .task b { color: var(--gold); text-shadow: 3px 3px 0 #000; font-family: var(--word); font-weight: 900; letter-spacing: .03em; }
 .task small { display: block; font-size: .85rem; color: var(--ink-dim); }
+.task .ico { display: block; font: 400 clamp(2.6rem, 15vh, 6rem)/1.15 "Noto Color Emoji", "Apple Color Emoji", "Segoe UI Emoji", sans-serif; text-shadow: none; }
 .timer { font: 700 clamp(1.5rem, 5vw, 2.2rem) "ZM Digits", "Pixelify Sans", monospace; min-width: 3ch; text-align: center; padding: 4px 12px;
   background: #0f0d16; border: 4px solid; border-color: var(--stone-hi) #000 #000 var(--stone-hi); }
 .timer.low { color: #ff8a7a; }
@@ -291,7 +292,7 @@ function shuffle(a) { for (let i = a.length - 1; i > 0; i--) { const j = Math.fl
 function show(id) { document.querySelectorAll('.view').forEach((v) => v.classList.toggle('on', v.id === id)); }
 function start(m, lvl) {
   mode = m; results = []; wi = 0;
-  if (m === 'game') { level = lvl || level; const L = LEVELS[level - 1]; time = L.time || pick; words = shuffle(L.list.slice()).slice(0, WORDS); }
+  if (m === 'game') { level = lvl || level; const L = LEVELS[level - 1]; time = L.time || pick; words = shuffle(L.list.filter((i) => ICON[CLASSES[i]])).slice(0, WORDS); }
   show('vGame'); fit();
   $('#skip').style.display = $('#timer').style.display = m === 'game' ? '' : 'none';
   next(true);
@@ -303,7 +304,7 @@ function next(first) {
   if (!first) wi++;
   if (wi >= words.length) return finish();
   const w = LT[words[wi]];
-  $('#task').innerHTML = `<small>${level} lygis · ${wi + 1} iš ${words.length}. Nupiešk:</small><b>${w.toUpperCase()}</b>`;
+  $('#task').innerHTML = `<small>${level} lygis · ${wi + 1} iš ${words.length}. Nupiešk:</small><span class="ico">${ICON[CLASSES[words[wi]]]}</span><b>${w.toUpperCase()}</b>`;
   say('Piešk! Aš žiūriu…'); speak(`Nupiešk: ${w}`, true);
   left = time; $('#timer').textContent = left; $('#timer').classList.toggle('low', left <= 10);
   tick = setInterval(() => { left--; $('#timer').textContent = Math.max(left, 0); $('#timer').classList.toggle('low', left <= 10);
@@ -321,18 +322,18 @@ function snap() {
   return c.toDataURL('image/png');
 }
 function win() {
-  done = true; clearInterval(tick); const w = LT[words[wi]];
-  $('#flash').textContent = `Atspėjau! Tai ${w}!`; $('#flash').className = 'flash ok';
+  done = true; clearInterval(tick); const w = LT[words[wi]], ico = ICON[CLASSES[words[wi]]];
+  $('#flash').textContent = `${ico} Atspėjau! Tai ${w}!`; $('#flash').className = 'flash ok';
   say(`Atspėjau! Tai ${w}!`); speak(`Atspėjau! Tai ${w}!`, true);
-  results.push({ w, ok: true, img: snap(), sec: Math.max(1, time - left) });
+  results.push({ w, ico, ok: true, img: snap(), sec: Math.max(1, time - left) });
   setTimeout(() => next(), 1900);
 }
 function lose(skipped) {
-  done = true; clearInterval(tick); const w = LT[words[wi]], top = strokes.length ? guess() : null;
+  done = true; clearInterval(tick); const w = LT[words[wi]], ico = ICON[CLASSES[words[wi]]], top = strokes.length ? guess() : null;
   const thought = top ? LT[top[0].i] : 'nieko';
   $('#flash').textContent = skipped ? 'Praleista' : 'Laikas! Neatspėjau.'; $('#flash').className = 'flash no';
   say(`Neatspėjau. Man atrodė: ${thought}.`); speak('Neatspėjau!', true);
-  results.push({ w, ok: false, img: snap(), thought });
+  results.push({ w, ico, ok: false, img: snap(), thought });
   setTimeout(() => next(), 2200);
 }
 $('#skip').onclick = () => { if (!done && mode === 'game') lose(true); };
@@ -346,7 +347,7 @@ function finish() {
     ? `<span class="big">${'★'.repeat(st)}${'☆'.repeat(3 - st)}</span>${level} lygis įveiktas!${hasNext ? ` Atrakintas ${level + 1} lygis: ${LEVELS[level].name}.` : ' Tu Meistras!'}`
     : `Reikia bent ${PASS} iš ${WORDS}. Bandyk dar kartą!`;
   $('#nextLvl').style.display = st && hasNext ? '' : 'none';
-  $('#shots').innerHTML = results.map((r) => `<div class="shot ${r.ok ? 'win' : 'lose'}"><img src="${r.img}" alt="${r.w}"><div>${r.ok ? '✓' : '✗'} ${r.w}<span>${r.ok ? `per ${r.sec} s` : `AI manė: ${r.thought}`}</span></div></div>`).join('');
+  $('#shots').innerHTML = results.map((r) => `<div class="shot ${r.ok ? 'win' : 'lose'}"><img src="${r.img}" alt="${r.w}"><div>${r.ok ? '✓' : '✗'} ${r.ico} ${r.w}<span>${r.ok ? `per ${r.sec} s` : `AI manė: ${r.thought}`}</span></div></div>`).join('');
   if (window.ZM) ZM.report('piesk-ai', { score: n, xp: n * 20 * level });
 }
 $('#free').onclick = () => start('free');
