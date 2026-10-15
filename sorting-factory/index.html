@@ -216,6 +216,37 @@ h2 { font-size: clamp(2rem, 9vw, 2.6rem); color: var(--gem); text-shadow: 3px 3p
   .belt.moving, .goal.filled, .goal.missing, .stars.big .star.on, .slot.empty { animation: none; }
 }
 
+/* little mode: no text, big targets */
+.little .top .hint, .little .top .title span, .little .inbox .lab, .little .bin-head, .little .else-cell, .little .pick-panel h3, .little .pick-group h4,
+.little .opt span:not(.swatch):not(.sizeico), .little .slot span:not(.swatch):not(.sizeico), .little .bug .why, .little .bug h3, .little .bug p, .little .win-note, .little #reset, .little #pickClear, .little #bigTitle, .little .lead, .little .seg, .little #winOv h2 { display: none !important; }
+.little .top .btn.small { min-width: 64px; min-height: 64px; font-size: 1.8rem; }
+.little .top { padding-top: 4px; padding-bottom: 4px; }
+.little .top .title { font-size: 2rem; }
+.little .slot { width: 76px; height: 76px; }
+.little .slot img { width: 48px; height: 48px; } .little .slot .swatch { width: 52px; height: 52px; }
+.little .slot.empty { font-size: 2.6rem; }
+.little .opt { width: 110px; height: 110px; } .little .opt img { width: 72px; height: 72px; } .little .opt .swatch { width: 72px; height: 72px; }
+.little .pick-row { justify-content: center; gap: 14px; }
+.little .pick-foot { justify-content: center; }
+.little #pickClose { min-width: 72px; min-height: 72px; font-size: 0; }
+.little #pickClose::before { content: "\2716"; font-size: 1.8rem; }
+.little .controls .play { height: 72px; font-size: 2.2rem; flex-basis: 260px; }
+.little .bin-body { min-height: 70px; }
+.little .bug { top: auto; bottom: 8px; transform: translateX(-50%); width: auto; background: transparent; border: 0; box-shadow: none; padding: 0; }
+.little .bug .btn { font-size: 2.4rem; min-width: 96px; min-height: 80px; }
+.little .goal.wrong::after { display: none; }
+.little .goal.wrong { outline: 4px solid var(--red); outline-offset: 1px; }
+.little .goal.wob { animation: wob 0.5s ease-in-out 2; }
+@keyframes wob { 20% { transform: rotate(-22deg); } 40% { transform: rotate(18deg); } 60% { transform: rotate(-12deg); } 80% { transform: rotate(8deg); } }
+.little .goal.filled::after { content: "\2728"; position: absolute; top: -10px; right: -8px; font-size: 1.1rem; animation: spark 0.9s ease-out forwards; }
+@keyframes spark { from { transform: scale(0.4); opacity: 1; } to { transform: translateY(-14px) scale(1.5); opacity: 0; } }
+.little .row-btns .btn { font-size: 2.2rem; min-width: 96px; min-height: 80px; }
+.little .stars.big .star { width: 64px; height: 64px; }
+.little .stars.big .star:not(.on) { background: var(--gold); }
+.finger { position: fixed; z-index: 9; font-size: 2.6rem; line-height: 1; pointer-events: none; animation: tap 1.1s ease-in-out infinite; }
+@keyframes tap { 0%, 100% { transform: translate(8px, 22px); } 50% { transform: translate(0, 0) scale(0.9); } }
+@media (prefers-reduced-motion: reduce) { .finger, .little .goal.wob, .little .goal.filled::after { animation: none; } }
+
 /* Short landscape tablets: the factory fits without scrolling (signs, belt and bins get shorter). */
 @media (orientation: landscape) and (max-height: 640px) {
   .top { padding-top: calc(env(safe-area-inset-top, 0px) + 4px); padding-bottom: 4px; }
@@ -370,7 +401,15 @@ h2 { font-size: clamp(2rem, 9vw, 2.6rem); color: var(--gem); text-shadow: 3px 3p
      item code: color (r b g y) + kind (c cube, o ball, s star, d gem) + size (B big, S small).
      gates: the reference sign of each gate, in belt order; they decide which bin every item belongs in. */
   const C = (a, v) => [a, v];
-  const LEVELS = [
+  const LITTLE = !!(window.ZM && ZM.little && ZM.little());
+  if (LITTLE) document.body.classList.add('little');
+  const LITTLE_LEVELS = [
+    { gates: [[C('col', 'r')]], items: ['rcB', 'bcB', 'rcB', 'bcB', 'rcB'] },
+    { gates: [[C('col', 'b')]], items: ['bcB', 'rcB', 'ycB', 'bcB', 'ycB'] },
+    { gates: [[C('kind', 'o')]], items: ['roB', 'rcB', 'roB', 'rcB', 'rcB'] },
+    { gates: [[C('col', 'y')]], items: ['ycB', 'boB', 'yoB', 'rcB', 'ycB'] },
+  ];
+  const LEVELS = LITTLE ? LITTLE_LEVELS : [
     { gates: [[C('col', 'r')]], items: ['rcB', 'bcB', 'rcB', 'ycB', 'bcB', 'rcB'] },
     { gates: [[C('col', 'b')]], items: ['bcB', 'roB', 'boB', 'gcB', 'bcB', 'yoB', 'boB'] },
     { gates: [[C('col', 'y')]], items: ['ycB', 'gcB', 'yoB', 'rcB', 'ycB', 'boB', 'goB'] },
@@ -382,8 +421,10 @@ h2 { font-size: clamp(2rem, 9vw, 2.6rem); color: var(--gem); text-shadow: 3px 3p
     { gates: [[C('col', 'r'), C('kind', 'c')]], items: ['rcB', 'roB', 'bcB', 'rcS', 'rsB', 'gcB', 'rcB'], and: true },
     { gates: [[C('size', 'B'), C('col', 'y')], [C('kind', 's')]], items: ['ycB', 'ysB', 'ysS', 'rsB', 'yoS', 'bcB', 'yoB', 'gsS'], and: true },
   ];
-  const attrsFor = (n) => (n <= 3 ? ['col'] : n <= 5 ? ['col', 'kind'] : ['col', 'kind', 'size']);
+  const attrsFor = (n) => LITTLE ? (n === 3 ? ['kind'] : ['col']) : (n <= 3 ? ['col'] : n <= 5 ? ['col', 'kind'] : ['col', 'kind', 'size']);
   const VALS = { col: ['r', 'b', 'g', 'y'], kind: ['c', 'o', 's', 'd'], size: ['B', 'S'] };
+  if (LITTLE) { VALS.col = ['r', 'b', 'y']; VALS.kind = ['c', 'o']; }
+  const SLOW = LITTLE ? 1.7 : 1;
   const parseItem = (code) => ({ col: code[0], kind: code[1], size: code[2], code });
   // a gate pushes an item when every picture on its sign matches; an empty sign pushes nothing
   const gateMatches = (sign, it) => sign.some(Boolean) && sign.every((c) => !c || it[c[0]] === c[1]);
@@ -435,6 +476,8 @@ h2 { font-size: clamp(2rem, 9vw, 2.6rem); color: var(--gem); text-shadow: 3px 3p
     no: () => tone(300, 0.04, 'square', 0.02),
     push: () => tone(520, 0.09, 'square', 0.045, 0, 360),
     land: () => noise(0.08, 0.15, 1400),
+    bonk: () => tone(180, 0.22, 'sine', 0.09, 0, 90),
+    ding: () => { tone(1047, 0.1, 'sine', 0.06); tone(1568, 0.16, 'sine', 0.06, 0.08); },
     bug: () => { tone(220, 0.16, 'square', 0.06, 0, 110); tone(140, 0.25, 'square', 0.06, 0.15, 70); },
     win: () => [523, 659, 784, 1047, 784, 1047, 1319].forEach((f, i) => tone(f, 0.13, 'square', 0.05, i * 0.08)),
   };
@@ -583,12 +626,13 @@ h2 { font-size: clamp(2rem, 9vw, 2.6rem); color: var(--gem); text-shadow: 3px 3p
   }
   const place = (f, p) => { f.style.transform = `translate(${p.x}px, ${p.y}px) translate(-50%, -50%)`; };
   async function glide(f, to, ms) {
+    ms *= SLOW;
     const from = f.style.transform, end = `translate(${to.x}px, ${to.y}px) translate(-50%, -50%)`;
     if (reduce || !f.animate) { f.style.transform = end; await wait(ms); return; }
     try { const an = f.animate([{ transform: from }, { transform: end }], { duration: ms, easing: 'ease-in-out', fill: 'forwards' }); await an.finished; } catch (e) {}
     f.style.transform = end;
   }
-  function setRunLabel() { const b = $('run'); b.textContent = running ? TXT[lang].stop : TXT[lang].run; b.classList.toggle('stop', running); }
+  function setRunLabel() { const b = $('run'); b.textContent = LITTLE ? (running ? '\u23F9' : '\u25B6') : (running ? TXT[lang].stop : TXT[lang].run); b.classList.toggle('stop', running); }
   function stopMoving() { running = false; $('belt').classList.remove('moving'); document.body.classList.remove('busy'); setRunLabel(); }
 
   async function run() {
@@ -637,6 +681,7 @@ h2 { font-size: clamp(2rem, 9vw, 2.6rem); color: var(--gem); text-shadow: 3px 3p
       if (bin === goals[i]) {
         plant.querySelector(`.goal[data-i="${i}"]`).classList.add('filled');
         sfx.land();
+        if (LITTLE) sfx.ding();
       } else {
         // wrong bin: the item shows there with a red X, its real place blinks, the gate that pushed it turns red
         binEl.insertAdjacentHTML('beforeend', itemHTML(items[i], 'goal wrong'));
@@ -648,6 +693,7 @@ h2 { font-size: clamp(2rem, 9vw, 2.6rem); color: var(--gem); text-shadow: 3px 3p
         $('bugWhy').textContent = t.why(goals[i] === n ? t.whyElse : t.whyGate(goals[i] + 1));
         $('bug').hidden = false;
         stopMoving();
+        if (LITTLE) { sfx.bonk(); const w = binEl.querySelector('.goal.wrong:last-child'); if (w) w.classList.add('wob'); }
         sfx.bug();
         return;
       }
@@ -666,7 +712,7 @@ h2 { font-size: clamp(2rem, 9vw, 2.6rem); color: var(--gem); text-shadow: 3px 3p
   });
 
   function win() {
-    const stars = runs <= 2 ? 3 : runs <= 4 ? 2 : 1;
+    const stars = LITTLE ? 3 : runs <= 2 ? 3 : runs <= 4 ? 2 : 1;
     const key = lvlIdx + 1, prevStars = progress.stars[key] || 0;
     progress.stars[key] = Math.max(prevStars, stars);
     save(NS('sf-progress'), JSON.stringify(progress));
@@ -678,7 +724,7 @@ h2 { font-size: clamp(2rem, 9vw, 2.6rem); color: var(--gem); text-shadow: 3px 3p
     document.querySelectorAll('#winStars .star').forEach((s, i) => { s.classList.remove('on'); void s.offsetWidth; s.classList.toggle('on', i < stars); });
     const t = TXT[lang];
     $('winNote').textContent = runs <= 1 ? t.perfect : t.runsNote(runs);
-    $('next').textContent = lvlIdx >= LEVELS.length - 1 ? t.levels : t.next;
+    $('next').textContent = LITTLE ? '\u25B6' : lvlIdx >= LEVELS.length - 1 ? t.levels : t.next;
     sfx.win();
     setTimeout(() => { $('winOv').hidden = false; }, 350);
   }
@@ -712,6 +758,10 @@ h2 { font-size: clamp(2rem, 9vw, 2.6rem); color: var(--gem); text-shadow: 3px 3p
   function applyLang() {
     document.documentElement.lang = lang;
     document.querySelectorAll('[data-t]').forEach((el) => { const v = TXT[lang][el.dataset.t]; if (typeof v === 'string') el.textContent = v; });
+    if (LITTLE) {
+      $('toLevels').textContent = '\u2630'; $('mute').textContent = '\u{1F50A}'; $('fix').textContent = '\u{1F501}';
+      $('again').textContent = '\u{1F501}'; $('next').textContent = '\u25B6';
+    }
     $('bigTitle').innerHTML = `${TXT[lang].title[0]} <span>${TXT[lang].title[1]}</span>`;
     document.querySelectorAll('[data-lang]').forEach((b) => b.setAttribute('aria-pressed', String(b.dataset.lang === lang)));
     if (L) { buildPlant(); resetScene(); updateHint(); }
@@ -725,6 +775,22 @@ h2 { font-size: clamp(2rem, 9vw, 2.6rem); color: var(--gem); text-shadow: 3px 3p
 
   loadLevel(Math.min(unlockedUpTo(), LEVELS.length) - 1);
   applyLang();
+  if (LITTLE) {
+    $('levelsOv').hidden = true;
+    // demo finger on level 1: sign, then the red swatch, then run
+    const fg = document.createElement('div'); fg.className = 'finger'; fg.textContent = '\u{1F446}'; fg.hidden = true; document.body.appendChild(fg);
+    setInterval(() => {
+      let tg = null;
+      if (lvlIdx === 0 && !running && $('winOv').hidden && $('levelsOv').hidden && $('bug').hidden) {
+        if (!$('picker').hidden) tg = $('pickGroups').querySelector('[data-v="r"]');
+        else if (!signs[0][0]) tg = plant.querySelector('.slot');
+        else tg = $('run');
+      } else if (lvlIdx === 0 && !$('bug').hidden) tg = $('fix');
+      if (!tg) { fg.hidden = true; return; }
+      const r = tg.getBoundingClientRect();
+      fg.style.left = (r.left + r.width / 2 - 14) + 'px'; fg.style.top = (r.top + r.height / 2 - 6) + 'px'; fg.hidden = false;
+    }, 120);
+  }
   if (location.hash === '#test') window.__sf = { get signs() { return signs; }, LEVELS, binFor, get lvl() { return lvlIdx; } };
 })();
 </script>

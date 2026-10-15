@@ -134,6 +134,28 @@ body {
 .actions .btn:not(.play) { flex: 1; height: 60px; font-weight: 900; font-size: 1.05rem; }
 .busy .puzzle, .busy .actions, .busy .legend { pointer-events: none; }
 
+/* little mode: dots instead of digits, big squares, no text */
+.little .top .hint, .little .top .title span, .little .legend, .little .msg, .little .actions, .little .lead, .little .lead-bits, .little .seg, .little #gameTitle,
+.little .kinds, .little #winOv h2, .little .win-name, .little .win-note { display: none !important; }
+.little .top .btn.small { min-width: 64px; min-height: 64px; font-size: 1.8rem; }
+.little .top { padding-top: 4px; padding-bottom: 4px; }
+.little .top .title { font-size: 2rem; }
+.little .main { padding: 8px 16px 8px; gap: 0; }
+.little .bits { gap: calc(var(--cell) * 0.12); align-items: center; }
+.little .d.dot { width: calc(var(--cell) * 0.5); height: calc(var(--cell) * 0.5); border-radius: 50%; border: calc(var(--cell) * 0.06) solid var(--ink-dim); background: transparent; }
+.little .d.dot.one { background: var(--gold); border-color: var(--gold); }
+.little .cell { border-width: 3px; cursor: pointer; }
+.little .cell.on { background: var(--gem); }
+.little .row { gap: calc(var(--cell) * 0.4); }
+.little #winPic { width: 168px; height: 168px; }
+.little .panel { gap: 10px; padding: 14px; }
+.little .row-btns .btn { font-size: 2.2rem; min-width: 96px; min-height: 80px; }
+.little .stars.big .star { width: 60px; height: 60px; }
+.finger { position: fixed; z-index: 9; font-size: 2.8rem; line-height: 1; pointer-events: none; transition: left 0.5s ease, top 0.5s ease; transform: translate(10px, 24px); }
+.finger.tapping { animation: tapb 0.7s ease-in-out infinite; }
+@keyframes tapb { 50% { transform: translate(4px, 12px) scale(0.88); } }
+@media (prefers-reduced-motion: reduce) { .finger.tapping { animation: none; } }
+
 /* overlays */
 .overlay {
   position: fixed; inset: 0; z-index: 5; display: grid; place-items: center;
@@ -414,6 +436,22 @@ h2 { font-family: var(--word); font-weight: 900; font-size: clamp(2rem, 9vw, 2.6
   };
   /* DATA END */
 
+  // little mode (ages 4-5): copy the picture; a filled dot = a colored square. Only decode levels, small pictures.
+  const LITTLE = !!(window.ZM && ZM.little && ZM.little());
+  if (LITTLE) document.body.classList.add('little');
+  Object.assign(PICS, {
+    plus: { lt: 'pliusas', en: 'a plus', pal: { r: '#e8303a' }, rows: ['.r.', 'rrr', '.r.'] },
+    cross: { lt: 'kryžius', en: 'a cross', pal: { b: '#2f7de1' }, rows: ['b.b', '.b.', 'b.b'] },
+    ring: { lt: 'žiedas', en: 'a ring', pal: { y: '#ffcc33' }, rows: ['yyy', 'y.y', 'yyy'] },
+    lhouse: { lt: 'namas', en: 'a house', pal: { r: '#d9412f', w: '#e8c9a0', b: '#7a4f2e' }, rows: ['.rr.', 'rrrr', 'wbbw', 'wbbw'] },
+    ltree: { lt: 'medis', en: 'a tree', pal: { g: '#5cbf3a', b: '#7a4f2e' }, rows: ['.gg.', 'gggg', '.bb.', '.bb.'] },
+  });
+  const LITTLE_LEVELS = [
+    { type: 'decode', pic: 'plus' }, { type: 'decode', pic: 'cross' }, { type: 'decode', pic: 'ring' },
+    { type: 'decode', pic: 'lhouse' }, { type: 'decode', pic: 'ltree' },
+  ];
+  const LV = LITTLE ? LITTLE_LEVELS : LEVELS;
+
   /* ---------- storage ---------- */
   let lang = 'lt', muted = false, progress = { stars: {} };
   try {
@@ -424,7 +462,7 @@ h2 { font-family: var(--word); font-weight: 900; font-size: clamp(2rem, 9vw, 2.6
   const save = (k, v) => { try { localStorage.setItem(k, v); } catch (e) {} };
   const unlockedUpTo = () => {
     let n = 1;
-    while (n < LEVELS.length && progress.stars[n]) n++;
+    while (n < LV.length && progress.stars[n]) n++;
     return n;
   };
 
@@ -454,15 +492,16 @@ h2 { font-family: var(--word); font-weight: 900; font-size: clamp(2rem, 9vw, 2.6
   };
 
   /* ---------- game state ---------- */
+  let demoPhase = 0;
   let lvlIdx = 0, L = null, target = [], cur = [], rows = 0, cols = 0, wrongChecks = 0, brush = 1, done = false;
   const puzzle = $('puzzle'), legend = $('legend'), msg = $('msg');
 
   function loadLevel(i) {
-    lvlIdx = i; L = LEVELS[i];
+    lvlIdx = i; L = LV[i];
     target = targetOf(L);
     rows = target.length; cols = target[0].length;
     cur = target.map((r) => r.map(() => 0));
-    wrongChecks = 0; brush = 1; done = false;
+    wrongChecks = 0; brush = 1; done = false; demoPhase = 0;
     $('lvlNum').textContent = i + 1;
     msg.textContent = ''; msg.classList.remove('good');
     document.body.classList.remove('busy');
@@ -487,7 +526,7 @@ h2 { font-family: var(--word); font-weight: 900; font-size: clamp(2rem, 9vw, 2.6
         const btns = cur[r].map((v, c) => `<button class="bb${v ? ' one' : ''}" type="button" data-r="${r}" data-c="${c}" aria-label="${T.cell(r + 1, c + 1)}">${v}</button>`).join('');
         h += `<div class="row"><div class="pic">${pic}</div><div class="cells">${btns}</div></div>`;
       } else {
-        const ds = bits[r].map((b, c) => `<span class="d${L.type === 'decode' && b === '1' ? ' one' : ''}" data-c="${c}">${b}</span>`).join('');
+        const ds = bits[r].map((b, c) => `<span class="d${L.type === 'decode' && b === '1' ? ' one' : ''}${LITTLE ? ' dot' : ''}" data-c="${c}">${LITTLE ? '' : b}</span>`).join('');
         const cs = cur[r].map((v, c) => `<button class="cell${cellClass(v)}" type="button" data-r="${r}" data-c="${c}"${L.type === 'color' ? ` data-v="${v}"` : ''} aria-label="${T.cell(r + 1, c + 1)}"></button>`).join('');
         h += `<div class="row"><div class="bits${L.type === 'color' ? ' pairs' : ''}" aria-hidden="true">${ds}</div><div class="cells">${cs}</div></div>`;
       }
@@ -504,14 +543,14 @@ h2 { font-family: var(--word); font-weight: 900; font-size: clamp(2rem, 9vw, 2.6
     if (!main.width) return;
     const legendH = L.type === 'color' ? 80 : 0;
     const availW = main.width - 40;
-    const availH = main.height - legendH - 60 - 36 - 64;
-    const perCol = L.type === 'encode' ? 1.78 : L.type === 'color' ? 2.04 : 1.58;
-    const cell = Math.floor(Math.max(18, Math.min(64, (availW - 20) / (perCol * cols + 0.3), availH / (rows * 1.09))));
+    const availH = LITTLE ? main.height - 28 : main.height - legendH - 60 - 36 - 64;
+    const perCol = LITTLE ? 1.8 : L.type === 'encode' ? 1.78 : L.type === 'color' ? 2.04 : 1.58;
+    const cell = Math.floor(Math.max(18, Math.min(LITTLE ? 130 : 64, (availW - 20) / (perCol * cols + 0.3), availH / (rows * 1.09))));
     puzzle.style.setProperty('--cell', cell + 'px');
   }
 
   function setCell(r, c, v) {
-    if (cur[r][c] === v) return;
+    if (cur[r][c] === v || (LITTLE && done)) return;
     cur[r][c] = v;
     const el = puzzle.querySelector(`[data-r="${r}"][data-c="${c}"]`);
     if (!el) return;
@@ -523,6 +562,7 @@ h2 { font-family: var(--word); font-weight: 900; font-size: clamp(2rem, 9vw, 2.6
     if (d) { d.classList.add('hl'); clearTimeout(d._t); d._t = setTimeout(() => d.classList.remove('hl'), 350); }
     if (L.type === 'color') sfx.pick(); else (v ? sfx.on : sfx.off)();
     if (msg.textContent && !puzzle.querySelector('.bad')) msg.textContent = '';
+    if (LITTLE && target.every((row, rr) => row.every((t, cc) => cur[rr][cc] === t))) setTimeout(win, 250);
   }
   // first square touched decides the value; sliding a finger paints the same value
   let paint = null;
@@ -604,7 +644,8 @@ h2 { font-family: var(--word); font-weight: 900; font-size: clamp(2rem, 9vw, 2.6
     puzzle.querySelectorAll('.pcell').forEach((el, i) => { if (!reduce) el.style.animationDelay = Math.min(i * 12, 700) + 'ms'; });
     puzzle.classList.add('reveal');
     sfx.win();
-    const stars = wrongChecks === 0 ? 3 : wrongChecks === 1 ? 2 : 1;
+    if (LITTLE) [1047, 1319, 1568].forEach((f, i) => tone(f, 0.2, 'sine', 0.06, 0.5 + i * 0.12));
+    const stars = LITTLE || wrongChecks === 0 ? 3 : wrongChecks === 1 ? 2 : 1;
     const key = lvlIdx + 1;
     const prevStars = progress.stars[key] || 0;
     progress.stars[key] = Math.max(prevStars, stars);
@@ -633,16 +674,16 @@ h2 { font-family: var(--word); font-weight: 900; font-size: clamp(2rem, 9vw, 2.6
       st.classList.toggle('on', i < stars);
     });
     const nBits = rows * cols * (L.type === 'color' ? 2 : 1);
-    const last = lvlIdx >= LEVELS.length - 1;
+    const last = lvlIdx >= LV.length - 1;
     $('winNote').innerHTML = T.bits(nBits) + (last ? '<br>' + T.done : '');
-    $('next').textContent = last ? T.levels : T.next;
+    $('next').textContent = LITTLE ? '\u25B6' : last ? T.levels : T.next;
     $('winOv').hidden = false;
     setTimeout(() => $('next').focus({ preventScroll: true }), 50);
   }
   $('again').addEventListener('click', () => { $('winOv').hidden = true; loadLevel(lvlIdx); });
   $('next').addEventListener('click', () => {
     $('winOv').hidden = true;
-    if (lvlIdx >= LEVELS.length - 1) { openLevels(); return; }
+    if (lvlIdx >= LV.length - 1) { openLevels(); return; }
     loadLevel(lvlIdx + 1);
   });
 
@@ -650,7 +691,7 @@ h2 { font-family: var(--word); font-weight: 900; font-size: clamp(2rem, 9vw, 2.6
   function renderLevels() {
     const up = unlockedUpTo();
     const T = TXT[lang];
-    $('levels').innerHTML = LEVELS.map((lv, i) => {
+    $('levels').innerHTML = LV.map((lv, i) => {
       const n = i + 1, st = progress.stars[n] || 0;
       const stars = [0, 1, 2].map((k) => `<i class="star${k < st ? ' on' : ''}"></i>`).join('');
       return `<button class="btn lvl t-${lv.type}${i === lvlIdx ? ' cur' : ''}" type="button" data-lvl="${i}" ${n > up ? 'disabled' : ''}
@@ -694,8 +735,29 @@ h2 { font-family: var(--word); font-weight: 900; font-size: clamp(2rem, 9vw, 2.6
   if ('ResizeObserver' in window) new ResizeObserver(layout).observe($('main'));
   else window.addEventListener('resize', layout);
 
-  loadLevel(Math.min(unlockedUpTo(), LEVELS.length) - 1);
+  loadLevel(Math.min(unlockedUpTo(), LV.length) - 1);
   applyLang();
+  if (LITTLE) {
+    $('levelsOv').hidden = true;
+    $('toLevels').textContent = '\u2630'; $('mute').textContent = '\u{1F50A}'; $('again').textContent = '\u{1F501}'; $('next').textContent = '\u25B6';
+    // demo finger on level 1: points at a filled dot, then taps the matching square
+    const fg = document.createElement('div'); fg.className = 'finger'; fg.textContent = '\u{1F446}'; fg.hidden = true; document.body.appendChild(fg);
+    const tick = () => {
+      if (lvlIdx !== 0 || done || !$('winOv').hidden || !$('levelsOv').hidden) { fg.hidden = true; return; }
+      let m = null;
+      for (let r = 0; r < rows && !m; r++) for (let c = 0; c < cols; c++) if (cur[r][c] !== target[r][c]) { m = [r, c]; break; }
+      if (!m) { fg.hidden = true; return; }
+      const row = puzzle.querySelectorAll('.row')[m[0]];
+      const useDot = target[m[0]][m[1]] === 1 && demoPhase === 0;
+      const el = useDot ? row.querySelector(`.d[data-c="${m[1]}"]`) : row.querySelector(`[data-r][data-c="${m[1]}"]`);
+      const rc = el.getBoundingClientRect();
+      fg.style.left = (rc.left + rc.width / 2 - 14) + 'px'; fg.style.top = (rc.top + rc.height / 2 - 6) + 'px'; fg.hidden = false;
+      fg.classList.toggle('tapping', !useDot);
+      demoPhase = useDot ? 1 : 0;
+    };
+    setInterval(tick, 1100);
+    tick();
+  }
 })();
 </script>
 <script>
