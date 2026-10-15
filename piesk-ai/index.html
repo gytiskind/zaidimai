@@ -15,6 +15,7 @@
    Same blocky stone theme as the rest of the site. Every screen fits the viewport without scrolling:
    on a landscape tablet the board is on the left and the task, AI guess and buttons on the right. */
 :root { --pad: 12px; --vh: calc(100dvh - 2 * var(--pad) - env(safe-area-inset-top, 0px) - env(safe-area-inset-bottom, 0px)); }
+[hidden] { display: none !important; }
 html, body { overscroll-behavior: none; }
 body { padding: calc(env(safe-area-inset-top, 0px) + var(--pad)) var(--pad) calc(env(safe-area-inset-bottom, 0px) + var(--pad)); min-height: 0; }
 main { max-width: 1280px; margin: 0 auto; }
@@ -52,6 +53,7 @@ h1 { font-size: clamp(2rem, min(9vw, 9vh), 3.6rem); }
 .task { text-align: center; font-weight: 900; font-size: clamp(1.2rem, 4.6vw, 2rem); line-height: 1.1; }
 .task b { color: var(--gold); text-shadow: 3px 3px 0 #000; font-family: var(--word); font-weight: 900; letter-spacing: .03em; }
 .task small { display: block; font-size: .85rem; color: var(--ink-dim); }
+.little .task .ico { font-size: clamp(3.5rem, 24vh, 8rem); }
 .task .ico { display: block; font: 400 clamp(2.6rem, 15vh, 6rem)/1.15 "Noto Color Emoji", "Apple Color Emoji", "Segoe UI Emoji", sans-serif; text-shadow: none; }
 .timer { font: 700 clamp(1.5rem, 5vw, 2.2rem) "ZM Digits", "Pixelify Sans", monospace; min-width: 3ch; text-align: center; padding: 4px 12px;
   background: #0f0d16; border: 4px solid; border-color: var(--stone-hi) #000 #000 var(--stone-hi); }
@@ -112,11 +114,14 @@ canvas#pad { position: absolute; inset: 0; width: 100%; height: 100%; display: b
   <section class="view on" id="vStart">
     <div class="panel">
       <div class="row" style="justify-content:space-between"><h1>Piešk, AI spės!</h1><a class="wbtn small" href="../">← Meniu</a></div>
-      <p class="lead">Nupiešk žodį pirštu. Dirbtinis intelektas bando atspėti, kas tai. Lygis įveiktas, kai AI atspėja bent 4 iš 6.</p>
+      <p class="lead" id="lead">Nupiešk žodį pirštu. Dirbtinis intelektas bando atspėti, kas tai. Lygis įveiktas, kai AI atspėja bent 4 iš 6.</p>
       <div class="levels" id="levels"></div>
-      <div class="row">
+      <div class="row" id="timeRow">
         <span class="lbl">Laikas 1-3 lygiams</span>
         <button class="wbtn opt" data-time="30">30 s</button><button class="wbtn opt" data-time="60">60 s</button><button class="wbtn opt" data-time="90">90 s</button>
+      </div>
+      <div class="row">
+        <button class="wbtn go" id="play" hidden disabled>▶ Žaisti</button>
         <button class="wbtn" id="free" disabled>✏️ Laisvas piešimas</button>
       </div>
       <p class="status" id="status">Kraunamas AI…</p>
@@ -172,20 +177,22 @@ const LS = { get(k, d) { try { const v = localStorage.getItem(k); return v === n
 const ns = (k) => (window.ZM ? ZM.ns(k) : k);
 
 // Lygiai: 6 žodžiai, įveikta nuo 4 atspėtų. time: null = vaiko pasirinktas laikas (30/60/90 s).
-const WORDS = 6, PASS = 4;
-const LEVELS = [
+const LITTLE_ON = !!(window.ZM && ZM.little());   // mažiesiems: vienas lygis, be laiko
+const WORDS = LITTLE_ON ? 5 : 6, PASS = LITTLE_ON ? 3 : 4;
+const LEVELS = LITTLE_ON ? [{ name: 'Mažiesiems', list: LITTLE, time: null }] : [
   { name: 'Lengvi', list: EASY, time: null },
   { name: 'Vidutiniai', list: MEDIUM, time: null },
   { name: 'Sunkūs', list: HARD, time: null },
   { name: 'Žaibas', list: EASY.concat(MEDIUM), time: 20 },
   { name: 'Meistras', list: HARD, time: 30 },
 ];
-const starsFor = (n) => (n >= 6 ? 3 : n >= 5 ? 2 : n >= PASS ? 1 : 0);
+const starsFor = (n) => (n >= WORDS ? 3 : n >= WORDS - 1 ? 2 : n >= PASS ? 1 : 0);
 const getStars = () => LS.get(ns('pa-stars'), {});
 const unlocked = (i) => i === 0 || (getStars()[i] || 0) > 0;   // i: ankstesnio lygio numeris (1..)
 
 let model = null, pick = LS.get('pa-time', 60), sound = LS.get('pa-sound', true);
 let mode = 'game', level = 1, time = 60, words = [], wi = 0, left = 0, tick = null, done = false, results = [];
+let t0 = 0;
 let strokes = [], cur = null, dirty = false, busy = false, lastTop = '', lastSpeak = 0;
 
 // ---------- pradžios ekranas ----------
@@ -205,14 +212,21 @@ document.querySelectorAll('[data-time]').forEach((b) => { b.classList.toggle('on
 const setSound = () => { $('#sound').textContent = sound ? '🔊 Garsas' : '🔇 Tyliai'; };
 $('#sound').onclick = () => { sound = !sound; LS.set('pa-sound', sound); setSound(); if (!sound && 'speechSynthesis' in window) speechSynthesis.cancel(); };
 setSound(); renderLevels();
+if (LITTLE_ON) {
+  document.body.classList.add('little');
+  $('#levels').hidden = $('#timeRow').hidden = true;
+  $('#lead').textContent = 'Nupiešk paveikslėlį pirštu. Robotas spės, kas tai!';
+  $('#play').hidden = false;
+  $('#play').onclick = () => start('game', 1);
+}
 
 // ---------- AI ----------
 (async () => {
   try {
     model = await tf.loadLayersModel(MODEL);
     tf.tidy(() => model.predict(tf.zeros([1, 28, 28, 1])));
-    $('#status').textContent = 'AI pasiruošęs! Pasirink lygį.';
-    $('#free').disabled = false; renderLevels();
+    $('#status').textContent = LITTLE_ON ? 'Robotas pasiruošęs! Spausk Žaisti.' : 'AI pasiruošęs! Pasirink lygį.';
+    $('#free').disabled = $('#play').disabled = false; renderLevels();
   } catch (e) {
     $('#status').textContent = 'Nepavyko užkrauti AI. Patikrink internetą ir perkrauk puslapį.';
     $('#status').classList.add('bad');
@@ -291,10 +305,11 @@ setInterval(() => {
 function shuffle(a) { for (let i = a.length - 1; i > 0; i--) { const j = Math.floor(Math.random() * (i + 1)); [a[i], a[j]] = [a[j], a[i]]; } return a; }
 function show(id) { document.querySelectorAll('.view').forEach((v) => v.classList.toggle('on', v.id === id)); }
 function start(m, lvl) {
-  mode = m; results = []; wi = 0;
+  mode = m; results = []; wi = 0; t0 = Date.now();
   if (m === 'game') { level = lvl || level; const L = LEVELS[level - 1]; time = L.time || pick; words = shuffle(L.list.filter((i) => ICON[CLASSES[i]])).slice(0, WORDS); }
   show('vGame'); fit();
-  $('#skip').style.display = $('#timer').style.display = m === 'game' ? '' : 'none';
+  $('#skip').style.display = m === 'game' ? '' : 'none';
+  $('#timer').style.display = m === 'game' && !LITTLE_ON ? '' : 'none';
   next(true);
 }
 function next(first) {
@@ -304,8 +319,10 @@ function next(first) {
   if (!first) wi++;
   if (wi >= words.length) return finish();
   const w = LT[words[wi]];
-  $('#task').innerHTML = `<small>${level} lygis · ${wi + 1} iš ${words.length}. Nupiešk:</small><span class="ico">${ICON[CLASSES[words[wi]]]}</span><b>${w.toUpperCase()}</b>`;
+  $('#task').innerHTML = `<small>${LITTLE_ON ? '' : level + ' lygis · '}${wi + 1} iš ${words.length}. Nupiešk:</small><span class="ico">${ICON[CLASSES[words[wi]]]}</span><b>${w.toUpperCase()}</b>`;
   say('Piešk! Aš žiūriu…'); speak(`Nupiešk: ${w}`, true);
+  t0 = Date.now();
+  if (LITTLE_ON) return;   // be laiko: žaidžia, kol AI atspės arba paspaus Praleisti
   left = time; $('#timer').textContent = left; $('#timer').classList.toggle('low', left <= 10);
   tick = setInterval(() => { left--; $('#timer').textContent = Math.max(left, 0); $('#timer').classList.toggle('low', left <= 10);
     if (left <= 0) lose(); }, 1000);
@@ -325,7 +342,7 @@ function win() {
   done = true; clearInterval(tick); const w = LT[words[wi]], ico = ICON[CLASSES[words[wi]]];
   $('#flash').textContent = `${ico} Atspėjau! Tai ${w}!`; $('#flash').className = 'flash ok';
   say(`Atspėjau! Tai ${w}!`); speak(`Atspėjau! Tai ${w}!`, true);
-  results.push({ w, ico, ok: true, img: snap(), sec: Math.max(1, time - left) });
+  results.push({ w, ico, ok: true, img: snap(), sec: LITTLE_ON ? Math.max(1, Math.round((Date.now() - t0) / 1000)) : Math.max(1, time - left) });
   setTimeout(() => next(), 1900);
 }
 function lose(skipped) {
@@ -344,7 +361,7 @@ function finish() {
   const hasNext = level < LEVELS.length;
   $('#score').textContent = `AI atspėjo ${n} iš ${results.length}`;
   $('#verdict').innerHTML = st
-    ? `<span class="big">${'★'.repeat(st)}${'☆'.repeat(3 - st)}</span>${level} lygis įveiktas!${hasNext ? ` Atrakintas ${level + 1} lygis: ${LEVELS[level].name}.` : ' Tu Meistras!'}`
+    ? `<span class="big">${'★'.repeat(st)}${'☆'.repeat(3 - st)}</span>${level} lygis įveiktas!${hasNext ? ` Atrakintas ${level + 1} lygis: ${LEVELS[level].name}.` : LITTLE_ON ? ' Šaunuolis!' : ' Tu Meistras!'}`
     : `Reikia bent ${PASS} iš ${WORDS}. Bandyk dar kartą!`;
   $('#nextLvl').style.display = st && hasNext ? '' : 'none';
   $('#shots').innerHTML = results.map((r) => `<div class="shot ${r.ok ? 'win' : 'lose'}"><img src="${r.img}" alt="${r.w}"><div>${r.ok ? '✓' : '✗'} ${r.ico} ${r.w}<span>${r.ok ? `per ${r.sec} s` : `AI manė: ${r.thought}`}</span></div></div>`).join('');

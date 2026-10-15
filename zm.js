@@ -40,7 +40,10 @@
     data: load,
     player: current,
     // per-player storage key; without a player the game keeps its old shared key
-    ns: function (k) { var p = current(); return p ? k + '@' + p.id : k; },
+    // little mode (ages 4-5) keeps separate progress under k~m
+    little: function () { try { return localStorage.getItem('zm-little') === '1'; } catch (e) { return false; } },
+    setLittle: function (on) { try { if (on) localStorage.setItem('zm-little', '1'); else localStorage.removeItem('zm-little'); } catch (e) {} },
+    ns: function (k) { var p = current(), m = ZM.little() ? '~m' : ''; return p ? k + m + '@' + p.id : k + m; },
     addPlayer: function (name) {
       name = String(name || '').trim().slice(0, 14);
       if (!name) return null;
@@ -74,6 +77,7 @@
       for (var i = 0; i < d.players.length; i++) if (d.players[i].id === d.cur) p = d.players[i];
       if (!p) { toast('Pasirink vardą meniu, ir taškai bus išsaugoti.', null); return null; }
       var before = rankFor(p.xp || 0).name;
+      if (ZM.little()) game += '~m';
       var g = p.games[game] || (p.games[game] = { best: 0, plays: 0, xp: 0 });
       var xp = Math.max(0, Math.round(result.xp || 0));
       var record = typeof result.score === 'number' && result.score > (g.best || 0);

@@ -26,6 +26,7 @@
   color-scheme: dark;
 }
 * { box-sizing: border-box; }
+[hidden] { display: none !important; }
 body {
   margin: 0; min-height: 100vh; background: var(--night); color: var(--ink); font-family: var(--word);
   background-image: linear-gradient(180deg, #141b3a 0%, #2c2a5c 60%, #3a3570 100%);
@@ -105,12 +106,26 @@ h1 {
 .name-input { font: 800 1.2rem var(--word); padding: 10px 12px; min-height: 48px; width: min(100%, 260px); background: #0f0d16; color: var(--ink); border: 3px solid var(--stone-hi); }
 .row-del { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; font-weight: 800; }
 .mine { margin: 0; font-weight: 900 !important; font-size: 1rem !important; color: var(--gold) !important; }
+.mode { display: flex; gap: 0; width: fit-content; max-width: 100%; border: 3px solid #000; box-shadow: 0 0 0 2px var(--stone-hi); }
+.mode button {
+  font: 900 1.15rem var(--word); color: var(--ink-dim); cursor: pointer; touch-action: manipulation; min-height: 52px; padding: 8px 18px;
+  background: var(--stone); border: 0; display: inline-flex; align-items: center; gap: 8px; white-space: nowrap;
+}
+.mode button + button { border-left: 3px solid #000; }
+.mode button .ic { font-size: 1.6rem; line-height: 1; }
+.mode button[aria-pressed="true"] { background: var(--gem); color: #0d2a27; }
+.mode button:focus-visible { outline: 3px solid var(--gold); outline-offset: -3px; }
 @media (prefers-reduced-motion: reduce) { .card:active { transform: none; } }
 </style>
 </head>
 <body>
 <main>
   <h1>ŽAIDIMAI</h1>
+
+  <div class="mode" id="mode" role="group" aria-label="Kam žaidimai">
+    <button type="button" data-little="1" aria-pressed="false"><span class="ic" aria-hidden="true">🧸</span>Mažiesiems</button>
+    <button type="button" data-little="0" aria-pressed="true"><span class="ic" aria-hidden="true">🎮</span>Vyresniems</button>
+  </div>
 
   <section class="who" id="who" aria-live="polite"></section>
 
@@ -195,7 +210,7 @@ h1 {
     <h2 class="group-title">Dirbtinis intelektas</h2>
     <ul class="games">
     <li>
-      <a class="card" href="piesk-ai/" data-game="piesk-ai">
+      <a class="card" href="piesk-ai/" data-game="piesk-ai" data-little>
         <img src="img/piesk-ai.jpg" alt="Vaiko nupiešta katė ir robotas, kuris spėja: gal tai katė?" width="640" height="480">
         <div class="body">
           <h2>Piešk, AI spės!</h2>
@@ -437,6 +452,7 @@ h1 {
     'tikra-ar-ai': (n) => `Tavo rekordas: ${n} atspėta`,
     'saugu-ar-apgavyste': (n) => `Tavo rekordas: ${n} atspėta`,
     'didysis-finalas': (n) => `Tavo rekordas: ${n} atspėta`,
+    'piesk-ai': (n) => `Tavo rekordas: ${n} atspėta`,
   };
   let delId = null;
   const esc = (t) => String(t).replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
@@ -479,13 +495,27 @@ h1 {
         ${classLine}`;
       if (delId === '') who.querySelectorAll('[data-act="choose"]').forEach((b) => { b.dataset.act = 'ask-del'; b.insertAdjacentHTML('beforeend', ' &times;'); });
     }
+    const little = ZM.little();
     document.querySelectorAll('[data-game]').forEach((a) => {
       const el = a.querySelector('[data-best]');
-      const g = p && p.games[a.dataset.game];
-      el.textContent = g && g.best ? BEST[a.dataset.game](g.best) : '';
+      const g = p && p.games[a.dataset.game + (little ? '~m' : '')];
+      el.textContent = g && g.best && BEST[a.dataset.game] ? BEST[a.dataset.game](g.best) : '';
       el.hidden = !el.textContent;
     });
+    applyMode();
   }
+  // little mode: only cards marked data-little, and no empty groups
+  function applyMode() {
+    const little = ZM.little();
+    document.querySelectorAll('#mode button').forEach((b) => b.setAttribute('aria-pressed', String((b.dataset.little === '1') === little)));
+    document.querySelectorAll('.card').forEach((a) => { a.parentElement.hidden = little && !a.hasAttribute('data-little'); });
+    document.querySelectorAll('.group').forEach((g) => { g.hidden = !g.querySelector('li:not([hidden])'); });
+  }
+  document.getElementById('mode').addEventListener('click', (e) => {
+    const b = e.target.closest('button[data-little]');
+    if (!b) return;
+    ZM.setLittle(b.dataset.little === '1'); render(false);
+  });
 
   who.addEventListener('click', (e) => {
     const b = e.target.closest('[data-act]');
