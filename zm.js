@@ -75,7 +75,7 @@
     report: function (game, result) {
       var d = load(), p = null;
       for (var i = 0; i < d.players.length; i++) if (d.players[i].id === d.cur) p = d.players[i];
-      if (!p) { toast('Pasirink vardą meniu, ir taškai bus išsaugoti.', null); return null; }
+      if (!p) { if (!ZM.little()) toast('Pasirink vardą meniu, ir taškai bus išsaugoti.', null); return null; }   // mažieji neskaito
       var before = rankFor(p.xp || 0).name;
       if (ZM.little()) game += '~m';
       var g = p.games[game] || (p.games[game] = { best: 0, plays: 0, xp: 0 });

@@ -225,6 +225,30 @@ h2 { font-family: var(--word); font-weight: 900; font-size: clamp(2rem, 9vw, 2.6
 .fit2 > :last-child { margin-bottom: 0; }
 .fit2 > :is(.levels, .stats, .lvls, .grid, .icons, .legend) { width: 100%; }
 .fit2 h1 { font-size: clamp(1.9rem, 8vh, 2.8rem); }
+/* little mode (ages 4-5): four absolute arrows, no text */
+.little .top .hint, .little .count, .little #step, .little .lead, .little .seg, .little .bug, .little .win-note, .little #winOv h2, .little .slot, .little .empty-note, .little .goal { display: none !important; }
+.little .top .title span { display: none; }
+.little .top .title { font-size: 1.6rem; }
+.little .small { font-size: 1.3rem; min-width: 64px; min-height: 48px; }
+.little .chip { width: 44px; height: 44px; pointer-events: none; }
+.little .chip svg { width: 26px; height: 26px; }
+.little .cmd { height: 76px; min-width: 64px; }
+.little .cmd svg { width: 40px; height: 40px; }
+.little .cmd span { display: none; }
+.little .controls .play, .little .controls .btn:not(.play) { height: 64px; min-width: 64px; font-size: 1.8rem; }
+.little .controls .play { font-size: 2.2rem; }
+.little .row-btns .btn { min-width: 84px; min-height: 64px; font-size: 2rem; }
+.k-u, .k-d, .k-l, .k-r { background: var(--c-move); border-color: #7fb0ff #1f4b8f #1f4b8f #7fb0ff; }
+.little .lvl { min-height: 64px; }
+#back { display: none; }
+.little #back { display: block; }
+.little #run.pulse { animation: runpulse 0.9s ease-in-out infinite; }
+@keyframes runpulse { 50% { transform: scale(1.07); filter: brightness(1.25); } }
+#finger { position: fixed; left: 0; top: 0; z-index: 9; font-size: 54px; line-height: 1; pointer-events: none; display: none; transform: translate(-30%, -12%);
+  transition: left 0.45s ease, top 0.45s ease; filter: drop-shadow(2px 3px 0 rgba(0,0,0,0.5)); }
+#finger.tap { animation: ftap 0.3s ease-out; }
+@keyframes ftap { 50% { transform: translate(-30%, -12%) scale(0.8); } }
+@media (prefers-reduced-motion: reduce) { .little #run.pulse { animation: none; } }
 </style>
 
 <div id="app">
@@ -252,6 +276,7 @@ h2 { font-family: var(--word); font-weight: 900; font-size: clamp(2rem, 9vw, 2.6
       <div class="controls">
         <button class="btn play" id="run" type="button" data-t="run">PALEISTI</button>
         <button class="btn" id="step" type="button" data-t="step">Žingsnis</button>
+        <button class="btn" id="back" type="button" aria-label="undo">⌫</button>
         <button class="btn" id="reset" type="button" data-t="reset">Iš naujo</button>
       </div>
     </div>
@@ -271,6 +296,7 @@ h2 { font-family: var(--word); font-weight: 900; font-size: clamp(2rem, 9vw, 2.6
   </div>
 </div>
 
+<div id="finger" aria-hidden="true">👆</div>
 <div class="overlay" id="winOv" hidden>
   <div class="panel">
     <h2 data-t="win">NUPIEŠTA!</h2>
@@ -291,6 +317,8 @@ h2 { font-family: var(--word); font-weight: 900; font-size: clamp(2rem, 9vw, 2.6
   const ZM = window.ZM || null;
   const NS = (k) => (ZM ? ZM.ns(k) : k);
   const $ = (id) => document.getElementById(id);
+  const LITTLE = !!(window.ZM && ZM.little && ZM.little());
+  if (LITTLE) document.body.classList.add('little');
   const reduce = matchMedia('(prefers-reduced-motion: reduce)').matches;
 
   /* ---------- text ---------- */
@@ -299,7 +327,7 @@ h2 { font-family: var(--word); font-weight: 900; font-size: clamp(2rem, 9vw, 2.6
       lead: 'Bitas daro tik tai, ką liepi. Sudėk komandas ir nupiešk paveikslėlį.',
       draws: 'PIEŠIA', goal: 'Nupiešk tai',
       levels: 'Lygiai', level: 'Lygis', sound: 'Garsas',
-      F: 'Pirmyn', L: 'Kairėn', R: 'Dešinėn', U: 'Pakelk', D: 'Nuleisk', A: 'Geltona', B: 'Žalia', C: 'Raudona', P: 'Kartok',
+      u: 'Aukštyn', d: 'Žemyn', l: 'Kairėn', r: 'Dešinėn', F: 'Pirmyn', L: 'Kairėn', R: 'Dešinėn', U: 'Pakelk', D: 'Nuleisk', A: 'Geltona', B: 'Žalia', C: 'Raudona', P: 'Kartok',
       run: 'PALEISTI', stop: 'STOP', step: 'Žingsnis', reset: 'Iš naujo',
       bug: 'KLAIDA', fix: 'Taisyti',
       why: {
@@ -326,7 +354,7 @@ h2 { font-family: var(--word); font-weight: 900; font-size: clamp(2rem, 9vw, 2.6
       lead: 'Bitas does exactly what you tell him. Line up commands and paint the picture.',
       draws: 'DRAWS', goal: 'Paint this',
       levels: 'Levels', level: 'Level', sound: 'Sound',
-      F: 'Forward', L: 'Left', R: 'Right', U: 'Pen up', D: 'Pen down', A: 'Yellow', B: 'Green', C: 'Red', P: 'Repeat',
+      u: 'Up', d: 'Down', l: 'Left', r: 'Right', F: 'Forward', L: 'Left', R: 'Right', U: 'Pen up', D: 'Pen down', A: 'Yellow', B: 'Green', C: 'Red', P: 'Repeat',
       run: 'RUN', stop: 'STOP', step: 'Step', reset: 'Reset',
       bug: 'BUG', fix: 'Fix it',
       why: {
@@ -356,7 +384,7 @@ h2 { font-family: var(--word); font-weight: 900; font-size: clamp(2rem, 9vw, 2.6
      s: Bitas start [x, y]; his start square is already painted yellow, pen down.
      dir: 0 up, 1 right, 2 down, 3 left. par = fewest blocks. limit = most blocks allowed.
      sol: one shortest program (used by the tests; P3(F R) = repeat 3 times). */
-  const LEVELS = [
+  const BIG_LEVELS = [
     { g: ['.......', '.......', '.aaaaa.', '.......', '.......'], s: [1, 2], dir: 1, par: 4, sol: 'F F F F' },
     { g: ['......', '.a....', '.a....', '.a....', '.aaaa.', '......'], s: [1, 1], dir: 2, par: 7, sol: 'F F F L F F F' },
     { g: ['.....', '.aaa.', '.a.a.', '.aaa.', '.....'], s: [1, 1], dir: 1, par: 10, sol: 'F F R F F R F F R F' },
@@ -368,13 +396,25 @@ h2 { font-family: var(--word); font-weight: 900; font-size: clamp(2rem, 9vw, 2.6
     { g: ['.......', '..aaa..', '.aa.aa.', '.aaaaa.', '.a...a.', '.a...a.', '.a...a.', '.aaaaa.', '.......'], s: [1, 3], dir: 0, par: 18, sol: 'P2(F R F L) R P2(F R F L) R P4(F F F F R)' },
     { g: ['.......', '...a...', '...a...', '.aaaaa.', '...a...', '...a...', '.......'], s: [3, 3], dir: 0, par: 8, limit: 10, sol: 'P4(F F R R F F R)' },
   ];
-  const cmdsFor = (n) => (n === 1 ? 'F' : n <= 3 ? 'FLR' : n <= 5 ? 'FLRP' : n <= 7 ? 'FLRUDP' : 'FLRUDABCP');
+  // little mode: tiny pictures, absolute arrows only (u up, d down, l left, r right); moving paints in one color
+  const LITTLE_LEVELS = [
+    { g: ['.....', '.aaa.', '.....'], s: [1, 1], dir: 1, par: 2, sol: 'r r' },
+    { g: ['....', '.a..', '.a..', '.aa.', '....'], s: [1, 1], dir: 2, par: 3, sol: 'd d r' },
+    { g: ['....', '.aa.', '.aa.', '....'], s: [1, 1], dir: 1, par: 3, sol: 'r d l' },
+    { g: ['.....', '.a.a.', '.aaa.', '.....'], s: [1, 1], dir: 2, par: 4, sol: 'd r r u' },
+    { g: ['.a.', 'aaa', '.a.'], s: [1, 0], dir: 2, par: 6, sol: 'd l r r l d' },
+  ];
+  const LEVELS = LITTLE ? LITTLE_LEVELS : BIG_LEVELS;
+  const ARROW = { u: 0, r: 1, d: 2, l: 3 };
+  const cmdsFor = (n) => (LITTLE ? 'udlr' : n === 1 ? 'F' : n <= 3 ? 'FLR' : n <= 5 ? 'FLRP' : n <= 7 ? 'FLRUDP' : 'FLRUDABCP');
   const DX = [0, 1, 0, -1], DY = [-1, 0, 1, 0];
   const PAINT = { a: '#fdb913', b: '#2fa84f', c: '#d6343b' };
   const KEY_COLOR = { A: 'a', B: 'b', C: 'c' };
 
   const SW = (c) => `<rect x="5" y="5" width="14" height="14" fill="${c}" stroke="#000" stroke-width="2"/>`;
+  const ARR = (deg) => '<svg viewBox="0 0 24 24" aria-hidden="true" style="transform:rotate(' + deg + 'deg)"><path d="M12 2 L21 12 H15.5 V22 H8.5 V12 H3 Z" fill="currentColor"/></svg>';
   const ICON = {
+    u: ARR(0), r: ARR(90), d: ARR(180), l: ARR(270),
     F: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 2 L21 12 H15.5 V22 H8.5 V12 H3 Z" fill="currentColor"/></svg>',
     L: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M18 22 V12 a4 4 0 0 0 -4 -4 H9" fill="none" stroke="currentColor" stroke-width="4"/><path d="M10 2 L2 8 L10 14 Z" fill="currentColor"/></svg>',
     R: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 22 V12 a4 4 0 0 1 4 -4 H15" fill="none" stroke="currentColor" stroke-width="4"/><path d="M14 2 L22 8 L14 14 Z" fill="currentColor"/></svg>',
@@ -396,6 +436,7 @@ h2 { font-family: var(--word); font-weight: 900; font-size: clamp(2rem, 9vw, 2.6
   const save = (k, v) => { try { localStorage.setItem(k, v); } catch (e) {} };
   const unlockedUpTo = () => {
     let n = 1;
+    if (LITTLE) return LEVELS.length;
     while (n < LEVELS.length && progress.stars[n]) n++;
     return n;
   };
@@ -559,6 +600,8 @@ h2 { font-family: var(--word); font-weight: 900; font-size: clamp(2rem, 9vw, 2.6
     renderPalette(); renderProg(); updateCount(); updateHint();
     drawPicture($('preview'), L.g, Math.max(6, Math.floor(84 / Math.max(rows, cols))));
     layoutBoard();
+    $('run').classList.remove('pulse');
+    startDemo();
   }
   function resetBitas() {
     paint = target.map((r) => r.map(() => null));
@@ -582,6 +625,7 @@ h2 { font-family: var(--word); font-weight: 900; font-size: clamp(2rem, 9vw, 2.6
     if (touched()) resetBitas();
     document.querySelectorAll('.err').forEach((e) => e.classList.remove('err'));
     renderProg(); updateCount();
+    $('run').classList.toggle('pulse', LITTLE && prog.length > 0);
   }
   function addCmd(k) {
     if (countBlocks() >= limit()) {
@@ -589,6 +633,7 @@ h2 { font-family: var(--word); font-weight: 900; font-size: clamp(2rem, 9vw, 2.6
       sfx.bug();
       return;
     }
+    if (LITTLE && prog.length >= 14) { sfx.bug(); return; }
     if (k === 'P') {
       const loop = { t: 'P', n: 4, body: [] };
       prog.push(loop); slot = loop;
@@ -678,7 +723,7 @@ h2 { font-family: var(--word); font-weight: 900; font-size: clamp(2rem, 9vw, 2.6
   }
   function setRunLabel() {
     const r = $('run'), on = run.active && run.mode === 'run';
-    r.textContent = on ? TXT[lang].stop : TXT[lang].run;
+    r.textContent = LITTLE ? (on ? '\u25a0' : '\u25b6') : on ? TXT[lang].stop : TXT[lang].run;
     r.classList.toggle('stop', on);
   }
   function beginRun(mode) {
@@ -707,6 +752,12 @@ h2 { font-family: var(--word); font-weight: 900; font-size: clamp(2rem, 9vw, 2.6
     prog = []; slot = null;
     resetBitas();
     renderProg(); updateCount(); updateHint();
+    $('run').classList.remove('pulse');
+  });
+  $('back').addEventListener('click', () => {
+    if (run.active && run.mode === 'run') return;
+    ensureAudio();
+    if (prog.length) { prog.pop(); sfx.remove(); edited(); }
   });
   $('fix').addEventListener('click', () => { resetBitas(); });
 
@@ -736,7 +787,12 @@ h2 { font-family: var(--word); font-weight: 900; font-size: clamp(2rem, 9vw, 2.6
     const s = run.steps[run.i++];
     run.cur = s;
     markNow(s);
-    if (s.t === 'F') {
+    let st = s.t;
+    if (ARROW[st] !== undefined) { // absolute arrow: face that way instantly, then step
+      const nd = ARROW[st];
+      bitas.ang += (((nd - bitas.dir + 5) % 4) - 1) * 90; bitas.dir = nd; st = 'F';
+    }
+    if (st === 'F') {
       const fx = bitas.x + DX[bitas.dir], fy = bitas.y + DY[bitas.dir];
       if (fx < 0 || fy < 0 || fx >= cols || fy >= rows) {
         startAnim('bump');
@@ -769,7 +825,7 @@ h2 { font-family: var(--word); font-weight: 900; font-size: clamp(2rem, 9vw, 2.6
   }
 
   function startAnim(kind, data) {
-    const dur = kind === 'move' ? 0.28 : kind === 'turn' ? 0.24 : kind === 'bump' ? 0.3 : 0.18;
+    const dur = kind === 'move' ? 0.28 : kind === 'turn' ? 0.24 : kind === 'bump' ? 0.3 : kind === 'wob' ? 0.6 : 0.18;
     anim = { kind, t: 0, dur, fromX: bitas.x, fromY: bitas.y, ...data };
   }
 
@@ -783,7 +839,7 @@ h2 { font-family: var(--word); font-weight: 900; font-size: clamp(2rem, 9vw, 2.6
   }
 
   function afterAnim() {
-    if (!run.active) return;
+    if (!run.active || run.failing) return;
     if (run.pendingBug) { const b = run.pendingBug; showBug(b.why, b); return; }
     if (run.i >= run.steps.length) {
       const wrong = sameAsTarget();
@@ -793,6 +849,15 @@ h2 { font-family: var(--word); font-weight: 900; font-size: clamp(2rem, 9vw, 2.6
   }
 
   function showBug(why, b) {
+    if (LITTLE) { // no text, no marks: wobble, then Bitas goes home and the program stays
+      if (why === 'empty') { sfx.remove(); return; }
+      run.halt = true; run.mode = 'done'; run.failing = true;
+      document.body.classList.remove('busy'); setRunLabel();
+      startAnim('wob'); sfx.bug();
+      const r0 = run;
+      setTimeout(() => { if (run === r0 && r0.failing) resetBitas(); }, 900);
+      return;
+    }
     if (run.active) run.halt = true;
     document.body.classList.remove('busy');
     if (b && b.x !== undefined) marks = [{ x: b.x, y: b.y, kind: 'extra' }];
@@ -829,9 +894,13 @@ h2 { font-family: var(--word); font-weight: 900; font-size: clamp(2rem, 9vw, 2.6
       s.classList.remove('on'); void s.offsetWidth;
       s.classList.toggle('on', i < stars);
     });
+    if (LITTLE) for (let i = 0; i < 70; i++) {
+      const a = Math.random() * Math.PI * 2, sp = T * (2 + Math.random() * 6);
+      parts.push({ x: cols * T / 2, y: rows * T / 2, vx: Math.cos(a) * sp, vy: Math.sin(a) * sp, life: 1 + Math.random() * 0.8, size: T * 0.14, color: ['#ffcc33', '#4de8d6', '#ff6b9a', '#8ee35f'][i % 4] });
+    }
     $('winNote').innerHTML = TXT[lang].used(n) + ' ' + (stars === 3 ? TXT[lang].perfect : TXT[lang].par(L.par));
     const last = lvlIdx >= LEVELS.length - 1;
-    $('next').textContent = last ? TXT[lang].levels : TXT[lang].next;
+    $('next').textContent = LITTLE ? (last ? '\u2630' : '\u25b6') : last ? TXT[lang].levels : TXT[lang].next;
     sfx.win();
     setTimeout(() => { $('winOv').hidden = false; }, 450);
   }
@@ -880,6 +949,7 @@ h2 { font-family: var(--word); font-weight: 900; font-size: clamp(2rem, 9vw, 2.6
       if (anim.kind === 'move') { rx = anim.fromX + (bitas.x - anim.fromX) * e; ry = anim.fromY + (bitas.y - anim.fromY) * e; }
       else if (anim.kind === 'turn') ang = anim.from + (anim.to - anim.from) * e;
       else if (anim.kind === 'bump') { const k = Math.sin(anim.t * Math.PI) * 0.28; rx += DX[bitas.dir] * k; ry += DY[bitas.dir] * k; }
+      else if (anim.kind === 'wob') ang += Math.sin(anim.t * Math.PI * 6) * 22 * (1 - anim.t);
       else if (anim.kind === 'pen') scale = 1 + Math.sin(anim.t * Math.PI) * 0.1;
     }
     ctx.save();
@@ -978,11 +1048,42 @@ h2 { font-family: var(--word); font-weight: 900; font-size: clamp(2rem, 9vw, 2.6
 
   function setMuted(v) {
     muted = v;
+    if (LITTLE) $('mute').textContent = muted ? '\ud83d\udd07' : '\ud83d\udd0a';
     $('mute').setAttribute('aria-pressed', String(muted));
     save('bd-muted', muted ? '1' : '0');
   }
   $('mute').addEventListener('click', () => { setMuted(!muted); if (!muted) ensureAudio(); });
   setMuted(muted);
+
+  if (LITTLE) {
+    [['toLevels', '\u2630'], ['again', '\ud83d\udd01'], ['reset', '\ud83d\udd01']].forEach(([id, t]) => { $(id).removeAttribute('data-t'); $(id).textContent = t; });
+    $('mute').removeAttribute('data-t'); $('run').removeAttribute('data-t');
+    $('mute').textContent = muted ? '\ud83d\udd07' : '\ud83d\udd0a';
+    $('mute').style.textDecoration = 'none';
+  }
+
+  /* little demo: a finger taps the right arrows then play on level 1 until the first tap */
+  const finger = $('finger');
+  let demoTimer = null, demoSeen = false;
+  function stopDemo() { clearInterval(demoTimer); demoTimer = null; finger.style.display = 'none'; }
+  function startDemo() {
+    stopDemo();
+    if (!LITTLE || lvlIdx !== 0 || demoSeen) return;
+    const seq = ['r', 'r', 'go', null];
+    let i = 0;
+    const tick = () => {
+      if (!$('levelsOv').hidden || !$('winOv').hidden) { finger.style.display = 'none'; return; }
+      const k = seq[i++ % seq.length];
+      const el = k === 'go' ? $('run') : k ? document.querySelector('.cmd[data-k="' + k + '"]') : null;
+      if (!el) { finger.style.display = 'none'; return; }
+      const r = el.getBoundingClientRect();
+      finger.style.display = 'block';
+      finger.style.left = (r.left + r.width / 2) + 'px'; finger.style.top = (r.top + r.height * 0.45) + 'px';
+      finger.classList.remove('tap'); void finger.offsetWidth; setTimeout(() => finger.classList.add('tap'), 450);
+    };
+    tick(); demoTimer = setInterval(tick, 1000);
+  }
+  document.addEventListener('pointerdown', (e) => { if (e.target.closest && e.target.closest('.cmd, #run')) { demoSeen = true; stopDemo(); } }, true);
 
   if ('ResizeObserver' in window) new ResizeObserver(layoutBoard).observe(boardWrap);
   else window.addEventListener('resize', layoutBoard);

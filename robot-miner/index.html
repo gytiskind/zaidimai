@@ -236,6 +236,31 @@ h2 { font-family: var(--word); font-weight: 900; font-size: clamp(2rem, 9vw, 2.6
 @media (prefers-reduced-motion: reduce) {
   .slot.on, .stars.big .star.on, .count.flash, .bug { animation: none; }
 }
+
+/* little mode (ages 4-5): four absolute arrows, no text */
+.little .top .hint, .little .count, .little #step, .little .lead, .little .seg, .little .bug, .little .win-note, .little #winOv h2, .little .slot, .little .empty-note { display: none !important; }
+.little .top .title span { display: none; }
+.little .top .title { font-size: 1.6rem; }
+.little .small { font-size: 1.3rem; min-width: 64px; min-height: 48px; }
+.little .chip { width: 44px; height: 44px; pointer-events: none; }
+.little .chip svg { width: 26px; height: 26px; }
+.little .cmd { height: 76px; min-width: 64px; }
+.little .cmd svg { width: 40px; height: 40px; }
+.little .cmd span { display: none; }
+.little .controls .play, .little .controls .btn:not(.play) { height: 64px; min-width: 64px; font-size: 1.8rem; }
+.little .controls .play { font-size: 2.2rem; }
+.little .row-btns .btn { min-width: 84px; min-height: 64px; font-size: 2rem; }
+.k-u, .k-d, .k-l, .k-r { background: var(--c-move); border-color: #7fb0ff #1f4b8f #1f4b8f #7fb0ff; }
+.little .lvl { min-height: 64px; }
+#back { display: none; }
+.little #back { display: block; }
+.little #run.pulse { animation: runpulse 0.9s ease-in-out infinite; }
+@keyframes runpulse { 50% { transform: scale(1.07); filter: brightness(1.25); } }
+#finger { position: fixed; left: 0; top: 0; z-index: 9; font-size: 54px; line-height: 1; pointer-events: none; display: none; transform: translate(-30%, -12%);
+  transition: left 0.45s ease, top 0.45s ease; filter: drop-shadow(2px 3px 0 rgba(0,0,0,0.5)); }
+#finger.tap { animation: ftap 0.3s ease-out; }
+@keyframes ftap { 50% { transform: translate(-30%, -12%) scale(0.8); } }
+@media (prefers-reduced-motion: reduce) { .little #run.pulse { animation: none; } }
 </style>
 
 <div id="app">
@@ -262,6 +287,7 @@ h2 { font-family: var(--word); font-weight: 900; font-size: clamp(2rem, 9vw, 2.6
       <div class="controls">
         <button class="btn play" id="run" type="button" data-t="run">PALEISTI</button>
         <button class="btn" id="step" type="button" data-t="step">Žingsnis</button>
+        <button class="btn" id="back" type="button" aria-label="undo">⌫</button>
         <button class="btn" id="reset" type="button" data-t="reset">Iš naujo</button>
       </div>
     </div>
@@ -281,6 +307,7 @@ h2 { font-family: var(--word); font-weight: 900; font-size: clamp(2rem, 9vw, 2.6
   </div>
 </div>
 
+<div id="finger" aria-hidden="true">👆</div>
 <div class="overlay" id="winOv" hidden>
   <div class="panel">
     <h2 data-t="win">DEIMANTAS!</h2>
@@ -300,6 +327,8 @@ h2 { font-family: var(--word); font-weight: 900; font-size: clamp(2rem, 9vw, 2.6
   const ZM = window.ZM || null;
   const NS = (k) => (ZM ? ZM.ns(k) : k);
   const $ = (id) => document.getElementById(id);
+  const LITTLE = !!(window.ZM && ZM.little && ZM.little());
+  if (LITTLE) document.body.classList.add('little');
   const reduce = matchMedia('(prefers-reduced-motion: reduce)').matches;
 
   /* ---------- text ---------- */
@@ -307,7 +336,7 @@ h2 { font-family: var(--word); font-weight: 900; font-size: clamp(2rem, 9vw, 2.6
     lt: {
       lead: 'Sudėk komandas ir nuvesk robotą iki deimanto.',
       levels: 'Lygiai', level: 'Lygis', sound: 'Garsas',
-      F: 'Pirmyn', L: 'Kairėn', R: 'Dešinėn', M: 'Kask', P: 'Kartok',
+      u: 'Aukštyn', d: 'Žemyn', l: 'Kairėn', r: 'Dešinėn', F: 'Pirmyn', L: 'Kairėn', R: 'Dešinėn', M: 'Kask', P: 'Kartok',
       run: 'PALEISTI', stop: 'STOP', step: 'Žingsnis', reset: 'Iš naujo',
       bug: 'KLAIDA', fix: 'Taisyti',
       why: {
@@ -329,7 +358,7 @@ h2 { font-family: var(--word); font-weight: 900; font-size: clamp(2rem, 9vw, 2.6
     en: {
       lead: 'Line up commands and drive the robot to the diamond.',
       levels: 'Levels', level: 'Level', sound: 'Sound',
-      F: 'Forward', L: 'Left', R: 'Right', M: 'Mine', P: 'Repeat',
+      u: 'Up', d: 'Down', l: 'Left', r: 'Right', F: 'Forward', L: 'Left', R: 'Right', M: 'Mine', P: 'Repeat',
       run: 'RUN', stop: 'STOP', step: 'Step', reset: 'Reset',
       bug: 'BUG', fix: 'Fix it',
       why: {
@@ -353,7 +382,7 @@ h2 { font-family: var(--word); font-weight: 900; font-size: clamp(2rem, 9vw, 2.6
   /* ---------- levels ----------
      # wall, . floor, s stone (mineable), L lava, D diamond, R robot start.
      dir: 0 up, 1 right, 2 down, 3 left. par = fewest blocks. limit = most blocks allowed. */
-  const LEVELS = [
+  const BIG_LEVELS = [
     { g: ['######', '#R..D#', '######'], dir: 1, par: 3 },
     { g: ['#######', '#LLLLL#', '#R...D#', '#LLLLL#', '#######'], dir: 1, par: 4 },
     { g: ['#####', '##D##', '##.##', '##.##', '##R##', '#####'], dir: 0, par: 3 },
@@ -380,10 +409,23 @@ h2 { font-family: var(--word); font-weight: 900; font-size: clamp(2rem, 9vw, 2.6
     { g: ['#########', '#R.L#####', '#Ls.L####', '##L.s.L##', '###L.s.L#', '####L..D#', '#########'], dir: 1, par: 17, limit: 19 },
     { g: ['###########', '#R........#', '#########.#', '#.........#', '#.#########', '#........D#', '###########'], dir: 1, par: 14, limit: 16 },
   ];
-  const cmdsFor = (n) => (n <= 3 ? 'F' : n <= 6 ? 'FLR' : n <= 8 ? 'FLRM' : 'FLRMP');
+  // little mode: tiny maps, absolute arrows only (u up, d down, l left, r right)
+  const LITTLE_LEVELS = [
+    { g: ['#####', '#R.D#', '#####'], dir: 1, par: 2 },
+    { g: ['###', '#D#', '#.#', '#.#', '#R#', '###'], dir: 0, par: 3 },
+    { g: ['#####', '#..D#', '#R..#', '#####'], dir: 1, par: 3 },
+    { g: ['#####', '#R..#', '#..D#', '#####'], dir: 1, par: 3 },
+    { g: ['#####', '#R..#', '##.##', '#D..#', '#####'], dir: 1, par: 4 },
+    { g: ['######', '#R.###', '##..##', '###.D#', '######'], dir: 1, par: 5 },
+  ];
+  const LEVELS = LITTLE ? LITTLE_LEVELS : BIG_LEVELS;
+  const cmdsFor = (n) => (LITTLE ? 'udlr' : n <= 3 ? 'F' : n <= 6 ? 'FLR' : n <= 8 ? 'FLRM' : 'FLRMP');
+  const ARROW = { u: 0, r: 1, d: 2, l: 3 };
   const DX = [0, 1, 0, -1], DY = [-1, 0, 1, 0];
 
+  const ARR = (deg) => '<svg viewBox="0 0 24 24" aria-hidden="true" style="transform:rotate(' + deg + 'deg)"><path d="M12 2 L21 12 H15.5 V22 H8.5 V12 H3 Z" fill="currentColor"/></svg>';
   const ICON = {
+    u: ARR(0), r: ARR(90), d: ARR(180), l: ARR(270),
     F: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 2 L21 12 H15.5 V22 H8.5 V12 H3 Z" fill="currentColor"/></svg>',
     L: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M18 22 V12 a4 4 0 0 0 -4 -4 H9" fill="none" stroke="currentColor" stroke-width="4"/><path d="M10 2 L2 8 L10 14 Z" fill="currentColor"/></svg>',
     R: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 22 V12 a4 4 0 0 1 4 -4 H15" fill="none" stroke="currentColor" stroke-width="4"/><path d="M14 2 L22 8 L14 14 Z" fill="currentColor"/></svg>',
@@ -401,6 +443,7 @@ h2 { font-family: var(--word); font-weight: 900; font-size: clamp(2rem, 9vw, 2.6
   const save = (k, v) => { try { localStorage.setItem(k, v); } catch (e) {} };
   const unlockedUpTo = () => {
     let n = 1;
+    if (LITTLE) return LEVELS.length;
     while (n < LEVELS.length && progress.stars[n]) n++;
     return n;
   };
@@ -578,6 +621,8 @@ h2 { font-family: var(--word); font-weight: 900; font-size: clamp(2rem, 9vw, 2.6
     $('lvlNum').textContent = i + 1;
     renderPalette(); renderProg(); updateCount(); updateHint();
     layoutBoard();
+    $('run').classList.remove('pulse');
+    startDemo();
   }
   function resetRobot() {
     grid = L.g.map((r) => [...r.replace('R', '.')]);
@@ -600,6 +645,7 @@ h2 { font-family: var(--word); font-weight: 900; font-size: clamp(2rem, 9vw, 2.6
     if (run.active || robot.x !== start.x || robot.y !== start.y || robot.dir !== L.dir || mark) resetRobot();
     document.querySelectorAll('.err').forEach((e) => e.classList.remove('err'));
     renderProg(); updateCount();
+    $('run').classList.toggle('pulse', LITTLE && prog.length > 0);
   }
   function addCmd(k) {
     if (countBlocks() >= limit()) {
@@ -607,6 +653,7 @@ h2 { font-family: var(--word); font-weight: 900; font-size: clamp(2rem, 9vw, 2.6
       sfx.bug();
       return;
     }
+    if (LITTLE && prog.length >= 14) { sfx.bug(); return; }
     if (k === 'P') {
       const loop = { t: 'P', n: 3, body: [] };
       prog.push(loop); slot = loop;
@@ -691,7 +738,7 @@ h2 { font-family: var(--word); font-weight: 900; font-size: clamp(2rem, 9vw, 2.6
   }
   function setRunLabel() {
     const r = $('run'), on = run.active && run.mode === 'run';
-    r.textContent = on ? TXT[lang].stop : TXT[lang].run;
+    r.textContent = LITTLE ? (on ? '\u25a0' : '\u25b6') : on ? TXT[lang].stop : TXT[lang].run;
     r.classList.toggle('stop', on);
   }
   function beginRun(mode) {
@@ -720,6 +767,12 @@ h2 { font-family: var(--word); font-weight: 900; font-size: clamp(2rem, 9vw, 2.6
     prog = []; slot = null;
     resetRobot();
     renderProg(); updateCount(); updateHint();
+    $('run').classList.remove('pulse');
+  });
+  $('back').addEventListener('click', () => {
+    if (run.active && run.mode === 'run') return;
+    ensureAudio();
+    if (prog.length) { prog.pop(); sfx.remove(); edited(); }
   });
   $('fix').addEventListener('click', () => { resetRobot(); });
 
@@ -741,9 +794,14 @@ h2 { font-family: var(--word); font-weight: 900; font-size: clamp(2rem, 9vw, 2.6
     const s = run.steps[run.i++];
     run.cur = s;
     markNow(s);
+    let st = s.t;
+    if (ARROW[st] !== undefined) { // absolute arrow: face that way instantly, then step
+      const nd = ARROW[st];
+      robot.ang += (((nd - robot.dir + 5) % 4) - 1) * 90; robot.dir = nd; st = 'F';
+    }
     const fx = robot.x + DX[robot.dir], fy = robot.y + DY[robot.dir];
     const front = cell(fx, fy);
-    if (s.t === 'F') {
+    if (st === 'F') {
       if (front === null || front === '#' || front === 's') {
         startAnim('bump');
         run.pendingBug = { why: front === 's' ? 'stone' : 'wall', x: fx, y: fy, path: s.path };
@@ -780,18 +838,27 @@ h2 { font-family: var(--word); font-weight: 900; font-size: clamp(2rem, 9vw, 2.6
   }
 
   function startAnim(kind, data) {
-    const dur = kind === 'move' ? 0.32 : kind === 'turn' ? 0.25 : kind === 'bump' ? 0.3 : 0.25;
+    const dur = kind === 'move' ? 0.32 : kind === 'turn' ? 0.25 : kind === 'bump' ? 0.3 : kind === 'wob' ? 0.6 : 0.25;
     anim = { kind, t: 0, dur, fromX: robot.x, fromY: robot.y, ...data };
   }
 
   function afterAnim() {
-    if (!run.active) return;
+    if (!run.active || run.failing) return;
     if (run.pendingWin) { win(); return; }
     if (run.pendingBug) { const b = run.pendingBug; showBug(b.why, b); return; }
     if (run.i >= run.steps.length) showBug('end', { x: robot.x, y: robot.y, path: null });
   }
 
   function showBug(why, b) {
+    if (LITTLE) { // no text, no mark: wobble, then the robot goes home and the program stays
+      if (why === 'empty') { sfx.remove(); return; }
+      run.halt = true; run.mode = 'done'; run.failing = true;
+      document.body.classList.remove('busy'); setRunLabel();
+      startAnim('wob'); sfx.bug();
+      const r0 = run;
+      setTimeout(() => { if (run === r0 && r0.failing) resetRobot(); }, 900);
+      return;
+    }
     if (run.active) run.halt = true;
     document.body.classList.remove('busy');
     if (b && b.x !== undefined) mark = { x: b.x, y: b.y, sink: !!b.sink };
@@ -827,9 +894,13 @@ h2 { font-family: var(--word); font-weight: 900; font-size: clamp(2rem, 9vw, 2.6
       s.classList.remove('on'); void s.offsetWidth;
       s.classList.toggle('on', i < stars);
     });
+    if (LITTLE) for (let i = 0; i < 70; i++) {
+      const a = Math.random() * Math.PI * 2, sp = T * (2 + Math.random() * 6);
+      parts.push({ x: cols * T / 2, y: rows * T / 2, vx: Math.cos(a) * sp, vy: Math.sin(a) * sp, life: 1 + Math.random() * 0.8, size: T * 0.14, color: ['#ffcc33', '#4de8d6', '#ff6b9a', '#8ee35f'][i % 4] });
+    }
     $('winNote').innerHTML = TXT[lang].used(n) + ' ' + (stars === 3 ? TXT[lang].perfect : TXT[lang].par(L.par));
     const last = lvlIdx >= LEVELS.length - 1;
-    $('next').textContent = last ? TXT[lang].levels : TXT[lang].next;
+    $('next').textContent = LITTLE ? (last ? '\u2630' : '\u25b6') : last ? TXT[lang].levels : TXT[lang].next;
     sfx.win();
     setTimeout(() => { $('winOv').hidden = false; }, 350);
   }
@@ -884,6 +955,7 @@ h2 { font-family: var(--word); font-weight: 900; font-size: clamp(2rem, 9vw, 2.6
       if (anim.kind === 'move') { rx = anim.fromX + (robot.x - anim.fromX) * e; ry = anim.fromY + (robot.y - anim.fromY) * e; }
       else if (anim.kind === 'turn') ang = anim.from + (anim.to - anim.from) * e;
       else if (anim.kind === 'bump') { const k = Math.sin(anim.t * Math.PI) * 0.28; rx += DX[robot.dir] * k; ry += DY[robot.dir] * k; }
+      else if (anim.kind === 'wob') ang += Math.sin(anim.t * Math.PI * 6) * 22 * (1 - anim.t);
       else if (anim.kind === 'mine') scale = 1 + Math.sin(anim.t * Math.PI) * 0.08;
     }
     const sink = mark && mark.sink && !anim;
@@ -962,11 +1034,42 @@ h2 { font-family: var(--word); font-weight: 900; font-size: clamp(2rem, 9vw, 2.6
 
   function setMuted(v) {
     muted = v;
+    if (LITTLE) $('mute').textContent = muted ? '\ud83d\udd07' : '\ud83d\udd0a';
     $('mute').setAttribute('aria-pressed', String(muted));
     save('rm-muted', muted ? '1' : '0');
   }
   $('mute').addEventListener('click', () => { setMuted(!muted); if (!muted) ensureAudio(); });
   setMuted(muted);
+
+  if (LITTLE) {
+    [['toLevels', '\u2630'], ['again', '\ud83d\udd01'], ['reset', '\ud83d\udd01']].forEach(([id, t]) => { $(id).removeAttribute('data-t'); $(id).textContent = t; });
+    $('mute').removeAttribute('data-t'); $('run').removeAttribute('data-t');
+    $('mute').textContent = muted ? '\ud83d\udd07' : '\ud83d\udd0a';
+    $('mute').style.textDecoration = 'none';
+  }
+
+  /* little demo: a finger taps the right arrows then play on level 1 until the first tap */
+  const finger = $('finger');
+  let demoTimer = null, demoSeen = false;
+  function stopDemo() { clearInterval(demoTimer); demoTimer = null; finger.style.display = 'none'; }
+  function startDemo() {
+    stopDemo();
+    if (!LITTLE || lvlIdx !== 0 || demoSeen) return;
+    const seq = ['r', 'r', 'go', null];
+    let i = 0;
+    const tick = () => {
+      if (!$('levelsOv').hidden || !$('winOv').hidden) { finger.style.display = 'none'; return; }
+      const k = seq[i++ % seq.length];
+      const el = k === 'go' ? $('run') : k ? document.querySelector('.cmd[data-k="' + k + '"]') : null;
+      if (!el) { finger.style.display = 'none'; return; }
+      const r = el.getBoundingClientRect();
+      finger.style.display = 'block';
+      finger.style.left = (r.left + r.width / 2) + 'px'; finger.style.top = (r.top + r.height * 0.45) + 'px';
+      finger.classList.remove('tap'); void finger.offsetWidth; setTimeout(() => finger.classList.add('tap'), 450);
+    };
+    tick(); demoTimer = setInterval(tick, 1000);
+  }
+  document.addEventListener('pointerdown', (e) => { if (e.target.closest && e.target.closest('.cmd, #run')) { demoSeen = true; stopDemo(); } }, true);
 
   if ('ResizeObserver' in window) new ResizeObserver(layoutBoard).observe(boardWrap);
   else window.addEventListener('resize', layoutBoard);
